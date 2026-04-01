@@ -10,7 +10,10 @@
     "build": "lerna run build",
     "start": "lerna run start --parallel"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@primeuix/themes": "^2.0.3",
+    "primevue": "^4.5.4"
+  },
   "devDependencies": {
     "lerna": "^9.0.7"
   }
