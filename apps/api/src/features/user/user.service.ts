@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../../lib/prisma.js'
 import type { CreateUserInput, UpdateUserInput } from './user.types.js'
-
-const prisma = new PrismaClient()
 
 export const userService = {
     list() {

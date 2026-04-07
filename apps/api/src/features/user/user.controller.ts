@@ -54,14 +54,14 @@ export async function updateUser(req: Request, res: Response) {
         }
         return res.status(500).json({ message: 'erro ao atualizar user' })
     }
-    export async function deleteUser(req: Request, res: Response) {
-        const id = parseId(req.params.id)
-        if (Number.isNaN(id)) return res.status(400).json({ message: 'id invalido' })
-
-        const removed = await userService.remove(id)
-        if (!removed) return res.status(404).json({ message: 'user nao encontrado' })
-
-        return res.status(204).send()
-
-    }
 }
+
+export async function deleteUser(req: Request, res: Response) {
+    const id = parseId(req.params.id)
+    if (Number.isNaN(id)) return res.status(400).json({ message: 'id invalido' })
+
+    const removed = await userService.remove(id)
+    if (!removed) return res.status(404).json({ message: 'user nao encontrado' })
+
+    return res.status(204).send()
+}

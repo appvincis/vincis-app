@@ -6,10 +6,11 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "lerna run dev --parallel",
+    "dev": "lerna run dev --parallel --loglevel silent",
     "build": "lerna run build",
     "start": "lerna run start --parallel",
-    "dev::back": "cd apps/api && npm run dev"
+    "dev::back": "cd apps/api && npm run dev",
+    "dev::front": "cd apps/web && npm run dev"
   },
   "dependencies": {
     "@primeuix/themes": "^2.0.3",
