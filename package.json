@@ -12,7 +12,9 @@
   },
   "dependencies": {
     "@primeuix/themes": "^2.0.3",
-    "primevue": "^4.5.4"
+    "@primevue/themes": "^4.5.4",
+    "primeicons": "^7.0.0",
+    "primevue": "^4.5.5"
   },
   "devDependencies": {
     "lerna": "^9.0.7"

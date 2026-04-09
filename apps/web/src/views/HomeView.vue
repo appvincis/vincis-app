@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Button } from 'primevue';
-import { VButton, VBadge, VAlert } from '@/components/ui'
+import { globalCSS } from './vincis-primevue-theme.js'
+
 </script>
 
 <template>
