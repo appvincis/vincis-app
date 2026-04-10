@@ -1,11 +1,7 @@
-<template>
-  <span :class="['ds-badge', `ds-badge--${variant}`]">
-    <slot />
-  </span>
-</template>
-
 <script setup>
-defineProps({
-  variant: { type: String, default: 'primary' }
-})
+import Badge from 'primevue/badge'
 </script>
+
+<template>
+  <Badge v-bind="$attrs" />
+</template>

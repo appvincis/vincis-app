@@ -1,20 +1,14 @@
-<!-- components/ui/DsInput.vue -->
 <script setup>
-import InputText from 'primevue/inputtext'
+import ToggleSwitch from 'primevue/toggleswitch'
 
-// Define o modelValue para suporte ao v-model
 defineProps({
-  modelValue: {
-    type: [String, Number],
-    default: ''
-  }
+  modelValue: { type: Boolean, default: false }
 })
-
 defineEmits(['update:modelValue'])
 </script>
 
 <template>
-  <InputText 
+  <ToggleSwitch 
     :modelValue="modelValue"
     @update:modelValue="$emit('update:modelValue', $event)"
     v-bind="$attrs"

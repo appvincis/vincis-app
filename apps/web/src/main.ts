@@ -5,12 +5,10 @@ import Aura from "@primeuix/themes/aura";
 import VincisTheme from "./vincis-primevue-theme.js";
 import ToastService from 'primevue/toastservice'
 import 'primeicons/primeicons.css'
-
+import './global.css'
 
 import App from "./App.vue";
 import router from "./router";
-import { Button } from "primevue";
-
 const app = createApp(App);
 
 app.use(createPinia());

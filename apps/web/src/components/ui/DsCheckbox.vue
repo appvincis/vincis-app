@@ -1,22 +1,18 @@
-<!-- components/ui/DsInput.vue -->
 <script setup>
-import InputText from 'primevue/inputtext'
+import Checkbox from 'primevue/checkbox'
 
-// Define o modelValue para suporte ao v-model
 defineProps({
-  modelValue: {
-    type: [String, Number],
-    default: ''
-  }
+  modelValue: { type: Boolean, default: false },
+  binary: { type: Boolean, default: true }
 })
-
 defineEmits(['update:modelValue'])
 </script>
 
 <template>
-  <InputText 
+  <Checkbox 
     :modelValue="modelValue"
     @update:modelValue="$emit('update:modelValue', $event)"
+    :binary="binary"
     v-bind="$attrs"
   />
 </template>
