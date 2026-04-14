@@ -1,0 +1,91 @@
+<mxfile host="65bd71144e">
+    <diagram id="detailed_arch_v2" name="Arquitetura Vincis-App Corrigida">
+        <mxGraphModel dx="823" dy="784" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="group_frontend" value="FRONT-END (Vue.js 3 + Vite)" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#b3e5fc;strokeColor=#01579b;fontStyle=1;fontSize=14;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="40" width="280" height="420" as="geometry"/>
+                </mxCell>
+                <mxCell id="fe_ui" value="Vue Components&#10;(.vue files)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#01579b;fontStyle=1;fontColor=#000000;" parent="group_frontend" vertex="1">
+                    <mxGeometry x="60" y="50" width="160" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="fe_router" value="Vue Router&#10;(Navegação)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#01579b;fontColor=#000000;" parent="group_frontend" vertex="1">
+                    <mxGeometry x="60" y="140" width="160" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="fe_pinia" value="Pinia Store&#10;(Estado Global)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#01579b;fontColor=#000000;" parent="group_frontend" vertex="1">
+                    <mxGeometry x="60" y="220" width="160" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="fe_axios" value="Axios Client&#10;(API Calls)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#01579b;fontStyle=1;fontColor=#000000;" parent="group_frontend" vertex="1">
+                    <mxGeometry x="60" y="310" width="160" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge_fe1" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#01579b;" parent="group_frontend" source="fe_ui" target="fe_router" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge_fe2" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#01579b;" parent="group_frontend" source="fe_router" target="fe_pinia" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge_fe3" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#01579b;" parent="group_frontend" source="fe_pinia" target="fe_axios" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="group_backend" value="BACK-END (Node.js + Express 5)" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#c8e6c9;strokeColor=#1b5e20;fontStyle=1;fontSize=14;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="440" y="40" width="300" height="520" as="geometry">
+                        <mxRectangle x="440" y="40" width="260" height="30" as="alternateBounds"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="be_server" value="Express Server&#10;(server.ts)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#1b5e20;fontStyle=1;fontColor=#000000;" parent="group_backend" vertex="1">
+                    <mxGeometry x="70" y="50" width="160" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="be_middleware" value="Middlewares&#10;(CORS, Auth, Zod)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#1b5e20;fontColor=#000000;" parent="group_backend" vertex="1">
+                    <mxGeometry x="70" y="140" width="160" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="be_routes" value="Routes&#10;(*.routes.ts)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#1b5e20;fontColor=#000000;" parent="group_backend" vertex="1">
+                    <mxGeometry x="70" y="220" width="160" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="be_controllers" value="Controllers&#10;(*.controller.ts)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#1b5e20;fontColor=#000000;" parent="group_backend" vertex="1">
+                    <mxGeometry x="70" y="300" width="160" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="be_services" value="Services&#10;(*.service.ts)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#1b5e20;fontStyle=1;fontColor=#000000;" parent="group_backend" vertex="1">
+                    <mxGeometry x="70" y="380" width="160" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="be_prisma" value="Prisma Client&#10;(ORM)" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#ffffff;strokeColor=#1b5e20;fontStyle=1;fontColor=#000000;" parent="group_backend" vertex="1">
+                    <mxGeometry x="70" y="460" width="160" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge_be1" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#1b5e20;" parent="group_backend" source="be_server" target="be_middleware" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge_be2" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#1b5e20;" parent="group_backend" source="be_middleware" target="be_routes" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge_be3" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#1b5e20;" parent="group_backend" source="be_routes" target="be_controllers" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge_be4" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#1b5e20;" parent="group_backend" source="be_controllers" target="be_services" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge_be5" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#1b5e20;" parent="group_backend" source="be_services" target="be_prisma" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="db_main" value="Banco de Dados&#10;PostgreSQL" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#ffe0b2;strokeColor=#e65100;fontStyle=1;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="510" y="620" width="160" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge_api_call" value="JSON / REST" style="endArrow=classic;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;fontStyle=1;fontColor=#FFFFFF;strokeColor=#FFFFFF;" parent="1" source="fe_axios" target="be_server" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint x="320" y="380" as="sourcePoint"/>
+                        <mxPoint x="440" y="380" as="targetPoint"/>
+                        <Array as="points">
+                            <mxPoint x="380" y="380"/>
+                            <mxPoint x="380" y="120"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="edge_db_conn" value="Prisma Query" style="endArrow=classic;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;strokeWidth=2;fontStyle=1;fontColor=#ff9800;strokeColor=#ff9800;" parent="1" source="be_prisma" target="db_main" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="note_monorepo" value="Monorepo Structure (NPM Workspaces + Lerna)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontStyle=2;fontSize=14;fontColor=#FFFFFF;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="10" width="400" height="30" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
