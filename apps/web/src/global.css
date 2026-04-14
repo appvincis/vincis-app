@@ -1,233 +1,151 @@
+/* global.css */
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Manrope:wght@400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
-@import "tailwindcss"; /* NÃO MEXE NA ORDEM DESSAS PORRAS DAQUI PRA CIMA. A ORDEM IMPORTA
-
-/* ═══════════════════════════════════════
-   VINCIS DESIGN SYSTEM — global.css
-   Tailwind v4 · @theme
-═══════════════════════════════════════ */
-
-@theme {
-  /* ── Fonts ── */
-  --font-headline: 'Newsreader', Georgia, serif;
-  --font-body:     'Manrope', system-ui, sans-serif;
-  --font-label:    'Manrope', system-ui, sans-serif;
-  --font-serif:    'Newsreader', Georgia, serif;
-  --font-mono:     ui-monospace, 'Cascadia Code', monospace;
-
-  /* ── Border Radius ── */
-  --radius:      0.25rem;
-  --radius-sm:   0.25rem;
-  --radius-lg:   0.5rem;
-  --radius-xl:   0.75rem;
-  --radius-2xl:  1rem;
-  --radius-full: 9999px;
-
-  /* ── Colors — Primary (Ouro Acadêmico) ── */
-  --color-primary:                  #735c00;
-  --color-on-primary:               #ffffff;
-  --color-primary-container:        #d4af37;
-  --color-on-primary-container:     #554300;
-  --color-primary-fixed:            #ffe088;
-  --color-primary-fixed-dim:        #e9c349;
-  --color-on-primary-fixed:         #241a00;
-  --color-on-primary-fixed-variant: #574500;
-  --color-inverse-primary:          #e9c349;
-  
-
-  /* ── Colors — Secondary (Cinza Sábio) ── */
-  --color-secondary:                  #5f5e5c;
-  --color-on-secondary:               #ffffff;
-  --color-secondary-container:        #e5e2de;
-  --color-on-secondary-container:     #656461;
-  --color-secondary-fixed:            #e5e2de;
-  --color-secondary-fixed-dim:        #c8c6c3;
-  --color-on-secondary-fixed:         #1c1c1a;
-  --color-on-secondary-fixed-variant: #474744;
-
-  /* ── Colors — Tertiary ── */
-  --color-tertiary:                  #595f67;
-  --color-on-tertiary:               #ffffff;
-  --color-tertiary-container:        #aeb3bc;
-  --color-on-tertiary-container:     #40454d;
-  --color-tertiary-fixed:            #dee3ec;
-  --color-tertiary-fixed-dim:        #c2c7d0;
-  --color-on-tertiary-fixed:         #171c23;
-  --color-on-tertiary-fixed-variant: #42474f;
-
-  /* ── Colors — Background & Surface ── */
-  --color-background:                #fdf9f6;
-  --color-on-background:             #1c1b1a;
-  --color-surface:                   #fdf9f6;
-  --color-on-surface:                #1c1b1a;
-  --color-surface-variant:           #e5e2df;
-  --color-on-surface-variant:        #4d4635;
-  --color-surface-bright:            #fdf9f6;
-  --color-surface-dim:               #ddd9d6;
-  --color-surface-container-lowest:  #ffffff;
-  --color-surface-container-low:     #f7f3f0;
-  --color-surface-container:         #f1edea;
-  --color-surface-container-high:    #ebe7e4;
-  --color-surface-container-highest: #e5e2df;
-  --color-inverse-surface:           #31302f;
-  --color-inverse-on-surface:        #f4f0ed;
-  --color-surface-tint:              #735c00;
-
-  /* ── Colors — Outline ── */
-  --color-outline:         #7f7663;
-  --color-outline-variant: #d0c5af;
-
-  /* ── Colors — Error ── */
-  --color-error:              #ba1a1a;
-  --color-on-error:           #ffffff;
-  --color-error-container:    #ffdad6;
-  --color-on-error-container: #93000a;
-
-  /* ── Colors — Success ── */
-  --color-success:           #2e7d32;
-  --color-on-success:        #ffffff;
-  --color-success-container: #c8e6c9;
-
-  /* ── Colors — Warning ── */
-  --color-warning:           #e65100;
-  --color-on-warning:        #ffffff;
-  --color-warning-container: #ffe0b2;
-  --color-border-card-base: color-mix(in srgb, var(--color-outline-variant), transparent 90%);
-  --color-border-card-elevated: color-mix(in srgb, var(--color-outline-variant), transparent 80%);
-  
-  /* Garanta que o Shadow exista no sistema */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-
-  --color-ai-card-bg: #1c1b1a; /* O tom mais escuro do seu sistema */
-  --color-ai-card-border: #31302f;
-  --color-ai-card-text-primary: #fdf9f6;
-  --color-ai-card-text-secondary: #d0c5af;
+/* Adicione no topo do global.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+:root {
+    /* Vincis Color Tokens */
+    --primary: #735c00;
+    --primary-container: #d4af37;
+    --on-primary: #ffffff;
+    --on-primary-container: #554300;
+    --primary-fixed-dim: #e9c349;
+    --primary-fixed: #ffe088;
+    
+    --secondary: #5f5e5c;
+    --secondary-container: #e5e2de;
+    --on-secondary: #ffffff;
+    --on-secondary-container: #656461;
+    
+    --tertiary: #595f67;
+    --tertiary-container: #aeb3bc;
+    
+    --background: #fdf9f6;
+    --surface-background: #fdf9f6;
+    --surface-container-lowest: #ffffff;
+    --surface-container-low: #f7f3f0;
+    --surface-container: #f1edea;
+    --surface-container-high: #ebe7e4;
+    --surface-container-highest: #e5e2df;
+    
+    --on-surface: #1c1b1a;
+    --on-surface-variant: #4d4635;
+    
+    --outline: #7f7663;
+    --outline-variant: #d0c5af;
+    
+    --error: #ba1a1a;
+    --error-container: #ffdad6;
+    --on-error: #ffffff;
+    --on-error-container: #93000a;
+    
+    --success: #2e7d32;
+    --success-container: #c8e6c9;
+    --on-success: #ffffff;
+    
+    --warning: #e65100;
+    --warning-container: #ffe0b2;
+    --on-warning: #ffffff;
+    
+    /* Font Stacks */
+    --ds-font-serif: 'Newsreader', serif;
+    --ds-font-sans: 'Manrope', sans-serif;
+    
+    /* Borders */
+    --border-radius-sm: 0.25rem;
+    --border-radius-md: 0.5rem;
+    --border-radius-lg: 0.75rem;
+    --border-radius-xl: 1rem;
+    --border-radius-full: 9999px;
 }
 
-
-/* ── Base ── */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-@layer base {
-  *, ::after, ::before {
-    border-style: solid;
-    border-width: 0;
+/* Reset e Base */
+* {
+    margin: 0;
+    padding: 0;
     box-sizing: border-box;
-  }
-
-  body {
-    @apply bg-background text-on-surface antialiased;
-    font-family: var(--font-body);
-  }
-
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-serif;
-  }
-
-  .material-symbols-outlined {
-    font-family: 'Material Symbols Outlined' !important;
-    @apply inline-block align-middle leading-none;
-    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-  }
 }
+
 body {
-  font-family: var(--font-body);
-  background-color: var(--color-background);
-  color: var(--color-on-surface);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+    font-family: var(--ds-font-sans);
+    background-color: var(--background);
+    color: var(--on-surface);
+    margin: 0;
+    padding: 0;
 }
 
-h1, h2, h3, h4, h5, h6,
-.font-headline,
-.font-serif {
-  font-family: var(--font-headline);
+h1, h2, h3, h4, .font-serif {
+    font-family: var(--ds-font-serif);
 }
 
-/* ── Material Symbols ── */
+/* Classes utilitárias para cores */
+.bg-background { background-color: var(--background); }
+.bg-primary { background-color: var(--primary); }
+.bg-primary-container { background-color: var(--primary-container); }
+.bg-surface-container-lowest { background-color: var(--surface-container-lowest); }
+.bg-surface-container-low { background-color: var(--surface-container-low); }
+.bg-surface-container { background-color: var(--surface-container); }
+.bg-surface-container-high { background-color: var(--surface-container-high); }
+.bg-surface-container-highest { background-color: var(--surface-container-highest); }
+
+.text-primary { color: var(--primary); }
+.text-on-surface { color: var(--on-surface); }
+.text-secondary { color: var(--secondary); }
+.text-on-primary-container { color: var(--on-primary-container); }
+
+.border-outline-variant { border-color: var(--outline-variant); }
+
+/* Material Icons */
 .material-symbols-outlined {
-  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-  display: inline-block;
-  vertical-align: middle;
-  line-height: 1;
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    display: inline-block;
+    vertical-align: middle;
 }
 
-/* ── Focus ring ── */
-input:focus,
-select:focus,
-textarea:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--color-primary);
+/* Animações */
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
 }
 
-/* ── Scrollbar ── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb {
-  background: var(--color-outline-variant);
-  border-radius: var(--radius-full);
+.animate-bounce {
+    animation: bounce 0.6s infinite;
 }
 
-/* ── Animations ── */
-@keyframes spin {
-  to { transform: rotate(360deg); }
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
 }
 
-@keyframes slideInRight {
-  from { transform: translateX(110%); opacity: 0; }
-  to   { transform: translateX(0);    opacity: 1; }
+.animate-pulse {
+    animation: pulse 1.5s infinite;
 }
 
-/* ── Utility classes ── */
-.vincis-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(115, 92, 0, 0.2);
-  border-top-color: var(--color-on-primary-container);
-  border-radius: 50%;
-  display: inline-block;
-  animation: spin 0.7s linear infinite;
+.progress-bar {
+    transition: width 0.6s ease;
 }
 
-.vincis-toast {
-  animation: slideInRight 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+/* Classes do Design System */
+.ds-section-label {
+    font-family: var(--ds-font-sans);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--outline);
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
-.vincis-modal-overlay {
-  background: rgba(28, 27, 26, 0.45);
-  backdrop-filter: blur(4px);
+.ds-section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--outline-variant);
+    opacity: 0.5;
 }
 
-.vincis-section-label {
-  font-family: var(--font-label);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--color-outline);
-  margin-bottom: 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.vincis-section-label::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: var(--color-outline-variant);
-  opacity: 0.5;
-}
-
-.vincis-nav-active {
-  background-color: var(--color-primary-container);
-  color: var(--color-on-primary-container);
-  font-style: italic;
-}
-
-.vincis-progress-bar {
-  transition: width 0.6s ease;
-}

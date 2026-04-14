@@ -19,6 +19,9 @@
     "primevue": "^4.5.5"
   },
   "devDependencies": {
-    "lerna": "^9.0.7"
+    "autoprefixer": "^10.4.27",
+    "lerna": "^9.0.7",
+    "postcss": "^8.5.9",
+    "tailwindcss": "^4.2.2"
   }
 }

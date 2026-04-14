@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { Button } from 'primevue';
-import { VButton, VBadge, VAlert } from '@/components/ui'
+import DsButton from '@/components/ui/DsButton.vue';
+import { globalCSS } from './vincis-primevue-theme.js'
+
 </script>
 
 <template>
@@ -8,6 +9,10 @@ import { VButton, VBadge, VAlert } from '@/components/ui'
   <p class="text-red-500">
     Um app pra lacrar nos concursos
   </p>
-  <Button label="Botão prime vue" />
+  <div class="">
+    <DsButton label="Clique aqui" severity="success" />
+
+  </div>
+  <DsButton label="Botão de perigo" severity="danger" />
   <h1>aaaaaaaaa</h1>
 </template>
