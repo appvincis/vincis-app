@@ -361,10 +361,10 @@ toast.add({ severity: 'info', summary: 'Título', detail: 'Mensagem', life: 3000
         <!-- Toasts -->
         <p class="text-[9px] font-bold text-secondary uppercase tracking-widest mb-4">Toasts / Notificações</p>
         <div class="space-y-3 mb-10">
-          <VAlert variant="success" title="Evento criado com sucesso!" message="Filosofia Analítica adicionado ao dia 11." dismissible />
-          <VAlert variant="error"   title="Falha ao sincronizar"        message="Verifique sua conexão e tente novamente." dismissible />
-          <VAlert variant="warning" title="Meta semanal em risco"       message="Você está 5.5h abaixo da sua meta de 20h." dismissible />
-          <VAlert variant="info"    title="IA analisando seu padrão"    message="A agenda inteligente será atualizada em instantes." dismissible />
+          <div class="toast success" style="max-width: 100%; position: static; animation: none;"><div class="toast__icon"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check_circle</span></div><div class="toast__content"><p class="toast__title">Evento criado com sucesso!</p><p class="toast__message">Filosofia Analítica adicionado ao dia 11.</p></div></div>
+          <div class="toast error" style="max-width: 100%; position: static; animation: none;"><div class="toast__icon"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">error</span></div><div class="toast__content"><p class="toast__title">Falha ao sincronizar</p><p class="toast__message">Verifique sua conexão e tente novamente.</p></div></div>
+          <div class="toast warning" style="max-width: 100%; position: static; animation: none;"><div class="toast__icon"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">warning</span></div><div class="toast__content"><p class="toast__title">Meta semanal em risco</p><p class="toast__message">Você está 5.5h abaixo da sua meta de 20h.</p></div></div>
+          <div class="toast info" style="max-width: 100%; position: static; animation: none;"><div class="toast__icon"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">info</span></div><div class="toast__content"><p class="toast__title">IA analisando seu padrão</p><p class="toast__message">A agenda inteligente será atualizada em instantes.</p></div></div>
         </div>
 
         <!-- Modal -->
@@ -379,20 +379,20 @@ toast.add({ severity: 'info', summary: 'Título', detail: 'Mensagem', life: 3000
               </button>
             </div>
             <div class="space-y-4">
-              <VInput label="Título" placeholder="Ex: Revisão Ativa" />
+              <DsInput label="Título" placeholder="Ex: Revisão Ativa" />
               <div class="grid grid-cols-2 gap-3">
-                <VInput label="Data"    placeholder="DD/MM/AAAA" />
-                <VInput label="Horário" placeholder="08:00" />
+                <DsInput label="Data"    placeholder="DD/MM/AAAA" />
+                <DsInput label="Horário" placeholder="08:00" />
               </div>
-              <VSelect
+              <DsSelect
                 label="Disciplina"
-                :options="disciplineOptions"
-                :model-value="disciplineOptions[0]?.value"
+                :options="disciplines"
+                :model-value="disciplines[0]?.value"
               />
             </div>
             <div class="flex gap-3 mt-6">
-              <VButton variant="secondary" class="flex-1">Cancelar</VButton>
-              <VButton variant="primary"   class="flex-1">Criar Evento</VButton>
+              <DsButton variant="secondary" class="flex-1">Cancelar</DsButton>
+              <DsButton variant="primary"   class="flex-1">Criar Evento</DsButton>
             </div>
           </div>
           <div class="h-8"></div>
