@@ -1,0 +1,216 @@
+{
+  "version": "1.0.0",
+  "darkMode": true,
+  "gridEnabling": false,
+  "detailLevel": "All",
+  "tablePositions": [
+    {
+      "name": "roles",
+      "schemaName": "public",
+      "x": -115.86632091382944,
+      "y": 165.21440062902383
+    },
+    {
+      "name": "users",
+      "schemaName": "public",
+      "x": 233.14216381867152,
+      "y": -32
+    },
+    {
+      "name": "ai_usage_stats",
+      "schemaName": "public",
+      "x": 233.14216381867152,
+      "y": 285.1533495499218
+    },
+    {
+      "name": "study_plans",
+      "schemaName": "public",
+      "x": 573.3812543141853,
+      "y": -34.468618154119554
+    },
+    {
+      "name": "subjects",
+      "schemaName": "public",
+      "x": 1269.8222478651155,
+      "y": -220.15396595517333
+    },
+    {
+      "name": "topics",
+      "schemaName": "public",
+      "x": 1606.5556196627897,
+      "y": 140.4842611236573
+    },
+    {
+      "name": "focus_sessions",
+      "schemaName": "public",
+      "x": 1269.8222478651155,
+      "y": 753.3324295508446
+    },
+    {
+      "name": "simulated_results",
+      "schemaName": "public",
+      "x": 1269.8222478651155,
+      "y": 552.145562921412
+    },
+    {
+      "name": "simulated_topics_analysis",
+      "schemaName": "public",
+      "x": 2320,
+      "y": 16
+    }
+  ],
+  "tableGroupCollapseStates": [],
+  "stickyNoteLayouts": [],
+  "referencePaths": [
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "roles",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "role_id"
+      ],
+      "secondTableName": "users",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "users",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "user_id"
+      ],
+      "secondTableName": "study_plans",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "users",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "user_id"
+      ],
+      "secondTableName": "ai_usage_stats",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "study_plans",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "study_plan_id"
+      ],
+      "secondTableName": "subjects",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "study_plans",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "study_plan_id"
+      ],
+      "secondTableName": "topics",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "study_plans",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "study_plan_id"
+      ],
+      "secondTableName": "focus_sessions",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "study_plans",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "study_plan_id"
+      ],
+      "secondTableName": "simulated_results",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "subjects",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "subject_id"
+      ],
+      "secondTableName": "topics",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "topics",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "topic_id"
+      ],
+      "secondTableName": "simulated_topics_analysis",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "simulated_results",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "simulated_id"
+      ],
+      "secondTableName": "simulated_topics_analysis",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    }
+  ]
+}

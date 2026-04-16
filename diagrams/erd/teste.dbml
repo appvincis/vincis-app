@@ -1,0 +1,180 @@
+// =============================================================
+// PROJETO: Vincis-App (MVP)
+// MANUAL DE ENGENHARIA: Esquema de Banco de Dados
+// =============================================================
+
+// -------------------------------------------------------------
+// LEGENDA DE CORES (Aplica-se aos Headers das Tabelas)
+// -------------------------------------------------------------
+// 🌑 INFRAESTRUTURA (#34495e): Gestão de Acesso, Identidade e Custos.
+// 🟢 ÂNCORA (#27ae60): Ponto central de isolamento (Regra de Ouro).
+// 🔵 NEGÓCIO (#2980b9): Atividade principal do usuário (Estudo/Simulados).
+// 🟡 ANÁLISE (#f1c40f): Tabelas de cruzamento de dados (N:N).
+// -------------------------------------------------------------
+
+// -------------------------------------------------------------
+// LEGENDA INDEX
+// -------------------------------------------------------------
+// type: type of index (btree, gin, gist, hash depending on DB). Supported types: btree and hash
+// name: name of index
+// unique: unique index
+// pk: primary key
+// note: a metadata note for the index (enrichment & visualization only — see Index Notes)
+// -------------------------------------------------------------
+
+// -------------------------------------------------------------
+// LEGENDA: CARDINALIDADE
+// -------------------------------------------------------------
+// > (Muitos para Um): Muitos registros nesta tabela apontam para um na outra.
+//  usuario_id int [ref: > usuarios.id] // (Muitos para Um): Muitos pedidos apontam para um usuário
+
+// < (Um para Muitos): Um registro nesta tabela possui muitos na outra.
+//  // < pedidos.usuario_id // (Um para Muitos): Um usuário possui muitos pedidos
+
+// - (Um para Um): Cada registro tem exatamente um correspondente
+// usuario_id int [ref: - usuarios.id] // (Um para Um): Cada perfil corresponde a exatamente um usuário
+
+
+// -------------------------------------------------------------
+
+
+
+
+
+
+
+
+// -------------------------------------------------------------
+// ER DIAGRAM
+// -------------------------------------------------------------
+
+// --- 1. MÓDULO DE ACESSO & INFRA ---
+//  Definição de planos de acesso dos usuários. De acordo com o plano o usuário poderá ter:
+// * Niveis de acesso
+// * Quantidade de tokens para uso de IA
+// * Funcionliadades de IA
+// Para um futuro, definir os níveis de acesso de cada plano
+
+enum plan_tier { // enem permite definir diferentes valores para uma coluna em particular
+  free
+  pro
+  ultra // Opcional: Esse plano talvez não seja interessante, pois queremos modularizar
+}
+
+
+// Definição das regras
+Table roles [headercolor: #34495e] {
+  id integer [pk, increment]
+  name plan_tier [unique, not null, default: 'free']
+  max_ai_tokens integer [not null, default: 5000, note:'Quantidade total de tokens permitida']
+
+  Note: 'Restringe os valores a Free, Pro e Ultra para controle de paywall.'
+}
+
+Table users [headercolor: #34495e, note: 'Definição dos usuários'] {
+  id uuid [pk, not null] // O UUID (Universally Unique Identifier) é o padrão ouro para identificadores em bancos de dados modernos,
+  role_id integer
+  email varchar [unique, not null]
+  username varchar [not null]
+  create_at timestamp [note: 'Para verificar troca/mudança de senha']
+  updated_at timestamp [note: 'Para verificar troca/mudança de senha']
+}
+
+Table ai_usage_stats [headercolor: #34495e] {
+  id uuid [pk] // O uuid (Universally Unique Identifier) é o um tipo de dado para identificadores em bancos de dados modernos
+  user_id uuid
+  tokens_used integer
+  feature varchar
+  Note: 'Auditoria de custos da API de IA'
+}
+
+// --- 2. O CORAÇÃO DO SISTEMA ---
+Table study_plans [headercolor: #27ae60, note:'HUB CENTRAL: Garante o isolamento entre diferentes editais.' ] {
+  id uuid [pk, not null, note: 'Cada usuario pode ter vários planos de estudos']
+  user_id uuid
+  plan_name varchar
+  description text
+  color_plan varchar [note: 'Apenas para melhorar UI/X']
+  create_at timestamp [note: 'Para verificar mudanças']
+  updated_at timestamp [note: 'Para verificar mudanças']
+  is_active boolean [note:'Passivel de troca de um boolean para enum, para arquivar ou exluir']
+}
+
+// --- 3. OPERAÇÃO DE ESTUDO ---
+
+enum subject_profficiency {
+  Iniciante
+  intermediário
+  Avançado
+}
+
+
+enum subject_priority{
+  Baixa
+  Média
+  Alta
+}
+
+Table subjects [headercolor: #2980b9] {
+  id uuid [pk]
+  study_plan_id uuid
+  name varchar
+  active boolean [note:'Para arquivar ou mantear visualmente ativo']
+  color varchar [note:'UI/X']
+  weight integer [note:'Peso no edital']
+  priority subject_priority [unique, default:'Iniciante', note:' Associa a importância baseada no edital']
+  profficiency subject_profficiency [unique, default: 'Baixa', note:' Associa o nível de entendimento da matéria']
+  create_at timestamp [note: 'Para verificar mudanças']
+  updated_at timestamp [note: 'Para verificar mudanças']
+}
+
+Table topics [headercolor: #2980b9] {
+  id uuid [pk]
+  subject_id uuid
+  study_plan_id uuid
+  title varchar
+}
+
+Table focus_sessions [headercolor: #2980b9] {
+  id uuid [pk]
+  user_id uuid
+  study_plan_id uuid
+  topic_id uuid
+  duration_seconds integer
+}
+
+Table simulated_results [headercolor: #2980b9] {
+  id uuid [pk]
+  user_id uuid
+  study_plan_id uuid
+  score_percentage float
+}
+
+// --- 4. ANÁLISE DE PERFORMANCE ---
+Table simulated_topics_analysis [headercolor: #f1c40f] {
+  simulated_id uuid
+  topic_id uuid
+  errors_count integer
+  Indexes {
+    (simulated_id, topic_id) [pk]
+  }
+}
+
+// -------------------------------------------------------------
+// DEFINIÇÃO DE RELAÇÕES (MAPA DE CONEXÕES)
+// -------------------------------------------------------------
+
+Ref: roles.id < users.role_id [color: #79AD51]
+Ref: users.id < study_plans.user_id
+Ref: users.id < ai_usage_stats.user_id
+
+// Conexões da Regra de Ouro (Linhas de Isolamento)
+Ref: study_plans.id < subjects.study_plan_id
+Ref: study_plans.id < topics.study_plan_id
+Ref: study_plans.id < focus_sessions.study_plan_id
+Ref: study_plans.id < simulated_results.study_plan_id
+
+// Conexões de Estrutura e Análise
+Ref: subjects.id < topics.subject_id
+Ref: topics.id < simulated_topics_analysis.topic_id
+Ref: simulated_results.id < simulated_topics_analysis.simulated_id
