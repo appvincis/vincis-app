@@ -1,5 +1,5 @@
 import { prisma } from '../../lib/prisma.js'
-import type { CreateUserInput, UpdateUserInput } from './user.types.js'
+import type { CreateUserInput, CreateUserFromAuthInput, UpdateUserInput } from './user.types.js'
 
 export const userService = {
     list() {
@@ -10,8 +10,24 @@ export const userService = {
         return prisma.user.findUnique({ where: { id } })
     },
 
+    getBySupabaseId(supabaseId: string) {
+        return prisma.user.findUnique({ where: { supabaseId } })
+    },
+
     create(data: CreateUserInput) {
         return prisma.user.create({ data })
+    },
+
+    createFromAuth(data: CreateUserFromAuthInput) {
+        return prisma.user.upsert({
+            where: { supabaseId: data.supabaseId },
+            update: {},               // Already exists — do nothing
+            create: {
+                supabaseId: data.supabaseId,
+                email: data.email,
+                name: data.name,
+            },
+        })
     },
 
     async update(id: number, data: UpdateUserInput) {
@@ -25,4 +41,4 @@ export const userService = {
         if (!exists) return null
         return prisma.user.delete({ where: { id } })
     },
-}
+}

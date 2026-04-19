@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser'
 import { userRouter } from './features/user/user.routes.js'
 import { authRouter } from './features/auth/auth.routes.js'
 import { prisma } from './lib/prisma.js'
+import { studyPlanRouter } from './features/study-plan/study-plan.routes.js'
 
 const PORT = Number(process.env.PORT) || 4000
 const app = express()
@@ -17,15 +18,16 @@ app.use(cookieParser())
 app.use(express.json())
 
 app.get('/', (_req: Request, res: Response) => {
-return res.send('oie')
+    return res.send('oie')
 })
 
 app.get('/status', (_req: Request, res: Response) => {
-return res.send('tamo on e roteando')
+    return res.send('tamo on e roteando')
 })
 
 app.use('/users', userRouter)
 app.use('/auth', authRouter)
+app.use("/study-plans", studyPlanRouter)
 
 // Verifica conexão com banco antes de escutar na porta
 prisma.$connect()
@@ -38,4 +40,4 @@ prisma.$connect()
         console.error('Falha ao conectar no banco:', err)
         process.exit(1)
     })
-
+

@@ -1,18 +1,29 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../lib/axios'
-import { VCard, VButton, VBadge } from '../components/ui'
+import { VCard, VButton, VBadge, VInput, VSelect } from '../components/ui'
 
 const router = useRouter()
 const isLoading = ref(true)
 const user = ref<any>(null)
+const studyPlans = ref<any>([])
+const currentStudyPlan = ref(0)
+
+const studyPlanName = ref("")
+const studyPlanDesc = ref("")
+
 const errorMsg = ref('')
 
 onMounted(async () => {
   try {
     const res = await api.get('/auth/me')
     user.value = res.data.user
+
+    const studyPlansRes = await api.get('/study-plans')
+    studyPlans.value = studyPlansRes.data
+
+    currentStudyPlan.value = studyPlans.value[0]?.id ?? 0
   } catch (error: any) {
     console.error(error)
     errorMsg.value = 'Acesso não autorizado. Redirecionando para login...'
@@ -31,6 +42,23 @@ const logout = async () => {
     document.cookie = "refresh_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
     router.push('/auth')
 }
+
+const createStudyPlan = async () => {
+  try {
+    const res = await api.post('/study-plans', {
+      name: studyPlanName.value,
+      description: studyPlanDesc.value,
+      is_active: true
+    })
+    studyPlans.value.push(res.data.studyPlan)
+  } catch (error: any) {
+    console.error(error)
+  }
+}
+
+const currentStudyPlanData = computed(() =>
+  studyPlans.value.find((p: any) => p.id === currentStudyPlan.value)
+)
 </script>
 
 <template>
@@ -80,8 +108,21 @@ const logout = async () => {
             </div>
           </div>
         </VCard>
+        <VCard>
+          <div class="flex items-center justify-between">
+            <h2>Planos de Estudo</h2>
+            <VInput v-model="studyPlanName" placeholder="Nome do plano de estudo..."/>
+            <VInput v-model="studyPlanDesc" placeholder="Descrição do plano de estudo..."/>
+            <VButton @click="createStudyPlan">Criar Plano de Estudo</VButton>
+          </div>
+          <div>
+            <VSelect v-model="currentStudyPlan" :options="studyPlans" optionLabel="name" optionValue="id" />
+          </div>
+          <div>
+            <p>Seu plano de estudo atual: {{ currentStudyPlanData?.name }}</p>
+          </div>
+        </VCard>
       </div>
-      
     </div>
   </div>
 </template>
