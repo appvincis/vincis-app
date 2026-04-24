@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import DsButton from '@/components/ui/DsButton.vue';
-import { globalCSS } from './vincis-primevue-theme.js'
+import {VButton} from '@/components/ui';
+// import { globalCSS } from './vincis-primevue-theme.js'
 
 </script>
 
@@ -10,9 +10,9 @@ import { globalCSS } from './vincis-primevue-theme.js'
     Um app pra lacrar nos concursos
   </p>
   <div class="">
-    <DsButton label="Clique aqui" severity="success" />
+    <VButton label="Clique aqui" severity="success" />
 
   </div>
-  <DsButton label="Botão de perigo" severity="danger" />
+  <VButton label="Botão de perigo" severity="danger" />
   <h1>aaaaaaaaa</h1>
 </template>

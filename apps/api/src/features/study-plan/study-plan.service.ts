@@ -20,7 +20,7 @@ export const studyPlanService = {
         })
     },
     getStudyPlanById: async (studyPlanId: number, userId: number) => {
-        return prisma.studyPlan.findFirst({
+        return await prisma.studyPlan.findFirst({
             where: {
                 id: studyPlanId,
                 userId: userId

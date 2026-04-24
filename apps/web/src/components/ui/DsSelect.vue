@@ -2,7 +2,7 @@
 import Select from 'primevue/select'
 
 defineProps({
-  modelValue: { type: [String, Object], default: null },
+  modelValue: { type: [String, Object, Number], default: null },
   options: { type: Array, default: () => [] },
   optionLabel: { type: String, default: 'label' },
   optionValue: { type: String, default: 'value' },

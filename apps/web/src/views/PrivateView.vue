@@ -1,17 +1,41 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../lib/axios'
-import { VCard, VBadge } from '../components/ui'
+import { VCard, VButton, VBadge, VInput, VSelect } from '../components/ui'
+import { useStudyPlanStore } from '../stores/study-plan'
 
+const router = useRouter()
+const studyPlanStore = useStudyPlanStore()
 const isLoading = ref(true)
 const user = ref<any>(null)
+const studyPlans = ref<any>([])
+const currentStudyPlan = ref<number>(0)
+
+const studyPlanName = ref("")
+const studyPlanDesc = ref("")
+
 const errorMsg = ref('')
 
 onMounted(async () => {
   try {
     const res = await api.get('/auth/me')
     user.value = res.data.user
+
+    const studyPlansRes = await api.get('/study-plans')
+    studyPlans.value = studyPlansRes.data
+
+    if (studyPlanStore.activePlanId) {
+      // Already selected in this session — just sync the dropdown
+      currentStudyPlan.value = studyPlanStore.activePlanId
+    } else {
+      // Nothing active yet — default to the first plan
+      const firstPlan = studyPlans.value[0]
+      if (firstPlan) {
+        currentStudyPlan.value = firstPlan.id
+        await studyPlanStore.selectPlan(firstPlan.id, firstPlan.name)
+      }
+    }
   } catch (error: any) {
     console.error(error)
     errorMsg.value = 'Erro ao carregar dados do usuário.'
@@ -19,6 +43,68 @@ onMounted(async () => {
     isLoading.value = false
   }
 })
+
+const logout = async () => {
+    // Para deslogar completamente seria ideal uma rota de /logout na API pra limpar os cookies
+    // Por enquanto redirecionamos. (Simulando)
+    document.cookie = "access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    document.cookie = "refresh_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+
+    // Limpa as informações do plano de estudo quando faz logout.
+    studyPlanStore.clearPlan()
+    router.push('/auth')
+}
+
+const createStudyPlan = async () => {
+  try {
+    const res = await api.post('/study-plans', {
+      name: studyPlanName.value,
+      description: studyPlanDesc.value,
+      is_active: true
+    })
+    const newPlan = res.data.studyPlan
+    studyPlans.value.push(newPlan)
+    currentStudyPlan.value = newPlan.id  // triggers watch → selectPlan
+    studyPlanName.value = ''
+    studyPlanDesc.value = ''
+  } catch (error: any) {
+    console.error(error)
+  }
+}
+
+const currentStudyPlanData = computed(() =>
+  studyPlans.value.find((p: any) => p.id === currentStudyPlan.value)
+)
+
+const selectStudyPlan = async () => {
+  const plan = currentStudyPlanData.value
+  if (!plan) return
+  try {
+    await studyPlanStore.selectPlan(plan.id, plan.name)
+  } catch (error: any) {
+    console.error(error)
+  }
+}
+
+watch(currentStudyPlan, () => {
+  selectStudyPlan()
+})
+
+const testResult = ref<any>(null)
+const isTesting = ref(false)
+
+const testMiddleware = async () => {
+  isTesting.value = true
+  testResult.value = null
+  try {
+    const res = await api.get('/study-plans/test')
+    testResult.value = res.data
+  } catch (error: any) {
+    testResult.value = { error: error.response?.data?.message ?? error.message }
+  } finally {
+    isTesting.value = false
+  }
+}
 </script>
 
 <template>
@@ -43,6 +129,15 @@ onMounted(async () => {
           <div class="flex justify-between items-center">
             <span class="text-secondary text-sm">Status</span>
             <VBadge variant="success">Ativo</VBadge>
+          </div>
+          <div class="mt-4 pt-4 border-t border-outline-variant/10">
+            <p class="text-sm text-on-surface">Plano ativo na store: <strong>{{ studyPlanStore.activePlanName ?? 'Nenhum' }}</strong> (ID: {{ studyPlanStore.activePlanId ?? '—' }})</p>
+          </div>
+          <div class="flex flex-col gap-3 mt-4 border-t border-outline-variant/10 pt-4">
+            <VButton @click="testMiddleware" :disabled="isTesting">
+              {{ isTesting ? 'Testando...' : 'Testar Middleware /test' }}
+            </VButton>
+            <pre v-if="testResult" class="text-xs bg-surface-container p-3 rounded-lg overflow-auto">{{ JSON.stringify(testResult, null, 2) }}</pre>
           </div>
         </div>
       </VCard>
