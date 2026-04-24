@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 import { api } from '../lib/axios'
 import { VButton, VInput, VAlert, VCard } from '../components/ui'
 
 const router = useRouter()
+const authStore = useAuthStore()
 const isLoginMode = ref(true)
 const email = ref('')
 const password = ref('')
@@ -35,6 +37,7 @@ const submitForm = async () => {
     message.value = res.data.message || 'Sucesso!'
 
     if (isLoginMode.value) {
+      authStore.login(res.data.user)
       setTimeout(() => router.push('/private'), 500)
     }
   } catch (error: any) {
