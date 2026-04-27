@@ -3,6 +3,14 @@ import { supabase } from '../../lib/supabase.js'
 import { SignupInput, LoginInput } from './auth.schema.js'
 import { userService } from '../user/user.service.js'
 
+// Opções base dos cookies — reutilizadas no login e no logout para garantir consistência
+const baseCookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict' as const,
+    path: '/',
+}
+
 export async function signup(req: Request<{}, {}, SignupInput>, res: Response) {
     const { email, password } = req.body
 
@@ -74,22 +82,16 @@ export async function login(req: Request<{}, {}, LoginInput>, res: Response) {
             })
         }
 
-        // Definindo as opções do cookie de forma segura
-        const cookieOptions = {
-            httpOnly: true, // Impede acesso via JavaScript (XSS)
-            secure: process.env.NODE_ENV === 'production', // Só trafega em HTTPS em prod
-            sameSite: 'strict' as const, // Proteção contra CSRF
-            path: '/', // Válido em toda a aplicação
-        }
+        // Reutiliza as opções base definidas no topo do arquivo
 
         // Define os cookies
         res.cookie('access_token', session.access_token, {
-            ...cookieOptions,
+            ...baseCookieOptions,
             maxAge: session.expires_in * 1000, // maxAge é em milissegundos
         })
 
         res.cookie('refresh_token', session.refresh_token, {
-            ...cookieOptions,
+            ...baseCookieOptions,
             maxAge: 30 * 24 * 60 * 60 * 1000, // 30 dias para expirar o refresh token
         })
 
@@ -103,5 +105,57 @@ export async function login(req: Request<{}, {}, LoginInput>, res: Response) {
         })
     } catch (err) {
         return res.status(500).json({ message: 'Erro interno durante o login' })
+    }
+}
+
+
+export async function logout(_req: Request, res: Response) {
+    try {
+        // Limpa os cookies HttpOnly — apenas o servidor consegue fazer isso
+        res.clearCookie('access_token', baseCookieOptions)
+        res.clearCookie('refresh_token', baseCookieOptions)
+
+        return res.status(200).json({ message: 'Logout realizado com sucesso' })
+    } catch (err) {
+        return res.status(500).json({ message: 'Erro interno durante o logout' })
+    }
+}
+
+
+export async function refresh(req: Request, res: Response) {
+    const refreshToken = req.cookies?.refresh_token
+
+    if (!refreshToken) {
+        return res.status(401).json({ message: 'Refresh token não encontrado.' })
+    }
+
+    try {
+        const { data, error } = await supabase.auth.refreshSession({
+            refresh_token: refreshToken,
+        })
+
+        if (error || !data.session) {
+            // Refresh token inválido ou expirado — limpa os cookies
+            res.clearCookie('access_token', baseCookieOptions)
+            res.clearCookie('refresh_token', baseCookieOptions)
+            return res.status(401).json({ message: 'Sessão expirada. Faça login novamente.' })
+        }
+
+        const { session } = data
+
+        // Define os novos cookies com os tokens atualizados
+        res.cookie('access_token', session.access_token, {
+            ...baseCookieOptions,
+            maxAge: session.expires_in * 1000,
+        })
+
+        res.cookie('refresh_token', session.refresh_token, {
+            ...baseCookieOptions,
+            maxAge: 30 * 24 * 60 * 60 * 1000,
+        })
+
+        return res.status(200).json({ message: 'Token renovado com sucesso' })
+    } catch (err) {
+        return res.status(500).json({ message: 'Erro interno ao renovar o token' })
     }
 }

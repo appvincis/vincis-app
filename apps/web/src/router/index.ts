@@ -10,7 +10,10 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
-      component: () => import('../views/HomeView.vue')
+      redirect: () => {
+        const authStore = useAuthStore()
+        return authStore.isAuthenticated ? '/private' : '/auth'
+      }
     },
     {
       path: '/design-system',

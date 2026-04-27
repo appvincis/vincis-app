@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { api } from '../lib/axios'
+import { useStudyPlanStore } from './study-plan'
 
 const DEFAULT_USER = {
   name: 'Usuário Vincis',
@@ -35,10 +37,24 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  function logout() {
+  async function logout() {
+    try {
+      // Chama a API para limpar os cookies HttpOnly no servidor
+      await api.post('/auth/logout')
+    } catch (err) {
+      // Mesmo se a chamada falhar (ex: token já expirado), continua limpando o estado local
+      console.warn('Falha ao chamar /auth/logout na API:', err)
+    }
+
+    // Limpa o estado local
     isAuthenticated.value = false
     user.value = { ...DEFAULT_USER }
     localStorage.removeItem(STORAGE_KEY)
+
+    // Limpa dados do plano de estudo
+    const studyPlanStore = useStudyPlanStore()
+    studyPlanStore.clearPlan()
+
     router.push('/auth')
   }
 

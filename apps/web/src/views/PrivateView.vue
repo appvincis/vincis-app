@@ -44,17 +44,6 @@ onMounted(async () => {
   }
 })
 
-const logout = async () => {
-    // Para deslogar completamente seria ideal uma rota de /logout na API pra limpar os cookies
-    // Por enquanto redirecionamos. (Simulando)
-    document.cookie = "access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-    document.cookie = "refresh_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-
-    // Limpa as informações do plano de estudo quando faz logout.
-    studyPlanStore.clearPlan()
-    router.push('/auth')
-}
-
 const createStudyPlan = async () => {
   try {
     const res = await api.post('/study-plans', {
