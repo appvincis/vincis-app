@@ -7,7 +7,7 @@ import { userService } from '../user/user.service.js'
 const baseCookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict' as const,
+    sameSite: 'lax' as const,
     path: '/',
 }
 

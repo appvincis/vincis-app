@@ -5,8 +5,20 @@ export const api = axios.create({
   withCredentials: true, // Garante que mandaremos e receberemos os cookies
 })
 
-// Flag para evitar loops infinitos de refresh
 let isRefreshing = false
+let failedQueue: any[] = []
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error)
+    } else {
+      prom.resolve(token)
+    }
+  })
+
+  failedQueue = []
+}
 
 api.interceptors.response.use(
   (response) => response,
@@ -20,22 +32,36 @@ api.interceptors.response.use(
         return Promise.reject(error)
       }
 
-      if (!isRefreshing) {
-        isRefreshing = true
-        originalRequest._retry = true
+      if (isRefreshing) {
+        // Se já tem um refresh em andamento, adiciona essa request na fila
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject })
+        })
+          .then(() => {
+            return api(originalRequest)
+          })
+          .catch((err) => {
+            return Promise.reject(err)
+          })
+      }
 
-        try {
-          // Tenta renovar o token usando o refresh_token (cookie HttpOnly)
-          await api.post('/auth/refresh')
-          isRefreshing = false
+      isRefreshing = true
+      originalRequest._retry = true
 
-          // Retenta a requisição original com o novo access_token
-          return api(originalRequest)
-        } catch (refreshError) {
-          isRefreshing = false
-          // Refresh falhou — sessão expirada de verdade
-          return Promise.reject(refreshError)
-        }
+      try {
+        // Tenta renovar o token usando o refresh_token (cookie HttpOnly)
+        await api.post('/auth/refresh')
+        
+        processQueue(null)
+        isRefreshing = false
+
+        // Retenta a requisição original
+        return api(originalRequest)
+      } catch (refreshError) {
+        processQueue(refreshError, null)
+        isRefreshing = false
+        // Refresh falhou — sessão expirada de verdade
+        return Promise.reject(refreshError)
       }
     }
 
