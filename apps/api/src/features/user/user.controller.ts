@@ -2,7 +2,7 @@ import { Request, Response } from 'express'
 import { Prisma } from '@prisma/client'
 import { userService } from './user.service.js'
 
-const parseId = (raw: string) => Number(raw)
+const parseId = (raw: string | string[]) => Number(raw)
 
 export async function listUsers(_req: Request, res: Response) {
     const users = await userService.list()
@@ -64,4 +64,4 @@ export async function deleteUser(req: Request, res: Response) {
     if (!removed) return res.status(404).json({ message: 'user nao encontrado' })
 
     return res.status(204).send()
-}
+}

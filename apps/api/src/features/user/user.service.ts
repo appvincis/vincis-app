@@ -41,4 +41,4 @@ export const userService = {
         if (!exists) return null
         return prisma.user.delete({ where: { id } })
     },
-}
+}

@@ -26,8 +26,20 @@ onMounted(async () => {
     studyPlans.value = studyPlansRes.data
 
     if (studyPlanStore.activePlanId) {
-      // Already selected in this session — just sync the dropdown
-      currentStudyPlan.value = studyPlanStore.activePlanId
+      // Validate that the persisted plan actually belongs to this user
+      const belongsToUser = studyPlans.value.some((p: any) => Number(p.id) === Number(studyPlanStore.activePlanId))
+      if (belongsToUser) {
+        // Already selected in this session — just sync the dropdown
+        currentStudyPlan.value = studyPlanStore.activePlanId
+      } else {
+        // Plan belongs to a different account — clear and default to first
+        studyPlanStore.clearPlan()
+        const firstPlan = studyPlans.value[0]
+        if (firstPlan) {
+          currentStudyPlan.value = firstPlan.id
+          await studyPlanStore.selectPlan(firstPlan.id, firstPlan.name)
+        }
+      }
     } else {
       // Nothing active yet — default to the first plan
       const firstPlan = studyPlans.value[0]
@@ -46,6 +58,8 @@ onMounted(async () => {
 
 const createStudyPlan = async () => {
   try {
+    if (!studyPlanName.value) return errorMsg.value = 'Nome do plano de estudo é obrigatório.';
+    if (!studyPlanDesc.value) return errorMsg.value = 'Descrição do plano de estudo é obrigatória.';
     const res = await api.post('/study-plans', {
       name: studyPlanName.value,
       description: studyPlanDesc.value,
@@ -62,11 +76,12 @@ const createStudyPlan = async () => {
 }
 
 const currentStudyPlanData = computed(() =>
-  studyPlans.value.find((p: any) => p.id === currentStudyPlan.value)
+  studyPlans.value.find((p: any) => Number(p.id) === Number(currentStudyPlan.value))
 )
 
 const selectStudyPlan = async () => {
   const plan = currentStudyPlanData.value
+  console.log(plan)
   if (!plan) return
   try {
     await studyPlanStore.selectPlan(plan.id, plan.name)
@@ -138,7 +153,15 @@ const testMiddleware = async () => {
 
       <VCard class="p-6">
         <h3 class="text-lg font-serif font-bold mb-4">Plano de Estudo</h3>
-        <p class="text-secondary text-sm">Você ainda não selecionou um plano ativo.</p>
+        <div class="space-y-4">
+          <VSelect v-model="currentStudyPlan" :options="studyPlans" optionLabel="name" optionValue="id" />
+          <div class="border-t border-outline-variant/10 pt-4 flex flex-col gap-3">
+            <h4 class="text-sm font-label font-bold uppercase tracking-widest text-secondary">Criar novo plano</h4>
+            <VInput v-model="studyPlanName" placeholder="Nome do plano de estudo..." />
+            <VInput v-model="studyPlanDesc" placeholder="Descrição do plano de estudo..." />
+            <VButton @click="createStudyPlan">Criar Plano de Estudo</VButton>
+          </div>
+        </div>
       </VCard>
     </div>
   </div>

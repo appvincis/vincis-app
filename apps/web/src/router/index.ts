@@ -39,6 +39,10 @@ const router = createRouter({
           path: 'study-plans',
           name: 'study-plans',
           component: () => import('../views/StudyPlansView.vue')
+        }, {
+          path: 'disciplinas',
+          name: 'disciplinas',
+          component: () => import('../views/DisciplinasView.vue')
         },
         {
           path: 'tasks',
@@ -69,7 +73,7 @@ const router = createRouter({
 
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
-  
+
   if (to.path.startsWith('/private') && !authStore.isAuthenticated) {
     next('/auth')
   } else if (to.path === '/auth' && authStore.isAuthenticated) {
