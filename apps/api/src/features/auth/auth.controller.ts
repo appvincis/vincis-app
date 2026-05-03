@@ -75,6 +75,7 @@ export async function login(req: Request<{}, {}, LoginInput>, res: Response) {
         }
 
         let dbUser = await userService.getBySupabaseId(user.id)
+
         if (!dbUser) {
             dbUser = await userService.createFromAuth({
                 supabaseId: user.id,
@@ -82,17 +83,15 @@ export async function login(req: Request<{}, {}, LoginInput>, res: Response) {
             })
         }
 
-        // Reutiliza as opções base definidas no topo do arquivo
-
-        // Define os cookies
+        // Define os cookies reutilizando as opções base
         res.cookie('access_token', session.access_token, {
             ...baseCookieOptions,
-            maxAge: session.expires_in * 1000, // maxAge é em milissegundos
+            maxAge: session.expires_in * 1000,
         })
 
         res.cookie('refresh_token', session.refresh_token, {
             ...baseCookieOptions,
-            maxAge: 30 * 24 * 60 * 60 * 1000, // 30 dias para expirar o refresh token
+            maxAge: 30 * 24 * 60 * 60 * 1000,
         })
 
         return res.status(200).json({

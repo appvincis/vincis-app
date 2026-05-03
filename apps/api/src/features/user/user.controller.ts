@@ -1,6 +1,7 @@
 import { Request, Response } from 'express'
 import { Prisma } from '@prisma/client'
 import { userService } from './user.service.js'
+import { CreateUserInput, UpdateUserInput } from './user.schema.js'
 
 const parseId = (raw: string) => Number(raw)
 
@@ -19,10 +20,7 @@ export async function getUserById(req: Request, res: Response) {
     return res.status(200).json(user)
 }
 export async function createUser(req: Request, res: Response) {
-    const { email, name } = req.body ?? {}
-    if (typeof email !== 'string' || email.length === 0) {
-        return res.status(400).json({ message: 'email obrigatorio' })
-    }
+    const { email, name } = req.body as CreateUserInput
 
     try {
         const user = await userService.create({ email, name })
@@ -39,10 +37,7 @@ export async function updateUser(req: Request, res: Response) {
     const id = parseId(req.params.id)
     if (Number.isNaN(id)) return res.status(400).json({ message: 'id invalido' })
 
-    const { email, name } = req.body ?? {}
-    if (email === undefined && name === undefined) {
-        return res.status(400).json({ message: 'envie email ou name' })
-    }
+    const { email, name } = req.body as UpdateUserInput
 
     try {
         const updated = await userService.update(id, { email, name })
@@ -64,4 +59,4 @@ export async function deleteUser(req: Request, res: Response) {
     if (!removed) return res.status(404).json({ message: 'user nao encontrado' })
 
     return res.status(204).send()
-}
+}

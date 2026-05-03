@@ -7,11 +7,14 @@ import { authRouter } from './features/auth/auth.routes.js'
 import { prisma } from './lib/prisma.js'
 import { studyPlanRouter } from './features/study-plan/study-plan.routes.js'
 
+import { disciplineRouter } from './features/discipline/discipline.routes.js'
+import { topicRouter } from './features/topic/topic.routes.js'
+
 const PORT = Number(process.env.PORT) || 4000
 const app = express()
 
 app.use(cors({
-    origin: ['http://localhost:5173', 'http://127.0.0.1:5173'], // Endereço padrão do Vite
+    origin: ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5174', 'http://127.0.0.1:5174'], // Endereços padrão do Vite
     credentials: true // Necessário para enviar/receber cookies
 }))
 app.use(cookieParser())
@@ -28,6 +31,8 @@ app.get('/status', (_req: Request, res: Response) => {
 app.use('/users', userRouter)
 app.use('/auth', authRouter)
 app.use("/study-plans", studyPlanRouter)
+app.use("/disciplines", disciplineRouter)
+app.use("/topics", topicRouter)
 
 // Verifica conexão com banco antes de escutar na porta
 prisma.$connect()
