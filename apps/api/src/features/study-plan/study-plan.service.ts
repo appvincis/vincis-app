@@ -1,5 +1,5 @@
 import { prisma } from "../../lib/prisma.js"
-import { CreateStudyPlanInput, UpdateStudyPlanInput } from "./study-plan.types.js"
+import { CreateStudyPlanInput, UpdateStudyPlanInput } from "./study-plan.schema.js"
 
 export const studyPlanService = {
     createStudyPlan: async (data: CreateStudyPlanInput, userId: number) => {

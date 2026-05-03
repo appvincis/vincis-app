@@ -2,6 +2,8 @@ import { Router } from "express";
 import { createStudyPlan, getStudyPlans, getStudyPlanById, setStudyPlanActive, deleteStudyPlan, updateStudyPlan, selectStudyPlan } from './study-plan.controller.js'
 import { requireAuth } from "../auth/auth.middleware.js";
 import { injectStudyPlan, requireStudyPlan, StudyPlanInjectedRequest } from "./study-plan.middleware.js";
+import { validateRequest } from "../../middlewares/validate.middleware.js";
+import { createStudyPlanSchema, updateStudyPlanSchema, selectStudyPlanSchema } from "./study-plan.schema.js";
 
 export const studyPlanRouter = Router()
 
@@ -17,9 +19,9 @@ studyPlanRouter.get('/test', requireAuth, injectStudyPlan, requireStudyPlan, (re
 
 studyPlanRouter.get('/', requireAuth, getStudyPlans)
 studyPlanRouter.get('/:id', requireAuth, getStudyPlanById)
-studyPlanRouter.post('/', requireAuth, createStudyPlan)
-studyPlanRouter.post('/select', requireAuth, selectStudyPlan)
+studyPlanRouter.post('/', requireAuth, validateRequest(createStudyPlanSchema), createStudyPlan)
+studyPlanRouter.post('/select', requireAuth, validateRequest(selectStudyPlanSchema), selectStudyPlan)
 studyPlanRouter.put('/:id/active', requireAuth, setStudyPlanActive)
 studyPlanRouter.delete('/:id', requireAuth, deleteStudyPlan)
-studyPlanRouter.patch('/:id', requireAuth, updateStudyPlan)
+studyPlanRouter.patch('/:id', requireAuth, validateRequest(updateStudyPlanSchema), updateStudyPlan)
 

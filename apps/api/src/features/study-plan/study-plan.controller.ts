@@ -1,7 +1,9 @@
 import { studyPlanService } from "./study-plan.service.js";
 import { Request, Response } from "express";
-import { CreateStudyPlanInput, UpdateStudyPlanInput } from "./study-plan.types.js";
+import { CreateStudyPlanInput, UpdateStudyPlanInput } from "./study-plan.schema.js";
 import { AuthenticatedRequest } from "../auth/auth.middleware.js";
+
+const parseId = (raw: string) => Number(raw);
 
 export async function createStudyPlan(req: AuthenticatedRequest, res: Response) {
     try {
@@ -37,9 +39,11 @@ export async function getStudyPlans(req: AuthenticatedRequest, res: Response) {
 
 export async function getStudyPlanById(req: AuthenticatedRequest, res: Response) {
     try {
-        const { id } = req.params;
+        const id = parseId(req.params.id);
+        if (Number.isNaN(id)) return res.status(400).json({ message: "ID inválido." });
+
         const userId = req.dbUser!.id
-        const studyPlan = await studyPlanService.getStudyPlanById(Number(id), userId)
+        const studyPlan = await studyPlanService.getStudyPlanById(id, userId)
         if (!studyPlan) {
             return res.status(404).json({ message: "Plano de estudo não encontrado." })
         }
@@ -51,10 +55,12 @@ export async function getStudyPlanById(req: AuthenticatedRequest, res: Response)
 
 export async function setStudyPlanActive(req: AuthenticatedRequest, res: Response) {
     try {
-        const { id: studyPlanId } = req.params
+        const studyPlanId = parseId(req.params.id);
+        if (Number.isNaN(studyPlanId)) return res.status(400).json({ message: "ID inválido." });
+
         const userId = req.dbUser!.id
 
-        const studyPlan = await studyPlanService.setStudyPlanActive(Number(studyPlanId), userId)
+        const studyPlan = await studyPlanService.setStudyPlanActive(studyPlanId, userId)
 
         return res.status(200).json({
             message: "Plano de estudo ativado com sucesso.",
@@ -70,10 +76,12 @@ export async function setStudyPlanActive(req: AuthenticatedRequest, res: Respons
 
 export async function deleteStudyPlan(req: AuthenticatedRequest, res: Response) {
     try {
-        const { id } = req.params
+        const id = parseId(req.params.id);
+        if (Number.isNaN(id)) return res.status(400).json({ message: "ID inválido." });
+
         const userId = req.dbUser!.id
 
-        await studyPlanService.deleteStudyPlan(Number(id), userId)
+        await studyPlanService.deleteStudyPlan(id, userId)
         return res.status(200).json({
             message: "Plano de estudo deletado com sucesso."
         })
@@ -86,11 +94,13 @@ export async function deleteStudyPlan(req: AuthenticatedRequest, res: Response) 
 
 export async function updateStudyPlan(req: AuthenticatedRequest, res: Response) {
     try {
-        const { id } = req.params
+        const id = parseId(req.params.id);
+        if (Number.isNaN(id)) return res.status(400).json({ message: "ID inválido." });
+
         const userId = req.dbUser!.id
         const { name, description } = req.body as UpdateStudyPlanInput
 
-        const studyPlan = await studyPlanService.updateStudyPlan(Number(id), userId, { name, description })
+        const studyPlan = await studyPlanService.updateStudyPlan(id, userId, { name, description })
         return res.status(200).json({
             message: "Plano de estudo atualizado com sucesso.",
             studyPlan
@@ -105,10 +115,6 @@ export async function updateStudyPlan(req: AuthenticatedRequest, res: Response) 
 export async function selectStudyPlan(req: AuthenticatedRequest, res: Response) {
     try {
         const { studyPlanId } = req.body
-
-        if (!studyPlanId) {
-            return res.status(400).json({ message: 'Plano de estudo não fornecido.' })
-        }
 
         const studyPlan = await studyPlanService.getStudyPlanById(Number(studyPlanId), req.dbUser!.id)
         if (!studyPlan) {
