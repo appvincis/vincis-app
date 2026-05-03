@@ -12,7 +12,7 @@ export const updateStudyPlanSchema = z.object({
 });
 
 export const selectStudyPlanSchema = z.object({
-  studyPlanId: z.number({ required_error: "ID do plano de estudo é obrigatório." })
+  studyPlanId: z.number({ message: "ID do plano de estudo é obrigatório." })
 });
 
 export type CreateStudyPlanInput = z.infer<typeof createStudyPlanSchema>;

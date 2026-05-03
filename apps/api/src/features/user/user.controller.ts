@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client'
 import { userService } from './user.service.js'
 import { CreateUserInput, UpdateUserInput } from './user.schema.js'
 
-const parseId = (raw: string) => Number(raw)
+const parseId = (raw: string | string[] | undefined) => Number(raw)
 
 export async function listUsers(_req: Request, res: Response) {
     const users = await userService.list()

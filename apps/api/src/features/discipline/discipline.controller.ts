@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 import { CreateDisciplineInput, UpdateDisciplineInput } from "./discipline.schema.js";
 import { StudyPlanInjectedRequest } from "../study-plan/study-plan.middleware.js";
 
-const parseId = (raw: string) => Number(raw);
+const parseId = (raw: string | string[] | undefined) => Number(raw);
 
 export async function createDiscipline(req: Request, res: Response) {
     try {

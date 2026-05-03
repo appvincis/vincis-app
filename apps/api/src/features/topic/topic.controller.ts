@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 import { CreateTopicInput, UpdateTopicInput } from "./topic.schema.js";
 import { StudyPlanInjectedRequest } from "../study-plan/study-plan.middleware.js";
 
-const parseId = (raw: string) => Number(raw);
+const parseId = (raw: string | string[] | undefined) => Number(raw);
 
 export async function createTopic(req: Request, res: Response) {
     try {

@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const createTopicSchema = z.object({
   name: z.string().min(1, "O nome do tópico é obrigatório."),
   description: z.string().optional(),
-  disciplineId: z.number({ required_error: "ID da disciplina é obrigatório." })
+  disciplineId: z.number({ message: "ID da disciplina é obrigatório." })
 });
 
 export const updateTopicSchema = z.object({

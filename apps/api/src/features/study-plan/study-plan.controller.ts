@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 import { CreateStudyPlanInput, UpdateStudyPlanInput } from "./study-plan.schema.js";
 import { AuthenticatedRequest } from "../auth/auth.middleware.js";
 
-const parseId = (raw: string) => Number(raw);
+const parseId = (raw: string | string[] | undefined) => Number(raw);
 
 export async function createStudyPlan(req: AuthenticatedRequest, res: Response) {
     try {
