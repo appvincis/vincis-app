@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { api } from '../lib/axios'
+import { useStudyPlanStore } from '../stores/study-plan'
 import { unref, computed, type Ref } from 'vue'
 
 type MaybeRef<T> = T | Ref<T>
@@ -20,12 +21,14 @@ export interface Topic {
 }
 
 export const useDisciplinesQuery = () => {
+    const studyPlanStore = useStudyPlanStore()
     return useQuery({
         queryKey: ['disciplines'],
         queryFn: async () => {
             const { data } = await api.get<Discipline[]>('/disciplines')
             return data
-        }
+        },
+        enabled: computed(() => studyPlanStore.hasActivePlan)
     })
 }
 

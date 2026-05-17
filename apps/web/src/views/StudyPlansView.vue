@@ -7,13 +7,11 @@ import { useStudyPlansQuery, useCreateStudyPlanMutation, useSelectStudyPlanMutat
 const studyPlanStore = useStudyPlanStore()
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
-const studyPlansQuery = useStudyPlansQuery()
-const studyPlans = computed(() => studyPlansQuery.data.value || [])
-const isLoading = computed(() => studyPlansQuery.isLoading.value)
-const error = computed(() => studyPlansQuery.error.value)
+const { data: studyPlansData, isLoading, error } = useStudyPlansQuery()
+const studyPlans = computed(() => studyPlansData.value || [])
 
-const createStudyPlanMutation = useCreateStudyPlanMutation()
-const selectStudyPlanMutation = useSelectStudyPlanMutation()
+const { mutateAsync: createStudyPlan, isPending: isCreating } = useCreateStudyPlanMutation()
+const { mutateAsync: selectStudyPlan } = useSelectStudyPlanMutation()
 
 // ─── State ────────────────────────────────────────────────────────────────────
 const currentStudyPlanId = ref<number | null>(studyPlanStore.activePlanId)
@@ -34,7 +32,7 @@ async function handleCreateStudyPlan() {
     if (!studyPlanDesc.value.trim()) return errorMsg.value = 'Descrição do plano de estudo é obrigatória.'
     
     errorMsg.value = ""
-    const newPlan = await createStudyPlanMutation.mutateAsync({
+    const newPlan = await createStudyPlan({
         name: studyPlanName.value.trim(),
         description: studyPlanDesc.value.trim(),
         is_active: true
@@ -48,7 +46,7 @@ async function handleCreateStudyPlan() {
 }
 
 async function handleSelectPlan(id: number, name: string) {
-    await selectStudyPlanMutation.mutateAsync({ id, name })
+    await selectStudyPlan({ id, name })
 }
 
 watch(currentStudyPlanId, (newId) => {
@@ -133,9 +131,9 @@ watch(currentStudyPlanId, (newId) => {
                 <VButton 
                     @click="handleCreateStudyPlan" 
                     class="w-full"
-                    :disabled="createStudyPlanMutation.isPending"
+                    :disabled="isCreating"
                 >
-                    {{ createStudyPlanMutation.isPending ? 'Criando...' : 'Criar Plano de Estudo' }}
+                    {{ isCreating ? 'Criando...' : 'Criar Plano de Estudo' }}
                 </VButton>
             </div>
         </VCard>
