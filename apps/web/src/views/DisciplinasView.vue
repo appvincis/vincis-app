@@ -36,9 +36,6 @@ const deleteDisciplineMutation = useDeleteDisciplineMutation()
 // ─── State ────────────────────────────────────────────────────────────────────
 // Create discipline form
 const showCreateForm = ref(false)
-const newName = ref('')
-const newColor = ref('#6366f1')
-const newWeight = ref<number>(1.0)
 
 // Selected discipline panel
 const selectedDisciplineId = ref<number | null>(null)
@@ -77,16 +74,13 @@ const errorMsg = computed(() => {
 })
 
 // ─── Discipline CRUD ──────────────────────────────────────────────────────────
-async function createDiscipline() {
-    if (!newName.value.trim()) return
+async function createDiscipline(data: { name: string, color: string, weight: number }) {
+    if (!data.name.trim()) return
     await createDisciplineMutation.mutateAsync({
-        name: newName.value.trim(),
-        color: newColor.value,
-        weight: newWeight.value
+        name: data.name.trim(),
+        color: data.color,
+        weight: data.weight
     })
-    newName.value = ''
-    newColor.value = '#6366f1'
-    newWeight.value = 1.0
     showCreateForm.value = false
 }
 
@@ -183,8 +177,8 @@ async function saveTopicEdit(topicId: number) {
     <div class="disciplinas-view">
         <DisciplinesHeader :error-msg="errorMsg" @create-discipline="showCreateForm = !showCreateForm" />
 
-        <CreateDisciplineForm :showCreateForm="showCreateForm" @create-discipline="createDiscipline"
-            @cancel-create="showCreateForm = false" />
+        <CreateDisciplineForm :showCreateForm="showCreateForm" :is-creating="createDisciplineMutation.isPending.value"
+            @create-discipline="createDiscipline" @cancel-create="showCreateForm = false" />
 
         <!-- Loading -->
         <VSpinner v-if="isLoading" class="h-64" />
