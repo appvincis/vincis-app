@@ -7,14 +7,11 @@ import { api } from '../lib/axios'
 
 const studyPlanStore = useStudyPlanStore()
 
-// ─── Queries ──────────────────────────────────────────────────────────────────
-const userQuery = useAuthMeQuery()
-const user = computed(() => userQuery.data.value)
-const isLoadingUser = computed(() => userQuery.isLoading.value)
+const { data: userData, isLoading: isLoadingUser } = useAuthMeQuery()
+const user = computed(() => userData.value)
 
-const studyPlansQuery = useStudyPlansQuery()
-const studyPlans = computed(() => studyPlansQuery.data.value || [])
-const isLoadingPlans = computed(() => studyPlansQuery.isLoading.value)
+const { data: studyPlansData, isLoading: isLoadingPlans } = useStudyPlansQuery()
+const studyPlans = computed(() => studyPlansData.value || [])
 
 const selectStudyPlanMutation = useSelectStudyPlanMutation()
 

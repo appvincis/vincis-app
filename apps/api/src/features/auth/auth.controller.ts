@@ -19,7 +19,6 @@ export async function signup(req: Request<{}, {}, SignupInput>, res: Response) {
             email,
             password,
         })
-
         if (error) {
             return res.status(error.status || 400).json({ message: error.message })
         }
@@ -47,6 +46,8 @@ export async function signup(req: Request<{}, {}, SignupInput>, res: Response) {
                 id: dbUser.id,
                 supabaseId: dbUser.supabaseId,
                 email: dbUser.email,
+                name: dbUser.name,
+                avatar: dbUser.avatar,
             },
         })
     } catch (err) {
@@ -57,7 +58,6 @@ export async function signup(req: Request<{}, {}, SignupInput>, res: Response) {
 
 export async function login(req: Request<{}, {}, LoginInput>, res: Response) {
     const { email, password } = req.body
-
     try {
         const { data, error } = await supabase.auth.signInWithPassword({
             email,
@@ -97,9 +97,11 @@ export async function login(req: Request<{}, {}, LoginInput>, res: Response) {
         return res.status(200).json({
             message: 'Login realizado com sucesso',
             user: {
-                id: user.id,
+                id: dbUser.id,
                 supabaseId: dbUser.supabaseId,
                 email: dbUser.email,
+                name: dbUser.name,
+                avatar: dbUser.avatar,
             },
         })
     } catch (err) {

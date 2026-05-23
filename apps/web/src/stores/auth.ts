@@ -34,6 +34,13 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  function updateProfile(newDetails: any) {
+    user.value = {
+      ...user.value,
+      ...(newDetails || {})
+    }
+  }
+
   async function logout() {
     try {
       // Chama a API para limpar os cookies HttpOnly no servidor
@@ -60,6 +67,7 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     isAuthenticated,
     login,
-    logout
+    logout,
+    updateProfile
   }
 })

@@ -23,15 +23,12 @@ import DisciplineDetails from '../components/features/disciplines/DisciplineDeta
 const studyPlanStore = useStudyPlanStore()
 const queryClient = useQueryClient()
 
-// ─── Queries ──────────────────────────────────────────────────────────────────
-const disciplinesQuery = useDisciplinesQuery()
-const disciplines = computed(() => disciplinesQuery.data.value || [])
-const isLoading = computed(() => disciplinesQuery.isLoading.value)
-const disciplinesError = computed(() => disciplinesQuery.error.value)
+const { data: disciplinesData, isLoading, error: disciplinesError } = useDisciplinesQuery()
+const disciplines = computed(() => disciplinesData.value || [])
 
-const createDisciplineMutation = useCreateDisciplineMutation()
-const updateDisciplineMutation = useUpdateDisciplineMutation()
-const deleteDisciplineMutation = useDeleteDisciplineMutation()
+const { mutateAsync: createDiscipline, isPending: isCreatingDiscipline } = useCreateDisciplineMutation()
+const { mutateAsync: updateDiscipline } = useUpdateDisciplineMutation()
+const { mutateAsync: deleteDisciplineMutationCall } = useDeleteDisciplineMutation()
 
 // ─── State ────────────────────────────────────────────────────────────────────
 // Create discipline form
@@ -85,7 +82,7 @@ async function createDiscipline(data: { name: string, color: string, weight: num
 }
 
 async function deleteDiscipline(id: number) {
-    await deleteDisciplineMutation.mutateAsync(id)
+    await deleteDisciplineMutationCall(id)
     if (selectedDisciplineId.value === id) closePanel()
 }
 

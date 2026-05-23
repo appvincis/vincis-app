@@ -26,6 +26,7 @@ export const userService = {
                 supabaseId: data.supabaseId,
                 email: data.email,
                 name: data.name,
+                avatar: data.avatar,
             },
         })
     },

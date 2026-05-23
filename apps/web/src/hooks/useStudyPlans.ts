@@ -56,3 +56,16 @@ export const useAuthMeQuery = () => {
         }
     })
 }
+
+export const useUpdateProfileMutation = () => {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async ({ id, name, email, avatar }: { id: number; name?: string; email?: string; avatar?: string }) => {
+            const { data } = await api.put<any>(`/users/${id}`, { name, email, avatar })
+            return data
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['auth-me'] })
+        }
+    })
+}

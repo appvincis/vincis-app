@@ -38,6 +38,7 @@ export const requireAuth = async (req: AuthenticatedRequest, res: Response, next
 
         return next()
     } catch (err) {
+        console.error('Erro no middleware requireAuth:', err)
         return res.status(500).json({ message: 'Erro interno ao verificar a autenticação.' })
     }
 }

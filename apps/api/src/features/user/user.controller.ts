@@ -38,10 +38,10 @@ export async function updateUser(req: Request, res: Response) {
     const id = parseId(req.params.id)
     if (Number.isNaN(id)) return res.status(400).json({ message: 'id invalido' })
 
-    const { email, name } = req.body as UpdateUserInput
+    const { email, name, avatar } = req.body as UpdateUserInput
 
     try {
-        const updated = await userService.update(id, { email, name })
+        const updated = await userService.update(id, { email, name, avatar })
         if (!updated) return res.status(404).json({ message: 'user nao encontrado' })
         return res.status(200).json(updated)
     } catch (error) {

@@ -16,6 +16,12 @@ authRouter.post('/refresh', refresh) // Sem requireAuth — o access_token já e
 authRouter.get('/me', requireAuth, (req: AuthenticatedRequest, res) => {
     return res.status(200).json({ 
         message: 'Acesso permitido', 
-        user: req.user 
+        user: {
+            ...req.user,
+            id: req.dbUser?.id,
+            name: req.dbUser?.name,
+            avatar: req.dbUser?.avatar,
+            email: req.dbUser?.email || req.user?.email,
+        }
     })
 })
