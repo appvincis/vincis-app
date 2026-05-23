@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import { api } from '../lib/axios'
 import { useStudyPlanStore } from './study-plan'
 
@@ -13,8 +12,6 @@ const DEFAULT_USER = {
 const STORAGE_KEY = 'vincis_auth_state'
 
 export const useAuthStore = defineStore('auth', () => {
-  const router = useRouter()
-  
   // Load initial state from localStorage
   const savedState = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')
   
@@ -62,6 +59,7 @@ export const useAuthStore = defineStore('auth', () => {
     const studyPlanStore = useStudyPlanStore()
     studyPlanStore.clearPlan()
 
+    const router = (await import('../router')).default
     router.push('/auth')
   }
 

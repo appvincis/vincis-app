@@ -60,6 +60,7 @@ const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: 'dashboard', path: '/private' },
   { id: 'study-plans', label: 'Planos de Estudo', icon: 'auto_stories', path: '/private/study-plans' },
   { id: 'disciplinas', label: 'Disciplinas', icon: 'subject', path: '/private/disciplinas' },
+  { id: 'error-logs', label: 'Caderno de Erros', icon: 'edit_note', path: '/private/error-logs' },
   { id: 'tasks', label: 'Tarefas', icon: 'task_alt', path: '/private/tasks' },
   { id: 'performance', label: 'Desempenho', icon: 'analytics', path: '/private/performance' },
 ]

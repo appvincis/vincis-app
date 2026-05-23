@@ -71,11 +71,12 @@ const errorMsg = computed(() => {
 })
 
 // ─── Discipline CRUD ──────────────────────────────────────────────────────────
-async function handleCreateDiscipline(payload: { name: string, color: string, weight: number }) {
-    await createDiscipline({
-        name: payload.name,
-        color: payload.color,
-        weight: payload.weight
+async function createDiscipline(data: { name: string, color: string, weight: number }) {
+    if (!data.name.trim()) return
+    await createDisciplineMutation.mutateAsync({
+        name: data.name.trim(),
+        color: data.color,
+        weight: data.weight
     })
     showCreateForm.value = false
 }
@@ -173,8 +174,8 @@ async function saveTopicEdit(topicId: number) {
     <div class="disciplinas-view">
         <DisciplinesHeader :error-msg="errorMsg" @create-discipline="showCreateForm = !showCreateForm" />
 
-        <CreateDisciplineForm :showCreateForm="showCreateForm" :isCreating="isCreatingDiscipline" @create-discipline="handleCreateDiscipline"
-            @cancel-create="showCreateForm = false" />
+        <CreateDisciplineForm :showCreateForm="showCreateForm" :is-creating="createDisciplineMutation.isPending.value"
+            @create-discipline="createDiscipline" @cancel-create="showCreateForm = false" />
 
         <!-- Loading -->
         <VSpinner v-if="isLoading" class="h-64" />
