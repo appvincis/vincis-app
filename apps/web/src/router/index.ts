@@ -54,6 +54,11 @@ const router = createRouter({
           path: 'profile',
           name: 'profile',
           component: () => import('../views/ProfileView.vue')
+        },
+        {
+          path: 'error-logs',
+          name: 'error-logs',
+          component: () => import('../views/ErrorLogsView.vue')
         }
       ]
     },
@@ -67,15 +72,13 @@ const router = createRouter({
   ],
 })
 
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, from) => {
   const authStore = useAuthStore()
 
   if (to.path.startsWith('/private') && !authStore.isAuthenticated) {
-    next('/auth')
+    return '/auth'
   } else if (to.path === '/auth' && authStore.isAuthenticated) {
-    next('/private')
-  } else {
-    next()
+    return '/private'
   }
 })
 
