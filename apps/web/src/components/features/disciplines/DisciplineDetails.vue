@@ -38,7 +38,7 @@ function handleDisciplineUpdate(updated: any) {
                         </div>
                     </div>
                     <button class="detail__close" @click="closePanel" title="Fechar">
-                        <span class="material-symbols-outlined">close</span>
+                        <i class="pi pi-times "></i>
                     </button>
                 </div>
 

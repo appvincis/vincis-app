@@ -1,124 +1,164 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { VCard, VButton, VInput } from '../../ui'
+import { ref, watch } from 'vue'
 import { PRESET_COLORS } from '../../../helpers/disciplineColors'
 
-const newName = ref('')
-const newColor = ref('#6366f1')
-const newWeight = ref<number>(1.0)
-const props = defineProps({
-    showCreateForm: { type: Boolean, default: false },
-    isCreating: { type: Boolean, default: false }
-})
+const props = defineProps<{
+    showCreateForm: boolean
+    isCreating: boolean
+}>()
+
 const emit = defineEmits(['create-discipline', 'cancel-create'])
 
-function handleCreateDiscipline() {
+const newName = ref('')
+const newDescription = ref('')
+const newColor = ref(PRESET_COLORS[0])
+const newWeight = ref(3)
+
+watch(() => props.showCreateForm, (val) => {
+    if (!val) {
+        newName.value = ''
+        newDescription.value = ''
+        newColor.value = PRESET_COLORS[0]
+        newWeight.value = 4
+    }
+})
+
+function handleCreate() {
     emit('create-discipline', {
         name: newName.value.trim(),
+        description: newDescription.value.trim() || undefined,
         color: newColor.value,
-        weight: newWeight.value
+        weight: newWeight.value,
     })
+}
 
-    newName.value = ''
-    newColor.value = '#6366f1'
-    newWeight.value = 1.0
+function handleCancel() {
+    emit('cancel-create')
 }
 
 </script>
 
 <template>
-    <!-- Create Form -->
-    <Transition name="slide-down">
-        <VCard v-if="showCreateForm" class="p-6 mb-6 border border-outline-variant/20">
-            <h3 class="text-base font-serif font-bold text-on-surface mb-4">Nova Disciplina</h3>
-            <div class="flex flex-col gap-4">
-                <VInput v-model="newName" label="Nome" placeholder="Ex: Direito Constitucional..." icon="subject" />
+    <Teleport to="body">
+        <Transition name="modal">
+            <div
+                v-if="showCreateForm"
+                class="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+                @mousedown.self="handleCancel"
+            >
+                <!-- Backdrop -->
+                <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @mousedown="handleCancel" />
 
-                <!-- Color Picker -->
-                <div>
-                    <p class="text-xs mb-3 font-bold uppercase tracking-widest text-secondary">Cor</p>
-                    <div class="flex gap-2 flex-wrap">
-                        <button v-for="color in PRESET_COLORS" :key="color" class="color-swatch"
-                            :class="{ 'color-swatch--active': newColor === color }" :style="{ background: color }"
-                            @click="newColor = color" />
+                <!-- Modal -->
+                <div class="relative bg-surface-container-lowest rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+                    <!-- Header -->
+                    <div class="flex items-center justify-between px-6 pt-6 pb-4">
+                        <h2 class="text-xl font-headline font-bold text-on-surface">Nova Disciplina</h2>
+                        <button
+                            @click="handleCancel"
+                            class="w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-muted hover:bg-surface-container transition-colors cursor-pointer"
+                        >
+                            <i class="pi pi-times text-sm"></i>
+                        </button>
                     </div>
-                </div>
 
-                <!-- Weight Slider -->
-                <div>
-                    <div class="flex justify-between items-center mb-2">
-                        <p class="text-xs font-bold uppercase tracking-widest text-secondary">Peso / Importância</p>
-                        <span class="weight-badge" :style="{ background: newColor }">{{ newWeight.toFixed(1)
-                            }}</span>
-                    </div>
-                    <input type="range" v-model.number="newWeight" min="0.5" max="5" step="0.5" class="weight-slider" />
-                    <div class="flex justify-between text-xs text-secondary mt-1">
-                        <span>Baixo</span><span>Alto</span>
-                    </div>
-                </div>
+                    <!-- Body -->
+                    <div class="px-6 pb-6 space-y-5">
+                        <!-- Name -->
+                        <div>
+                            <label class="block text-[10px] font-label font-bold uppercase tracking-[0.15em] text-on-surface-muted mb-2">
+                                Nome da Disciplina
+                            </label>
+                            <input
+                                v-model="newName"
+                                type="text"
+                                placeholder="Ex: Projeto Arquitetônico V"
+                                class="w-full px-4 py-3 rounded-xl border border-outline-variant/40 bg-surface-container-low text-on-surface text-sm font-sans placeholder:text-on-surface-muted/50 focus:outline-none focus:border-primary/50 transition-colors"
+                                @keyup.enter="handleCreate"
+                                autofocus
+                            />
+                        </div>
 
-                <div class="flex gap-3 justify-end pt-2">
-                    <VButton variant="secondary" @click="emit('cancel-create')">Cancelar</VButton>
-                    <VButton variant="primary" :disabled="isCreating || !newName.trim()"
-                        @click="handleCreateDiscipline">
-                        {{ isCreating ? 'Criando...' : 'Criar Disciplina' }}
-                    </VButton>
+                        <!-- Description -->
+                        <div>
+                            <label class="block text-[10px] font-label font-bold uppercase tracking-[0.15em] text-on-surface-muted mb-2">
+                                Descrição
+                            </label>
+                            <textarea
+                                v-model="newDescription"
+                                placeholder="Breve resumo dos objetivos da disciplina..."
+                                rows="3"
+                                class="w-full px-4 py-3 rounded-xl border border-outline-variant/40 bg-surface-container-low text-on-surface text-sm font-sans placeholder:text-on-surface-muted/50 focus:outline-none focus:border-primary/50 transition-colors resize-none"
+                            />
+                        </div>
+
+                        <!-- Weight slider -->
+                        <div>
+                            <div class="flex items-center justify-between mb-3">
+                                <label class="text-[10px] font-label font-bold uppercase tracking-[0.15em] text-on-surface-muted">
+                                    Importância na Grade (Peso)
+                                </label>
+                                <span class="text-xs font-label font-bold text-primary">Peso {{ newWeight }}</span>
+                            </div>
+                            <input
+                                type="range"
+                                v-model.number="newWeight"
+                                min="1"
+                                max="5"
+                                step="1"
+                                class="w-full accent-primary cursor-pointer"
+                            />
+                            <div class="flex justify-between text-[10px] font-label text-on-surface-muted mt-1.5">
+                                <span>1</span>
+                                <span>2</span>
+                                <span>3</span>
+                                <span>4</span>
+                                <span>5</span>
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="flex gap-3 pt-1">
+                            <button
+                                @click="handleCancel"
+                                class="flex-1 py-3 rounded-xl border border-outline-variant/40 text-sm font-label font-bold text-on-surface-muted hover:bg-surface-container transition-colors cursor-pointer"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                @click="handleCreate"
+                                :disabled="isCreating || !newName.trim()"
+                                class="flex-1 py-3 rounded-xl bg-primary text-on-primary text-sm font-label font-bold hover:bg-primary-hover transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                                {{ isCreating ? 'Criando...' : 'Criar Disciplina' }}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </VCard>
-    </Transition>
-
+        </Transition>
+    </Teleport>
 </template>
 
 <style scoped>
-/* Color Swatches */
-.color-swatch {
-    width: 1.75rem;
-    height: 1.75rem;
-    border-radius: 50%;
-    border: 2px solid transparent;
-    cursor: pointer;
-    transition: transform 0.15s, border-color 0.15s;
+.modal-enter-active,
+.modal-leave-active {
+    transition: opacity 0.2s ease;
 }
 
-.color-swatch:hover {
-    transform: scale(1.15);
+.modal-enter-active .relative,
+.modal-leave-active .relative {
+    transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
-.color-swatch--active {
-    border-color: var(--on-surface);
-    transform: scale(1.15);
-}
-
-/* Weight editor */
-.weight-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.7rem;
-    font-weight: 700;
-    color: #fff;
-    border-radius: 999px;
-    padding: 0.1rem 0.5rem;
-    min-width: 2rem;
-    line-height: 1.4;
-}
-
-.weight-slider {
-    width: 100%;
-    accent-color: var(--primary);
-    cursor: pointer;
-}
-
-/* Slide-down transition */
-.slide-down-enter-active,
-.slide-down-leave-active {
-    transition: all 0.25s ease;
-}
-
-.slide-down-enter-from,
-.slide-down-leave-to {
+.modal-enter-from,
+.modal-leave-to {
     opacity: 0;
-    transform: translateY(-12px);
+}
+
+.modal-enter-from .relative,
+.modal-leave-to .relative {
+    transform: translateY(12px);
+    opacity: 0;
 }
 </style>

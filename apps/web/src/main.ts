@@ -31,7 +31,16 @@ app.use(VueQueryPlugin, { queryClient })
 app.use(PrimeVue, {
   theme: {
     preset: VincisTheme,
-    options: { darkModeSelector: ".dark" },
+    options: {
+      darkModeSelector: ".dark",
+      // Coloca PrimeVue numa camada explícita ANTES de utilities,
+      // garantindo que utilitários Tailwind sempre vençam quando o
+      // usuário aplicar classes em cima de componentes PrimeVue.
+      cssLayer: {
+        name: 'primevue',
+        order: 'theme, base, primevue, components, utilities'
+      }
+    },
   },
 });
 

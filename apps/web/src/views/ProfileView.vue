@@ -227,7 +227,7 @@ const saveProfile = async () => {
                 class="profile-avatar shadow-lg transition duration-200 group-hover:brightness-50"
               />
               <div class="absolute inset-0 flex flex-col items-center justify-center rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition duration-200 text-white">
-                <span class="material-symbols-outlined text-2xl">photo_camera</span>
+                <i class="pi pi-camera text-2xl"></i>
                 <span class="text-[10px] font-bold mt-1 uppercase tracking-wider">Alterar</span>
               </div>
             </div>

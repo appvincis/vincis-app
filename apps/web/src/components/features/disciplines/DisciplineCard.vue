@@ -1,114 +1,68 @@
 <script lang="ts" setup>
-defineProps<{
+import { computed } from 'vue'
+
+const props = defineProps<{
     discipline: any;
     isActive?: boolean;
-}>();
+}>()
 
 defineEmits<{
     (e: 'click'): void;
     (e: 'delete'): void;
-}>();
+}>()
+
+const topicsTotal = computed(() => props.discipline.topics?.length ?? 0)
+const topicsCompleted = computed(() => props.discipline.topics?.filter((t: any) => t.isCompleted).length ?? 0)
+const progress = computed(() =>
+    topicsTotal.value ? Math.round((topicsCompleted.value / topicsTotal.value) * 100) : 0
+)
 </script>
 
 <template>
-    <button class="discipline-card" @click="$emit('click')" :class="{ 'discipline-card--active': isActive }">
-        <div class="discipline-card__color-bar" :style="{ background: discipline.color }" />
-        <div class="discipline-card__body">
-            <div class="flex items-start justify-between gap-2">
-                <h3 class="discipline-card__name">{{ discipline.name }}</h3>
-                <button class="discipline-card__delete" @click.stop="$emit('delete')" title="Remover disciplina">
-                    <span class="material-symbols-outlined">delete</span>
-                </button>
-            </div>
-            <div class="flex items-center justify-between mt-2">
-                <p class="discipline-card__hint">Clique para ver os tópicos</p>
-                <span class="weight-badge" :style="{ background: discipline.color }">
-                    {{ (discipline.weight ?? 1).toFixed(1) }}
+    <button
+        class="group relative bg-surface-container-lowest p-6 rounded-xl border transition-all duration-300 flex flex-col justify-between aspect-square text-left cursor-pointer w-full"
+        :class="isActive
+            ? 'border-primary-container shadow-md'
+            : 'border-on-surface/10 hover:border-primary-container hover:shadow-sm'"
+        @click="$emit('click')"
+    >
+        <!-- Delete button -->
+        <button
+            class="absolute top-3 right-3 w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-muted opacity-0 group-hover:opacity-100 hover:bg-error/10 hover:text-error transition-all duration-150 cursor-pointer"
+            @click.stop="$emit('delete')"
+            title="Remover disciplina"
+        >
+            <i class="pi pi-trash text-[11px]"></i>
+        </button>
+
+        <!-- Top section: tag + name + topics count -->
+        <div>
+            <div class="flex items-center gap-2 mb-3">
+                <span class="text-[10px] font-label font-bold tracking-[0.15em] uppercase text-primary">
+                    Peso {{ (discipline.weight ?? 1).toFixed(1) }}
                 </span>
+            </div>
+            <h3 class="text-xl font-headline font-bold text-on-surface group-hover:text-primary transition-colors leading-tight pr-8">
+                {{ discipline.name }}
+            </h3>
+            <p class="text-xs text-on-surface-muted font-sans mt-2">
+                <span v-if="topicsTotal === 0">Nenhum tópico ainda</span>
+                <span v-else>{{ topicsTotal }} tópico{{ topicsTotal !== 1 ? 's' : '' }} · {{ topicsCompleted }} concluído{{ topicsCompleted !== 1 ? 's' : '' }}</span>
+            </p>
+        </div>
+
+        <!-- Bottom: progress bar -->
+        <div class="mt-6">
+            <div class="flex justify-between items-end mb-2">
+                <span class="text-[10px] font-label font-bold text-on-surface-muted uppercase tracking-wider">Progresso</span>
+                <span class="text-sm font-label font-bold text-on-surface">{{ progress }}%</span>
+            </div>
+            <div class="h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
+                <div
+                    class="h-full rounded-full transition-all duration-500"
+                    :style="{ width: `${progress}%`, background: discipline.color }"
+                />
             </div>
         </div>
     </button>
 </template>
-
-<style scoped>
-.discipline-card {
-    display: flex;
-    flex-direction: column;
-    background: var(--surface-container-lowest);
-    border: 1px solid rgba(208, 197, 175, 0.1);
-    border-radius: 0.75rem;
-    overflow: hidden;
-    cursor: pointer;
-    text-align: left;
-    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.2s;
-}
-
-.discipline-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-}
-
-.discipline-card--active {
-    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
-    transform: translateY(-2px);
-}
-
-.discipline-card__color-bar {
-    height: 5px;
-    width: 100%;
-    flex-shrink: 0;
-}
-
-.discipline-card__body {
-    padding: 1.25rem;
-    flex: 1;
-}
-
-.discipline-card__name {
-    font-family: var(--ds-font-serif);
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--on-surface);
-    line-height: 1.3;
-    flex: 1;
-}
-
-.discipline-card__hint {
-    font-size: 0.75rem;
-    color: var(--secondary);
-    margin-top: 0.5rem;
-}
-
-.discipline-card__delete {
-    color: var(--secondary);
-    opacity: 0;
-    transition: opacity 0.15s;
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-    line-height: 1;
-}
-
-.discipline-card:hover .discipline-card__delete {
-    opacity: 1;
-}
-
-.discipline-card__delete:hover {
-    color: var(--error, #ef4444);
-}
-
-.weight-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.68rem;
-    font-weight: 700;
-    color: #fff;
-    border-radius: 999px;
-    padding: 0.1rem 0.45rem;
-    min-width: 1.8rem;
-    line-height: 1.4;
-    flex-shrink: 0;
-}
-</style>
