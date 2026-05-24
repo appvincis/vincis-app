@@ -8,10 +8,10 @@ const parseId = (raw: string | string[] | undefined) => Number(raw);
 export async function createDiscipline(req: Request, res: Response) {
     try {
         const injectedReq = req as StudyPlanInjectedRequest;
-        const { name, color, weight } = req.body as CreateDisciplineInput;
+        const { name, description, color, weight } = req.body as CreateDisciplineInput;
         const studyPlanId = injectedReq.studyPlan!.id;
 
-        const discipline = await disciplineService.createDiscipline({ name, color, weight }, studyPlanId);
+        const discipline = await disciplineService.createDiscipline({ name, description, color, weight }, studyPlanId);
 
         return res.status(201).json({
             message: "Disciplina criada com sucesso.",

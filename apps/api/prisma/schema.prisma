@@ -34,6 +34,7 @@ model StudyPlan {
 model Discipline {
   id          Int       @id @default(autoincrement())
   name        String
+  description String?
   color       String
   weight      Float     @default(1.0)
   studyPlanId Int

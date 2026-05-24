@@ -2021,6 +2021,13 @@ const VincisTheme = definePreset(Aura, {
   }, // end components
 
   // ── Estilos Globais da Aplicação ────────────────────────────────
+  // IMPORTANTE: NÃO reimplementar utilitárias do Tailwind aqui.
+  // O Tailwind v4 já entrega .grid, .grid-cols-*, .gap-*, .mb-*, etc.
+  // dentro de @layer utilities. Tudo que sair daqui é unlayered e
+  // sobrescreve silenciosamente o Tailwind (inclusive media queries),
+  // o que quebra todo layout responsivo (ex.: md:grid-cols-12).
+  // Mantenha aqui só: CSS custom properties consumidas pelo PrimeVue
+  // que precisam estar disponíveis fora do contexto Tailwind.
   css: `
     :root {
       --primary: ${color.primary};
@@ -2038,96 +2045,6 @@ const VincisTheme = definePreset(Aura, {
       --outline: ${color.outline};
       --success: ${color.success};
       --surface-border: rgba(208, 197, 175, 0.2);
-    }
-
-    .font-serif { font-family: 'Newsreader', serif; }
-    .font-body, .font-label { font-family: 'Manrope', sans-serif; }
-
-    .text-primary { color: var(--primary); }
-    .text-secondary { color: var(--secondary); }
-    .bg-primary { background: var(--primary); }
-    .bg-primary-container { background: var(--primary-container); }
-    .bg-surface-container-lowest { background: var(--surface-container-lowest); }
-    .bg-surface-container-low { background: var(--surface-container-low); }
-    .bg-surface-container { background: var(--surface-container); }
-    .bg-surface-container-high { background: var(--surface-container-high); }
-    .bg-surface-container-highest { background: var(--surface-container-highest); }
-
-    .grid { display: grid; }
-    .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
-    .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .sm\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .sm\\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-    .sm\\:grid-cols-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-    .lg\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .md\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .lg\\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-
-    .gap-3 { gap: 0.75rem; }
-    .gap-4 { gap: 1rem; }
-    .gap-6 { gap: 1.5rem; }
-    .gap-8 { gap: 2rem; }
-
-    .mb-1 { margin-bottom: 0.25rem; }
-    .mb-3 { margin-bottom: 0.75rem; }
-    .mb-4 { margin-bottom: 1rem; }
-    .mb-8 { margin-bottom: 2rem; }
-    .mb-10 { margin-bottom: 2.5rem; }
-    .mt-3 { margin-top: 0.75rem; }
-    .mt-4 { margin-top: 1rem; }
-    .mt-6 { margin-top: 1.5rem; }
-
-    .p-3 { padding: 0.75rem; }
-    .p-6 { padding: 1.5rem; }
-    .px-4 { padding-left: 1rem; padding-right: 1rem; }
-    .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
-
-    .text-xs { font-size: 0.75rem; }
-    .text-sm { font-size: 0.875rem; }
-    .text-base { font-size: 1rem; }
-    .text-3xl { font-size: 1.875rem; }
-    .text-4xl { font-size: 2.25rem; }
-    .text-5xl { font-size: 3rem; }
-    .text-xl { font-size: 1.25rem; }
-
-    .font-bold { font-weight: 700; }
-    .font-extrabold { font-weight: 800; }
-    .italic { font-style: italic; }
-
-    .leading-tight { line-height: 1.25; }
-    .leading-relaxed { line-height: 1.625; }
-
-    .max-w-xl { max-width: 36rem; }
-    .w-fit { width: fit-content; }
-
-    .rounded-lg { border-radius: 0.5rem; }
-    .rounded-xl { border-radius: 0.75rem; }
-
-    .border { border-width: 1px; }
-    .border-t { border-top-width: 1px; }
-
-    .shadow-sm { box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); }
-
-    .flex { display: flex; }
-    .flex-wrap { flex-wrap: wrap; }
-    .items-center { align-items: center; }
-    .justify-between { justify-content: space-between; }
-    .gap-2 { gap: 0.5rem; }
-
-    @media (min-width: 640px) {
-      .sm\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .sm\\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-      .sm\\:grid-cols-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-    }
-
-    @media (min-width: 768px) {
-      .md\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    }
-
-    @media (min-width: 1024px) {
-      .lg\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .lg\\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
   `
 }) // end definePreset

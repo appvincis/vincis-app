@@ -8,8 +8,10 @@ type MaybeRef<T> = T | Ref<T>
 export interface Discipline {
     id: number
     name: string
+    description?: string
     color: string
     weight: number
+    topics?: { isCompleted: boolean }[]
 }
 
 export interface Topic {
@@ -35,7 +37,7 @@ export const useDisciplinesQuery = () => {
 export const useCreateDisciplineMutation = () => {
     const queryClient = useQueryClient()
     return useMutation({
-        mutationFn: async (newDiscipline: Partial<Discipline>) => {
+        mutationFn: async (newDiscipline: Omit<Partial<Discipline>, 'topics'>) => {
             const { data } = await api.post<{ discipline: Discipline }>('/disciplines', newDiscipline)
             return data.discipline
         },

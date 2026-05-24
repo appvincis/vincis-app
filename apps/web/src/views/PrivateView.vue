@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { VCard, VButton, VBadge, VSelect } from '../components/ui'
+import { VCard, VButton, VBadge, VSelect, VCardStat, VDiagnosticCard, VActivityItem, VSpinner } from '../components/ui'
 import { useStudyPlanStore } from '../stores/study-plan'
 import { useAuthMeQuery, useStudyPlansQuery, useSelectStudyPlanMutation } from '../hooks/useStudyPlans'
 import { api } from '../lib/axios'
@@ -60,93 +60,109 @@ const testMiddleware = async () => {
     isTesting.value = false
   }
 }
+
+// ─── Computed ──────────────────────────────────────────────────────────────────
+const firstName = computed(() => {
+  const name = user.value?.name || 'Estudante'
+  return name.split(' ')[0]
+})
 </script>
 
 <template>
-  <div class="dashboard-view">
-    <header class="view-header">
-      <h1 class="text-4xl font-serif font-bold text-on-surface">Bem-vindo, {{ user?.name || 'Estudante' }}</h1>
-      <p class="text-secondary mt-2">Aqui está um resumo do seu progresso acadêmico.</p>
-    </header>
+  <div class="p-8 max-w-7xl mx-auto space-y-12 animate-fade-in pb-12">
+    <!-- Welcome Section -->
+    <section class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+      <div class="space-y-1">
+        <p class="font-label text-xs uppercase tracking-[0.2em] text-primary font-bold">Resumo Acadêmico</p>
+        <h2 class="text-4xl md:text-5xl font-headline font-bold text-on-surface tracking-tight">Bom dia, {{ firstName }}.</h2>
+      </div>
+      <div class="flex gap-3">
+        <button class="bg-surface-container-low rounded-lg text-sm font-label font-bold soft-brutalist-border hover:bg-surface-container-highest transition-colors active:scale-95" style="padding: 10px 24px; min-height: 44px; display: flex; align-items: center; justify-content: center;">
+          Exportar Relatório
+        </button>
+        <button class="bg-on-surface text-surface rounded-lg text-sm font-label font-bold active:scale-95 transition-all shadow-sm" style="padding: 10px 24px; min-height: 44px; display: flex; align-items: center; justify-content: center;">
+          Nova Sessão
+        </button>
+      </div>
+    </section>
 
+    <!-- Loading Spinner -->
     <div v-if="isLoading" class="flex justify-center items-center h-64">
-      <div class="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      <VSpinner />
     </div>
 
-    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8 animate-fade-in">
-      
-      <!-- Profile Card -->
-      <VCard class="p-6">
-        <h3 class="text-lg font-serif font-bold mb-4">Seu Perfil</h3>
-        <div class="space-y-3">
-          <div class="flex justify-between">
-            <span class="text-secondary text-sm">Email</span>
-            <span class="text-on-surface text-sm">{{ user?.email }}</span>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-secondary text-sm">Status</span>
-            <VBadge variant="success">Ativo</VBadge>
-          </div>
-          <div class="mt-4 pt-4 border-t border-outline-variant/10">
-            <p class="text-xs font-bold uppercase tracking-widest text-secondary mb-1">Plano Ativo</p>
-            <p class="text-sm text-on-surface font-bold">{{ studyPlanStore.activePlanName ?? 'Nenhum' }}</p>
-          </div>
-          <div class="flex flex-col gap-3 mt-4 border-t border-outline-variant/10 pt-4">
-            <VButton @click="testMiddleware" :disabled="isTesting" variant="secondary" class="text-xs">
-              {{ isTesting ? 'Testando...' : 'Testar Middleware /test' }}
-            </VButton>
-            <pre v-if="testResult" class="text-[10px] bg-surface-container p-3 rounded-lg overflow-auto max-h-32">{{ JSON.stringify(testResult, null, 2) }}</pre>
-          </div>
-        </div>
-      </VCard>
+    <!-- Dashboard Content (Loaded State) -->
+    <div v-else class="space-y-12">
+      <!-- Bento Grid Layout -->
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+        <!-- IA Diagnostic Card (Main) -->
+        <VDiagnosticCard 
+          class="md:col-span-8"
+          highlightDiscipline="Sistemas Operacionais"
+          retentionRate="92%"
+          fatigueDiscipline="Cálculo Diferencial"
+          recommendationText="Recomendamos priorizar a revisão de 'Gerenciamento de Memória' hoje às 15:00 para consolidar a memória de longo prazo antes da prova de amanhã."
+          actionLink="/private/disciplinas"
+        />
 
-      <!-- Next Tasks Card (Placeholder) -->
-      <VCard class="p-6">
-        <h3 class="text-lg font-serif font-bold mb-4">Próximas Tarefas</h3>
-        <div class="flex flex-col items-center justify-center py-8 text-center">
-            <span class="material-symbols-outlined text-outline-variant text-4xl mb-2">event_busy</span>
-            <p class="text-secondary text-sm italic">Nenhuma tarefa para hoje.</p>
+        <!-- Quick Stats -->
+        <div class="md:col-span-4 space-y-6">
+          <VCardStat 
+            title="Taxa de Sucesso" 
+            value="88%" 
+            icon="pi-bolt"
+            iconBgClass="bg-primary/10"
+            iconColorClass="text-primary"
+            badgeText="+4%"
+            badgeColorClass="text-green-600"
+            badgeBgClass="bg-green-50"
+          />
+          <VCardStat 
+            title="Foco Médio" 
+            value="72" 
+            suffix="pts"
+            icon="pi-bullseye"
+            iconBgClass="bg-secondary/10"
+            iconColorClass="text-secondary"
+          />
+          <VCardStat 
+            title="Meta Semanal" 
+            value="18" 
+            suffix="/ 24h"
+            icon="pi-clock"
+            iconBgClass="bg-primary/10"
+            iconColorClass="text-primary"
+            showProgress
+            :progressPercent="75"
+          />
         </div>
-      </VCard>
+      </div>
 
-      <!-- Study Plan Quick Select -->
-      <VCard class="p-6">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-serif font-bold">Plano de Estudo</h3>
-            <router-link to="/private/study-plans" class="text-xs text-primary hover:underline">Gerenciar</router-link>
+      <!-- Recent Activity List Section -->
+      <section class="space-y-6">
+        <div class="flex items-center justify-between border-b border-outline-variant/10 pb-4">
+          <h3 class="text-2xl font-headline font-bold">Atividade Recente</h3>
+          <router-link to="/private/disciplinas" class="text-sm font-label font-bold text-secondary hover:text-primary transition-colors">
+            Ver disciplinas
+          </router-link>
         </div>
-        <div class="space-y-4">
-          <p class="text-xs text-secondary mb-2">Troque rapidamente entre seus planos:</p>
-          <VSelect v-model="currentStudyPlanId" :options="studyPlans" optionLabel="name" optionValue="id" />
-          
-          <div v-if="studyPlanStore.hasActivePlan" class="p-4 bg-primary/5 rounded-xl border border-primary/10 mt-4">
-            <div class="flex items-center gap-3">
-                <span class="material-symbols-outlined text-primary text-sm">auto_stories</span>
-                <span class="text-xs font-bold text-on-surface">Continuar de onde parou</span>
-            </div>
-            <VButton class="w-full mt-3 text-xs" variant="primary" @click="$router.push('/private/disciplinas')">Ver Disciplinas</VButton>
-          </div>
+        <div class="grid grid-cols-1 gap-4">
+          <VActivityItem 
+            title="Sistemas Operacionais"
+            moduleName="Gerenciamento de Memória"
+            timeSpent="45 min"
+            status="Completo"
+            icon="pi-code"
+          />
+          <VActivityItem 
+            title="Matemática Discreta"
+            moduleName="Teoria dos Grafos"
+            timeSpent="2h 10min"
+            status="Em Andamento"
+            icon="pi-share-alt"
+          />
         </div>
-      </VCard>
+      </section>
     </div>
   </div>
 </template>
-
-<style scoped>
-.dashboard-view {
-  width: 100%;
-}
-
-.view-header {
-  margin-bottom: 2rem;
-}
-
-.animate-fade-in {
-  animation: fadeIn 0.5s ease-out;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-</style>

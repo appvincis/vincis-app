@@ -11,9 +11,10 @@ Siga o padrão definido no `MONOREPO_GUIDE.md` para facilitar o rastreio com os 
 **Padrão:** `[TIPO]: <descrição curta>`
 
 **Exemplos:**
-- `[FEAT] feat(web): implementação de autenticação e cadastro`
-- `[FIX] fix(api): correção de vazamento de memória no cache`
-- `[REFACTOR] refactor(web): migração de componentes UI para PrimeVue`
+
+- `[FEAT] Implementação de autenticação e cadastro`
+- `[FIX] Correção de vazamento de memória no cache`
+- `[REFACTOR] Migração de componentes UI para PrimeVue`
 
 ---
 
@@ -22,18 +23,23 @@ Siga o padrão definido no `MONOREPO_GUIDE.md` para facilitar o rastreio com os 
 Toda task deve conter as seguintes seções:
 
 ### 1. Contexto & Objetivo
-Explicação breve do *porquê* essa task é necessária e qual o impacto esperado no produto.
-- *Ex: "Permitir que novos usuários se cadastrem garantindo a proteção de identidade."*
+
+Explicação breve do _porquê_ essa task é necessária e qual o impacto esperado no produto.
+
+- _Ex: "Permitir que novos usuários se cadastrem garantindo a proteção de identidade."_
 
 ### 2. Guia de Implementação (Instruções Técnicas)
+
 Detalhamento técnico para guiar o desenvolvedor.
 
-*   **🛠️ Tech Stack:** Definição das ferramentas recomendadas (ex: Supabase Auth, Zod, PrimeVue).
-*   **🏗️ Arquitetura:** Onde o código deve ser criado (pastas, rotas, middlewares).
-*   **🔒 Segurança & Performance:** Requisitos críticos (ex: HttpOnly Cookies, hashing de senhas, validação de inputs).
+- **🛠️ Tech Stack:** Definição das ferramentas recomendadas (ex: Supabase Auth, Zod, PrimeVue).
+- **🏗️ Arquitetura:** Onde o código deve ser criado (pastas, rotas, middlewares).
+- **🔒 Segurança & Performance:** Requisitos críticos (ex: HttpOnly Cookies, hashing de senhas, validação de inputs).
 
 ### 3. Critérios de Aceite
+
 Pontos verificáveis para considerar a tarefa como concluída (Done).
+
 - [ ] O usuário consegue realizar X.
 - [ ] O sistema retorna erro Y em caso de falha.
 - [ ] Não há exposição de segredos no código.
@@ -44,23 +50,25 @@ Pontos verificáveis para considerar a tarefa como concluída (Done).
 
 ```markdown
 ## 1. Contexto & Objetivo
+
 [Descreva aqui o propósito da tarefa]
 
 ## 2. Guia de Implementação (Instruções Técnicas)
 
-*   **🛠️ Tech Stack:**
-    *   [Ferramenta 1]
-    *   [Ferramenta 2]
+- **🛠️ Tech Stack:**
+  - [Ferramenta 1]
+  - [Ferramenta 2]
 
-*   **🏗️ Arquitetura:**
-    *   [Caminhos de pastas/arquivos]
-    *   [Lógica principal]
+- **🏗️ Arquitetura:**
+  - [Caminhos de pastas/arquivos]
+  - [Lógica principal]
 
-*   **🔒 Segurança & Performance:**
-    *   [Constraint 1]
-    *   [Constraint 2]
+- **🔒 Segurança & Performance:**
+  - [Constraint 1]
+  - [Constraint 2]
 
 ## 3. Critérios de Aceite
+
 - [ ] [Critério 1]
 - [ ] [Critério 2]
 ```

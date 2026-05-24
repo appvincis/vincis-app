@@ -58,7 +58,7 @@ async function saveDisciplineInfo() {
 <template>
     <details class="detail__edit-section" :open="isEditOpen" @toggle="handleEditToggle">
         <summary class="detail__edit-summary">
-            <span class="material-symbols-outlined" style="font-size:1rem;vertical-align:-2px">tune</span>
+            <i class="pi pi-sliders-h " style="font-size:1rem;vertical-align:-2px"></i>
             Editar Disciplina
         </summary>
         <div class="detail__edit-body">

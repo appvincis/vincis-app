@@ -31,10 +31,10 @@ const alertSeverity = computed(() => {
 defineEmits(['close'])
 
 const icons: Record<string, string> = {
-  success: 'check_circle',
-  error: 'error',
-  warning: 'warning',
-  info: 'info'
+  success: 'pi-check-circle',
+  error: 'pi-times-circle',
+  warning: 'pi-exclamation-triangle',
+  info: 'pi-info-circle'
 }
 </script>
 
@@ -44,7 +44,7 @@ const icons: Record<string, string> = {
     :class="`ds-alert--${alertSeverity}`"
   >
     <div class="ds-alert__icon">
-      <span class="material-symbols-outlined">{{ icons[alertSeverity] || 'info' }}</span>
+      <i class="pi" :class="icons[alertSeverity] || 'pi-info-circle'"></i>
     </div>
     <div class="ds-alert__content">
       <p v-if="title" class="ds-alert__title">{{ title }}</p>
@@ -55,7 +55,7 @@ const icons: Record<string, string> = {
       class="ds-alert__close"
       @click="$emit('close')"
     >
-      <span class="material-symbols-outlined">close</span>
+      <i class="pi pi-times "></i>
     </button>
   </div>
 </template>
@@ -82,7 +82,7 @@ const icons: Record<string, string> = {
   border-radius: 0.5rem;
 }
 
-.ds-alert__icon .material-symbols-outlined {
+.ds-alert__icon .pi {
   font-size: 1.25rem;
   font-variation-settings: 'FILL' 1;
 }
