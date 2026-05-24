@@ -2,10 +2,11 @@ import { Request, Response } from "express";
 import { errorLogService } from "./error-log.service.js";
 import { CreateErrorLogInput, UpdateErrorLogInput } from "./error-log.schema.js";
 import { StudyPlanInjectedRequest } from "../study-plan/study-plan.middleware.js";
+import { AuthenticatedRequest } from "../auth/auth.middleware.js";
 
 const parseId = (raw: string | string[] | undefined) => Number(raw);
 
-export async function createErrorLog(req: Request, res: Response) {
+export async function createErrorLog(req: AuthenticatedRequest, res: Response) {
     try {
         const injectedReq = req as StudyPlanInjectedRequest;
         const body = req.body as CreateErrorLogInput;
@@ -21,7 +22,7 @@ export async function createErrorLog(req: Request, res: Response) {
     }
 }
 
-export async function getErrorLogs(req: Request, res: Response) {
+export async function getErrorLogs(req: AuthenticatedRequest, res: Response) {
     try {
         const injectedReq = req as StudyPlanInjectedRequest;
         const studyPlanId = injectedReq.studyPlan!.id;
@@ -36,7 +37,7 @@ export async function getErrorLogs(req: Request, res: Response) {
     }
 }
 
-export async function getErrorLogById(req: Request, res: Response) {
+export async function getErrorLogById(req: AuthenticatedRequest, res: Response) {
     try {
         const id = parseId(req.params.id);
         if (Number.isNaN(id)) return res.status(400).json({ message: "ID inválido." });
@@ -50,7 +51,7 @@ export async function getErrorLogById(req: Request, res: Response) {
     }
 }
 
-export async function updateErrorLog(req: Request, res: Response) {
+export async function updateErrorLog(req: AuthenticatedRequest, res: Response) {
     try {
         const injectedReq = req as StudyPlanInjectedRequest;
         const id = parseId(req.params.id);
@@ -67,7 +68,7 @@ export async function updateErrorLog(req: Request, res: Response) {
     }
 }
 
-export async function deleteErrorLog(req: Request, res: Response) {
+export async function deleteErrorLog(req: AuthenticatedRequest, res: Response) {
     try {
         const id = parseId(req.params.id);
         if (Number.isNaN(id)) return res.status(400).json({ message: "ID inválido." });
