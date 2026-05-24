@@ -99,25 +99,33 @@ const userInitials = computed(() => {
 
     <!-- User Footer Profile -->
     <div class="mt-auto pt-6 border-t border-outline-variant/30">
-      <div
-        class="flex items-center gap-3 w-full p-1.5 hover:bg-background dark:hover:bg-surface-dark-elevated rounded-xl cursor-pointer transition-all overflow-hidden"
-        @click="toggleUserMenu"
-      >
-        <!-- Initials avatar -->
-        <div class="w-10 h-10 rounded-full bg-primary-container flex-shrink-0 flex items-center justify-center ring-2 ring-outline-variant/20">
-          <span class="text-sm font-headline font-bold text-on-primary-container leading-none">{{ userInitials }}</span>
-        </div>
-        <div class="overflow-hidden text-left leading-tight">
-          <p class="text-sm font-bold font-headline text-on-surface truncate">
-            {{ authStore.user?.name || 'Alex Vincis' }}
-          </p>
-          <p class="text-[10px] font-label font-bold uppercase tracking-widest text-primary mt-0.5 truncate">
-            Senior Scholar
-          </p>
-        </div>
-      </div>
-      <Menu ref="menu" :model="userMenuItems" :popup="true" />
+  <div
+    class="flex items-center gap-3 w-full p-1.5 hover:bg-background dark:hover:bg-surface-dark-elevated rounded-xl cursor-pointer transition-all overflow-hidden"
+    @click="toggleUserMenu"
+  >
+    <div class="w-10 h-10 rounded-full bg-primary-container flex-shrink-0 flex items-center justify-center ring-2 ring-outline-variant/20 overflow-hidden">
+      <img 
+        v-if="authStore.user?.avatar" 
+        :src="authStore.user.avatar" 
+        :alt="authStore.user?.name" 
+        class="w-full h-full object-cover"
+      />
+      <span v-else class="text-sm font-headline font-bold text-on-primary-container leading-none">
+        {{ userInitials }}
+      </span>
     </div>
+    
+    <div class="overflow-hidden text-left leading-tight">
+      <p class="text-sm font-bold font-headline text-on-surface truncate">
+        {{ authStore.user?.name || 'Alex Vincis' }}
+      </p>
+      <p class="text-[10px] font-label font-bold uppercase tracking-widest text-primary mt-0.5 truncate">
+        Senior Scholar
+      </p>
+    </div>
+  </div>
+  <Menu ref="menu" :model="userMenuItems" :popup="true" />
+</div>
   </aside>
 </template>
 
