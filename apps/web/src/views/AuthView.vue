@@ -13,6 +13,11 @@ const password = ref('')
 const message = ref('')
 const isError = ref(false)
 const isLoading = ref(false)
+const isPasswordVisible = ref(false)
+
+const togglePasswordVisibility = () => {
+  isPasswordVisible.value = !isPasswordVisible.value
+}
 
 const toggleMode = () => {
   isLoginMode.value = !isLoginMode.value
@@ -96,7 +101,7 @@ const submitForm = async () => {
         
         <div class="aside-footer">
           <span class="aside-footer-tag">Academic Portal</span>
-          <span class="aside-footer-copy">© 2024 Vincis Research Group</span>
+          <span class="aside-footer-copy">© 2026 Vincis Research Group</span>
         </div>
       </div>
     </aside>
@@ -160,22 +165,32 @@ const submitForm = async () => {
           </div>
           
           <div class="input-group password-group">
-            <VInput 
-              v-model="password" 
-              label="Senha"
-              type="password"
-              placeholder="••••••••"
-              icon="lock"
-              required 
-            />
-            <a 
-              v-if="isLoginMode"
-              class="forgot-password-link" 
-              href="#"
-            >
-              Esqueci a senha
-            </a>
-          </div>
+          <VInput 
+            v-model="password" 
+            label="Senha"
+            :type="isPasswordVisible ? 'text' : 'password'"
+            placeholder="••••••••"
+            icon="lock"
+            required 
+          />
+          
+          <button 
+            type="button" 
+            class="toggle-password-btn" 
+            @click="togglePasswordVisibility"
+            :aria-label="isPasswordVisible ? 'Esconder senha' : 'Mostrar senha'"
+          >
+            <i :class="['pi', isPasswordVisible ? 'pi-eye-slash' : 'pi-eye']"></i>
+          </button>
+
+          <a 
+            v-if="isLoginMode"
+            class="forgot-password-link" 
+            href="#"
+          >
+            Esqueci a senha
+          </a>
+        </div>
 
           <!-- Alert/Message Box -->
           <div v-if="message" class="alert-box animate-fade-in">
@@ -207,7 +222,7 @@ const submitForm = async () => {
             type="button"
             class="form-toggle-btn"
           >
-            {{ isLoginMode ? 'Solicitar convite acadêmico' : 'Fazer login' }}
+            {{ isLoginMode ? 'Cadastrar' : 'Fazer login' }}
           </button>
         </p>
       </div>
@@ -222,10 +237,10 @@ const submitForm = async () => {
    ───────────────────────────────────────────────────────────────── */
 .auth-page {
   display: flex !important;
-  min-height: 100vh !important;
+  height: 100vh !important; /* Força a altura a ser exatamente a da tela */
   width: 100vw !important;
   background-color: var(--background) !important;
-  overflow: hidden !important;
+  overflow: hidden !important; /* Corta qualquer transbordamento na página externa */
   box-sizing: border-box !important;
 }
 
@@ -233,9 +248,10 @@ const submitForm = async () => {
   display: flex !important;
   flex-direction: column !important;
   width: 45% !important;
+  height: 100% !important; /* Garante que segue os 100vh do pai */
   position: relative !important;
-  background-color: #1c1b1a !important; /* var(--on-surface) escuro oficial do Stitch! */
-  overflow: hidden !important;
+  background-color: #1c1b1a !important; 
+  overflow: hidden !important; /* Impede scroll na parte editorial */
   box-sizing: border-box !important;
 }
 
@@ -247,11 +263,48 @@ const submitForm = async () => {
   align-items: center !important;
   background-color: var(--background) !important;
   position: relative !important;
-  padding: 3rem 2rem !important;
-  overflow-y: auto !important;
+  padding: 2rem !important; /* Reduzi levemente de 3rem para evitar empurrar o conteúdo em telas menores */
+  height: 100% !important;
+  
+  /* MUDANÇA CRUCIAL: Se o formulário for maior que a tela (ex: em telas muito pequenas), 
+     o scroll acontece APENAS dentro do lado do formulário, sem quebrar a tela inteira. */
+  overflow-y: auto !important; 
   box-sizing: border-box !important;
 }
 
+/* Botão de Alternar Senha (PrimeIcons) */
+.toggle-password-btn {
+  position: absolute !important;
+  right: 1rem !important;
+  bottom: 1rem !important; /* Alinha verticalmente ao centro do input */
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  cursor: pointer !important;
+  z-index: 10 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: var(--secondary) !important;
+  opacity: 0.6 !important;
+  transition: opacity 0.2s, color 0.2s !important;
+}
+
+.toggle-password-btn:hover {
+  opacity: 1 !important;
+  color: var(--primary) !important;
+}
+
+/* Tamanho do ícone do PrimeIcon */
+.toggle-password-btn .pi {
+  font-size: 1.15rem !important;
+}
+
+/* Ajuste posicional para o link 'Esqueci a senha' não sobrepor o botão */
+.forgot-password-link {
+  top: -1.5rem !important; 
+}
 /* ─────────────────────────────────────────────────────────────────
    ELEMENTOS DA LATERAL ESQUERDA (EDITORIAL)
    ───────────────────────────────────────────────────────────────── */

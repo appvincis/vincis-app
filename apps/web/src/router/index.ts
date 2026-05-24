@@ -10,9 +10,14 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
-      redirect: () => {
+      component: () => import('../views/LandingPage.vue'),
+      beforeEnter: (to, from, next) => {
         const authStore = useAuthStore()
-        return authStore.isAuthenticated ? '/private' : '/auth'
+        if (authStore.isAuthenticated) {
+          next('/private')
+        } else {
+          next()
+        }
       }
     },
     {
