@@ -1,18 +1,20 @@
 <script setup>
 import { ref, reactive } from 'vue'
-import DsSideBar from '@/components/ui/DsSideBar.vue'
-import DsButton from '@/components/ui/DsButton.vue';
-import DsBadge from '@/components/ui/DsBadge.vue'
-import DsCard from '@/components/ui/DsCard.vue'
-import DsInput from '@/components/ui/DsInput.vue'
-import DsStat from '@/components/ui/DsStat.vue'
-import DsSelect from '@/components/ui/DsSelect.vue'
-import DsCheckbox from '@/components/ui/DsCheckbox.vue'
-import DsToggle from '@/components/ui/DsToggle.vue'
-import DsToast from '@/components/ui/DsToast.vue'
-import DsModal from '@/components/ui/DsModal.vue'
-import DsTimelineItem from '@/components/ui/DsTimeLineItem.vue'
-import DsChip from '@/components/ui/DsChip.vue'
+import {
+  VSideBar as DsSideBar,
+  VButton as DsButton,
+  VBadge as DsBadge,
+  VCard as DsCard,
+  VInput as DsInput,
+  VStat as DsStat,
+  VSelect as DsSelect,
+  VCheckbox as DsCheckbox,
+  VToggle as DsToggle,
+  VToast as DsToast,
+  VModal as DsModal,
+  VTimeLineItem as DsTimelineItem,
+  VChip as DsChip,
+} from '@/components/ui'
 
 
 
@@ -300,10 +302,10 @@ const showInfoToast = () => {
         <!-- Demonstração visual dos toasts -->
         <p class="ds-meta-label mb-4">Exemplos Visuais</p>
         <div class="toasts-demo mb-8">
-          <div class="toast success"><div class="toast__icon"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check_circle</span></div><div class="toast__content"><p class="toast__title">Evento criado com sucesso!</p><p class="toast__message">Filosofia Analítica adicionado ao dia 11.</p></div><button class="toast__close"><span class="material-symbols-outlined">close</span></button></div>
-          <div class="toast error"><div class="toast__icon"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">error</span></div><div class="toast__content"><p class="toast__title">Falha ao sincronizar</p><p class="toast__message">Verifique sua conexão e tente novamente.</p></div><button class="toast__close"><span class="material-symbols-outlined">close</span></button></div>
-          <div class="toast warning"><div class="toast__icon"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">warning</span></div><div class="toast__content"><p class="toast__title">Meta semanal em risco</p><p class="toast__message">Você está 5.5h abaixo da sua meta de 20h.</p></div><button class="toast__close"><span class="material-symbols-outlined">close</span></button></div>
-          <div class="toast info"><div class="toast__icon"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">info</span></div><div class="toast__content"><p class="toast__title">IA analisando seu padrão</p><p class="toast__message">A agenda inteligente será atualizada em instantes.</p></div><button class="toast__close"><span class="material-symbols-outlined">close</span></button></div>
+          <div class="toast success"><div class="toast__icon"><i class="pi pi-check-circle " ></i></div><div class="toast__content"><p class="toast__title">Evento criado com sucesso!</p><p class="toast__message">Filosofia Analítica adicionado ao dia 11.</p></div><button class="toast__close"><i class="pi pi-times "></i></button></div>
+          <div class="toast error"><div class="toast__icon"><i class="pi pi-times-circle " ></i></div><div class="toast__content"><p class="toast__title">Falha ao sincronizar</p><p class="toast__message">Verifique sua conexão e tente novamente.</p></div><button class="toast__close"><i class="pi pi-times "></i></button></div>
+          <div class="toast warning"><div class="toast__icon"><i class="pi pi-exclamation-triangle " ></i></div><div class="toast__content"><p class="toast__title">Meta semanal em risco</p><p class="toast__message">Você está 5.5h abaixo da sua meta de 20h.</p></div><button class="toast__close"><i class="pi pi-times "></i></button></div>
+          <div class="toast info"><div class="toast__icon"><i class="pi pi-info-circle " ></i></div><div class="toast__content"><p class="toast__title">IA analisando seu padrão</p><p class="toast__message">A agenda inteligente será atualizada em instantes.</p></div><button class="toast__close"><i class="pi pi-times "></i></button></div>
         </div>
 
         <!-- Botões para disparar toasts -->
@@ -362,10 +364,10 @@ toast.add({ severity: 'info', summary: 'Título', detail: 'Mensagem', life: 3000
         <!-- Toasts -->
         <p class="text-[9px] font-bold text-secondary uppercase tracking-widest mb-4">Toasts / Notificações</p>
         <div class="space-y-3 mb-10">
-          <div class="toast success" style="max-width: 100%; position: static; animation: none;"><div class="toast__icon"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check_circle</span></div><div class="toast__content"><p class="toast__title">Evento criado com sucesso!</p><p class="toast__message">Filosofia Analítica adicionado ao dia 11.</p></div></div>
-          <div class="toast error" style="max-width: 100%; position: static; animation: none;"><div class="toast__icon"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">error</span></div><div class="toast__content"><p class="toast__title">Falha ao sincronizar</p><p class="toast__message">Verifique sua conexão e tente novamente.</p></div></div>
-          <div class="toast warning" style="max-width: 100%; position: static; animation: none;"><div class="toast__icon"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">warning</span></div><div class="toast__content"><p class="toast__title">Meta semanal em risco</p><p class="toast__message">Você está 5.5h abaixo da sua meta de 20h.</p></div></div>
-          <div class="toast info" style="max-width: 100%; position: static; animation: none;"><div class="toast__icon"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">info</span></div><div class="toast__content"><p class="toast__title">IA analisando seu padrão</p><p class="toast__message">A agenda inteligente será atualizada em instantes.</p></div></div>
+          <div class="toast success" style="max-width: 100%; position: static; animation: none;"><div class="toast__icon"><i class="pi pi-check-circle " ></i></div><div class="toast__content"><p class="toast__title">Evento criado com sucesso!</p><p class="toast__message">Filosofia Analítica adicionado ao dia 11.</p></div></div>
+          <div class="toast error" style="max-width: 100%; position: static; animation: none;"><div class="toast__icon"><i class="pi pi-times-circle " ></i></div><div class="toast__content"><p class="toast__title">Falha ao sincronizar</p><p class="toast__message">Verifique sua conexão e tente novamente.</p></div></div>
+          <div class="toast warning" style="max-width: 100%; position: static; animation: none;"><div class="toast__icon"><i class="pi pi-exclamation-triangle " ></i></div><div class="toast__content"><p class="toast__title">Meta semanal em risco</p><p class="toast__message">Você está 5.5h abaixo da sua meta de 20h.</p></div></div>
+          <div class="toast info" style="max-width: 100%; position: static; animation: none;"><div class="toast__icon"><i class="pi pi-info-circle " ></i></div><div class="toast__content"><p class="toast__title">IA analisando seu padrão</p><p class="toast__message">A agenda inteligente será atualizada em instantes.</p></div></div>
         </div>
 
         <!-- Modal -->
@@ -376,7 +378,7 @@ toast.add({ severity: 'info', summary: 'Título', detail: 'Mensagem', life: 3000
             <div class="flex items-center justify-between mb-4">
               <h3 class="font-serif font-bold text-xl text-on-surface">Novo Evento</h3>
               <button class="p-1.5 text-secondary hover:text-on-surface hover:bg-surface-container rounded-lg transition-colors">
-                <span class="material-symbols-outlined">close</span>
+                <i class="pi pi-times "></i>
               </button>
             </div>
             <div class="space-y-4">

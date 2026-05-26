@@ -14,8 +14,8 @@ model User {
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
   supabaseId String?     @unique
-  ErrorLog   ErrorLog[]
   studyPlans StudyPlan[]
+  errorLogs  ErrorLog[]
 }
 
 model StudyPlan {
@@ -27,13 +27,14 @@ model StudyPlan {
   updatedAt   DateTime     @updatedAt
   userId      Int
   disciplines Discipline[]
-  ErrorLog    ErrorLog[]
-  user        User         @relation(fields: [userId], references: [id])
+  errorLogs   ErrorLog[]
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Discipline {
   id          Int       @id @default(autoincrement())
   name        String
+  description String?
   color       String
   weight      Float     @default(1.0)
   studyPlanId Int
@@ -51,25 +52,31 @@ model Topic {
   disciplineId Int
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
-  ErrorLog     ErrorLog[]
   discipline   Discipline @relation(fields: [disciplineId], references: [id], onDelete: Cascade)
+  errorLogs    ErrorLog[]
 }
 
 model ErrorLog {
-  id          Int       @id @default(autoincrement())
-  analise     String
-  correcao    String?
-  fonte       String?
-  diagnostico String?
-  topicText   String?
-  isResolved  Boolean   @default(false)
-  resolvedAt  DateTime?
-  topicId     Int?
-  userId      Int
+  id Int @id @default(autoincrement())
+
+  analise     String // "Por que eu errei?" — campo principal
+  correcao    String? // "Resumo da Correção (Pulo do Gato)"
+  fonte       String? // "Fonte da Questão" (ex: CESPE 2024 - PF)
+  diagnostico String? // "Diagnóstico do Erro" (enum de 5 tipos)
+  topicText   String? // "Tópico / Assunto" em texto livre
+
+  isResolved Boolean   @default(false)
+  resolvedAt DateTime?
+
+  topicId Int?
+  topic   Topic? @relation(fields: [topicId], references: [id], onDelete: SetNull)
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   studyPlanId Int
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime
-  StudyPlan   StudyPlan @relation(fields: [studyPlanId], references: [id], onDelete: Cascade)
-  Topic       Topic?    @relation(fields: [topicId], references: [id])
-  User        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studyPlan   StudyPlan @relation(fields: [studyPlanId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

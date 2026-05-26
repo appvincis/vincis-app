@@ -1,70 +1,51 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import AppSidebar from '../components/layout/AppSidebar.vue'
+import { useAuthStore } from '../stores/auth'
+
+const authStore = useAuthStore()
+
+const firstName = computed(() => {
+  const name = authStore.user?.name || 'Estudante'
+  return name.split(' ')[0]
+})
 </script>
 
 <template>
-  <div class="app-layout">
+  <div class="min-h-screen flex bg-background dark:bg-surface-dark">
+    <!-- Navigation Sidebar & Mobile Bar -->
     <AppSidebar />
-    <main class="app-content">
-      <div class="content-container">
+
+    <!-- Main Content Shell -->
+    <div class="flex-1 md:ml-64 flex flex-col min-h-screen">
+
+
+      <!-- Main Page Content -->
+      <main class="flex-1 p-6 md:p-8 max-w-7xl w-full mx-auto pb-8">
         <router-view v-slot="{ Component }">
           <transition name="page-fade" mode="out-in">
             <component :is="Component" />
           </transition>
         </router-view>
-      </div>
-    </main>
+      </main>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.app-layout {
-  display: flex;
-  height: 100vh;
-  width: 100vw;
-  overflow: hidden;
-  background: var(--background);
-}
-
-.app-content {
-  flex: 1;
-  height: 100%;
-  overflow-y: auto;
-  position: relative;
-  background: var(--surface-background);
-}
-
-.content-container {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 2rem;
-  min-height: 100%;
-}
-
 /* Page transitions */
 .page-fade-enter-active,
 .page-fade-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition: opacity 0.25s ease, transform 0.25s ease;
 }
 
 .page-fade-enter-from {
   opacity: 0;
-  transform: translateY(10px);
+  transform: translateY(8px);
 }
 
 .page-fade-leave-to {
   opacity: 0;
-  transform: translateY(-10px);
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-  .app-layout {
-    flex-direction: column;
-  }
-  
-  .app-content {
-    padding: 1rem;
-  }
+  transform: translateY(-8px);
 }
 </style>

@@ -147,8 +147,8 @@ const progress = computed(() =>
             <VSpinner size="sm" />
         </div>
         <div v-else-if="!topics.length" class="detail__empty">
-            <span class="material-symbols-outlined text-4xl text-outline-variant mb-2"
-                style="display:block">article</span>
+            <i class="pi pi-article text-4xl text-outline-variant mb-2"
+                style="display:block"></i>
             <p class="text-secondary text-sm">Nenhum tópico ainda. Adicione abaixo.</p>
         </div>
         <ul v-else class="topic-list">
@@ -156,9 +156,7 @@ const progress = computed(() =>
                 :class="{ 'topic-item--done': topic.isCompleted && editingTopicId !== topic.id }">
                 <template v-if="editingTopicId !== topic.id">
                     <button class="topic-item__check" @click="toggleTopic(topic)">
-                        <span class="material-symbols-outlined" :style="{ color: topic.isCompleted ? panelColor : '' }">
-                            {{ topic.isCompleted ? 'check_circle' : 'radio_button_unchecked' }}
-                        </span>
+                        <i class="pi" :class="topic.isCompleted ? 'pi-check-circle' : 'pi-circle'" :style="{ color: topic.isCompleted ? panelColor : '' }"></i>
                     </button>
                     <div class="topic-item__text">
                         <span class="topic-item__name">{{ topic.name }}</span>
@@ -166,10 +164,10 @@ const progress = computed(() =>
                         }}</span>
                     </div>
                     <button class="topic-item__action" @click="startEditTopic(topic)" title="Editar">
-                        <span class="material-symbols-outlined">edit</span>
+                        <i class="pi pi-pencil "></i>
                     </button>
                     <button class="topic-item__delete" @click="deleteTopic(topic.id)" title="Deletar">
-                        <span class="material-symbols-outlined">delete</span>
+                        <i class="pi pi-trash "></i>
                     </button>
                 </template>
                 <template v-else>

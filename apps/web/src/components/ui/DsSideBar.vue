@@ -35,10 +35,10 @@ defineEmits(['update:activeItem'])
         :class="{ 'ds-sidebar__item--active': activeItem === item.id }"
         @click="$emit('update:activeItem', item.id)"
       >
-        <span 
-          class="material-symbols-outlined"
-          :class="{ 'ds-sidebar__icon--active': activeItem === item.id }"
-        >{{ item.icon }}</span>
+        <i 
+          class="pi"
+          :class="[item.icon, { 'ds-sidebar__icon--active': activeItem === item.id }]"
+        ></i>
         <span class="ds-sidebar__item-label">{{ item.label }}</span>
       </button>
     </div>
@@ -118,6 +118,12 @@ defineEmits(['update:activeItem'])
   color: var(--secondary, #5f5e5c);
   transition: all 0.2s ease;
   text-align: left;
+}
+
+.ds-sidebar__item .pi {
+  color: var(--outline);
+  font-size: 20px;
+  transition: all 0.2s ease;
 }
 
 .ds-sidebar__item:hover {

@@ -44,9 +44,7 @@ defineEmits(['update:modelValue'])
     </label>
     
     <div class="ds-input-wrapper">
-      <span v-if="icon" class="ds-input-icon material-symbols-outlined">
-        {{ icon }}
-      </span>
+      <i v-if="icon" class="ds-input-icon pi" :class="icon"></i>
       <InputText 
         :type="type"
         :modelValue="modelValue"
@@ -71,11 +69,11 @@ defineEmits(['update:modelValue'])
 
 .ds-input-label {
   font-family: var(--ds-font-sans);
-  font-size: 0.75rem;
+  font-size: 0.625rem;
   font-weight: 700;
-  color: var(--secondary);
+  color: var(--on-surface-variant);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.15em;
 }
 
 .ds-input-label__required {

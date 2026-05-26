@@ -51,6 +51,7 @@ export async function signup(req: Request<{}, {}, SignupInput>, res: Response) {
             },
         })
     } catch (err) {
+        console.error('Erro detalhado no signup:', err)
         return res.status(500).json({ message: 'Erro interno durante o cadastro' })
     }
 }
@@ -105,6 +106,7 @@ export async function login(req: Request<{}, {}, LoginInput>, res: Response) {
             },
         })
     } catch (err) {
+        console.error('Erro detalhado no login:', err)
         return res.status(500).json({ message: 'Erro interno durante o login' })
     }
 }

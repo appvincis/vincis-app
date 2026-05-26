@@ -1,195 +1,127 @@
-/* global.css */
-@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Manrope:wght@400;500;600;700&display=swap');
-/* Adicione no topo do global.css */
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
+/* ──────────────────────────────────────────────────────────────────
+ * Vincis Design Tokens (fonte única da verdade)
+ * Declarado dentro de @theme para que o Tailwind v4 gere automaticamente
+ * as utilities (bg-primary, text-on-surface, border-outline-variant, etc).
+ * ────────────────────────────────────────────────────────────────── */
+@theme {
+    /* Primary */
+    --color-primary: #735c00;
+    --color-primary-container: #d4af37;
+    --color-primary-hover: #554300;
+    --color-primary-light: #ffe088;
+    --color-on-primary: #ffffff;
+    --color-on-primary-container: #554300;
+
+    /* Secondary */
+    --color-secondary: #5f5e5c;
+    --color-secondary-container: #e5e2de;
+    --color-on-secondary: #ffffff;
+    --color-on-secondary-container: #656461;
+
+    /* Tertiary */
+    --color-tertiary: #595f67;
+    --color-tertiary-container: #aeb3bc;
+
+    /* Surfaces */
+    --color-background: #fdf9f6;
+    --color-surface: #fdf9f6;
+    --color-surface-container-lowest: #ffffff;
+    --color-surface-container-low: #f7f3f0;
+    --color-surface-container: #f1edea;
+    --color-surface-container-high: #ebe7e4;
+    --color-surface-container-highest: #e5e2df;
+
+    /* Dark surface (usado pelo sidebar em modo escuro) */
+    --color-surface-dark: #1c1c1a;
+    --color-surface-dark-elevated: #2a2a28;
+
+    /* Foreground */
+    --color-on-surface: #1c1b1a;
+    --color-on-surface-variant: #4d4635;
+    --color-on-surface-muted: #5f5e5c;
+
+    /* Outline */
+    --color-outline: #7f7663;
+    --color-outline-variant: #d0c5af;
+
+    /* Status */
+    --color-error: #ba1a1a;
+    --color-error-container: #ffdad6;
+    --color-success: #2e7d32;
+    --color-success-container: #c8e6c9;
+    --color-warning: #e65100;
+    --color-warning-container: #ffe0b2;
+
+    /* Tipografia */
+    --font-family-serif: 'Newsreader', serif;
+    --font-family-sans: 'Manrope', sans-serif;
+}
+
+/* CSS variables consumidas por PrimeVue e por componentes que precisam
+ * de tokens fora do contexto Tailwind (ex.: inline styles, animations) */
 :root {
-    /* Vincis Color Tokens */
-    --primary: #735c00;
-    --primary-container: #d4af37;
-    --on-primary: #ffffff;
-    --on-primary-container: #554300;
-    --primary-fixed-dim: #e9c349;
-    --primary-fixed: #ffe088;
+    --primary: var(--color-primary);
+    --primary-container: var(--color-primary-container);
+    --on-primary: var(--color-on-primary);
+    --on-primary-container: var(--color-on-primary-container);
 
-    --secondary: #5f5e5c;
-    --secondary-container: #e5e2de;
-    --on-secondary: #ffffff;
-    --on-secondary-container: #656461;
+    --secondary: var(--color-secondary);
+    --secondary-container: var(--color-secondary-container);
+    --on-secondary: var(--color-on-secondary);
 
-    --tertiary: #595f67;
-    --tertiary-container: #aeb3bc;
+    --background: var(--color-background);
+    --surface-container-lowest: var(--color-surface-container-lowest);
+    --surface-container-low: var(--color-surface-container-low);
+    --surface-container: var(--color-surface-container);
+    --surface-container-high: var(--color-surface-container-high);
+    --surface-container-highest: var(--color-surface-container-highest);
 
-    --background: #fdf9f6;
-    --surface-background: #fdf9f6;
-    --surface-container-lowest: #ffffff;
-    --surface-container-low: #f7f3f0;
-    --surface-container: #f1edea;
-    --surface-container-high: #ebe7e4;
-    --surface-container-highest: #e5e2df;
+    --on-surface: var(--color-on-surface);
+    --on-surface-variant: var(--color-on-surface-variant);
 
-    --on-surface: #1c1b1a;
-    --on-surface-variant: #4d4635;
+    --outline: var(--color-outline);
+    --outline-variant: var(--color-outline-variant);
 
-    --outline: #7f7663;
-    --outline-variant: #d0c5af;
-
-    --error: #ba1a1a;
-    --error-container: #ffdad6;
-    --on-error: #ffffff;
-    --on-error-container: #93000a;
-
-    --success: #2e7d32;
-    --success-container: #c8e6c9;
-    --on-success: #ffffff;
-
-    --warning: #e65100;
-    --warning-container: #ffe0b2;
-    --on-warning: #ffffff;
-
-    /* Font Stacks */
-    --ds-font-serif: 'Newsreader', serif;
-    --ds-font-sans: 'Manrope', sans-serif;
-
-    /* Borders */
-    --border-radius-sm: 0.25rem;
-    --border-radius-md: 0.5rem;
-    --border-radius-lg: 0.75rem;
-    --border-radius-xl: 1rem;
-    --border-radius-full: 9999px;
+    --error: var(--color-error);
+    --success: var(--color-success);
+    --warning: var(--color-warning);
 }
 
-/* Reset e Base */
-@layer base {
-    * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-    }
-
-    body {
-        font-family: var(--ds-font-sans);
-        background-color: var(--background);
-        color: var(--on-surface);
-    }
-
-    h1,
-    h2,
-    h3,
-    h4,
-    .font-serif {
-        font-family: var(--ds-font-serif);
-    }
+/* Reset mínimo (o resto vem do preflight do Tailwind) */
+body {
+    font-family: var(--font-family-sans);
+    background-color: var(--color-background);
+    color: var(--color-on-surface);
 }
 
-/* Classes utilitárias para cores */
-@layer components {
-    .bg-background {
-        background-color: var(--background);
-    }
-
-    .bg-primary {
-        background-color: var(--primary);
-    }
-
-    .bg-primary-container {
-        background-color: var(--primary-container);
-    }
-
-    .bg-surface-container-lowest {
-        background-color: var(--surface-container-lowest);
-    }
-
-    .bg-surface-container-low {
-        background-color: var(--surface-container-low);
-    }
-
-    .bg-surface-container {
-        background-color: var(--surface-container);
-    }
-
-    .bg-surface-container-high {
-        background-color: var(--surface-container-high);
-    }
-
-    .bg-surface-container-highest {
-        background-color: var(--surface-container-highest);
-    }
-
-    .text-primary {
-        color: var(--primary);
-    }
-
-    .text-on-surface {
-        color: var(--on-surface);
-    }
-
-    .text-secondary {
-        color: var(--secondary);
-    }
-
-    .text-on-primary-container {
-        color: var(--on-primary-container);
-    }
-
-    .border-outline-variant {
-        border-color: var(--outline-variant);
-    }
+h1,
+h2,
+h3,
+h4,
+.font-serif {
+    font-family: var(--font-family-serif);
 }
 
-/* Material Icons */
-.material-symbols-outlined {
-    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-    display: inline-block;
-    vertical-align: middle;
+/* Borda discreta do design system Vincis (não há equivalente no Tailwind) */
+.soft-brutalist-border {
+    border: 1px solid color-mix(in srgb, var(--color-on-surface) 8%, transparent);
 }
 
-/* Animações */
-@keyframes bounce {
-
-    0%,
-    100% {
-        transform: translateY(0);
-    }
-
-    50% {
-        transform: translateY(-8px);
-    }
+.dark .soft-brutalist-border {
+    border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.animate-bounce {
-    animation: bounce 0.6s infinite;
-}
-
-@keyframes pulse {
-
-    0%,
-    100% {
-        opacity: 1;
-    }
-
-    50% {
-        opacity: 0.5;
-    }
-}
-
-.animate-pulse {
-    animation: pulse 1.5s infinite;
-}
-
-.progress-bar {
-    transition: width 0.6s ease;
-}
-
-/* Classes do Design System */
+/* Label de seção do design system */
 .ds-section-label {
-    font-family: var(--ds-font-sans);
+    font-family: var(--font-family-sans);
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.22em;
     text-transform: uppercase;
-    color: var(--outline);
+    color: var(--color-outline);
     margin-bottom: 1.5rem;
     display: flex;
     align-items: center;
@@ -200,6 +132,6 @@
     content: '';
     flex: 1;
     height: 1px;
-    background: var(--outline-variant);
+    background: var(--color-outline-variant);
     opacity: 0.5;
 }

@@ -1,10 +1,11 @@
 import { prisma } from "../../lib/prisma.js";
 
 export const disciplineService = {
-    async createDiscipline(data: { name: string, color: string, weight?: number }, studyPlanId: number) {
+    async createDiscipline(data: { name: string, description?: string, color: string, weight?: number }, studyPlanId: number) {
         return prisma.discipline.create({
             data: {
                 name: data.name,
+                description: data.description,
                 color: data.color,
                 weight: data.weight ?? 1.0,
                 studyPlanId
@@ -14,7 +15,12 @@ export const disciplineService = {
 
     async getDisciplines(studyPlanId: number) {
         return prisma.discipline.findMany({
-            where: { studyPlanId }
+            where: { studyPlanId },
+            include: {
+                topics: {
+                    select: { isCompleted: true }
+                }
+            }
         });
     },
 
