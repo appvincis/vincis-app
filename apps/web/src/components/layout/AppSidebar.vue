@@ -40,7 +40,7 @@ const navItems = [
   { id: 'disciplinas', label: 'Disciplinas', icon: 'pi-book', path: '/private/disciplinas' },
   { id: 'tasks', label: 'Tarefas', icon: 'pi-check-circle', path: '/private/tasks' },
   { id: 'performance', label: 'Desempenho', icon: 'pi-chart-bar', path: '/private/performance' },
-  { id: 'plans', label: 'Plano', icon: 'box', path: '/private/plans' },
+  { id: 'plans', label: 'Plano', icon: 'pi-box', path: '/private/plans' },
 ]
 
 const isActive = (path: string) => {
@@ -54,7 +54,7 @@ const userInitials = computed(() => {
     .split(' ')
     .filter(Boolean)
     .slice(0, 2)
-    .map((n: string) => n[0].toUpperCase())
+    .map((n: string) => n[0]!.toUpperCase())
     .join('')
 })
 </script>

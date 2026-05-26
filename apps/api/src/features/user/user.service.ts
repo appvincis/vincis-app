@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma.js'
+import { Plan } from '@prisma/client'
 import type { CreateUserInput, CreateUserFromAuthInput, UpdateUserInput } from './user.schema.js'
 
 export const userService = {
@@ -41,5 +42,19 @@ export const userService = {
         const exists = await prisma.user.findUnique({ where: { id } })
         if (!exists) return null
         return prisma.user.delete({ where: { id } })
+    },
+
+    async updatePlan(id: number, planType: string) {
+        if (!Object.values(Plan).includes(planType as Plan)) {
+            throw new Error(`Plano inválido: ${planType}`)
+        }
+
+        const exists = await prisma.user.findUnique({ where: { id } })
+        if (!exists) return null
+
+        return prisma.user.update({
+            where: { id },
+            data: { plan: planType as Plan },
+        })
     },
 }
