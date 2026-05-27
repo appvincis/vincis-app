@@ -28,6 +28,7 @@ export const userService = {
                 email: data.email,
                 name: data.name,
                 avatar: data.avatar,
+                plan: Plan.BASIC,    // Todo novo usuário começa com o plano Basic
             },
         })
     },
