@@ -1,12 +1,12 @@
 <script setup lang='ts'>
+import { computed } from 'vue';
 import { VButton } from '@/components/ui';
-import { ref } from 'vue';
+import { usePlan, useUpdatePlanMutation, type PlanType } from '@/hooks/usePlan';
 
-const currentPlan = ref("BASIC")
+const { plan, isLoading } = usePlan()
+const { mutate: updatePlan, isPending: isUpdating } = useUpdatePlanMutation()
 
-function handleChangePlan(plan: string) {
-    currentPlan.value = plan
-}
+const currentPlan = computed(() => plan.value.type)
 
 const basicFeatures = [
     { icon: 'pi-book', text: 'Criação de planos de estudo personalizados' },
@@ -24,6 +24,10 @@ const premiumFeatures = [
     { icon: 'pi-clock', text: 'Histórico completo de sessões de estudo' },
     { icon: 'pi-bell', text: 'Alertas inteligentes de revisão espaçada' },
 ]
+
+function handleChangePlan(planType: PlanType) {
+    updatePlan(planType)
+}
 </script>
 
 <template>
@@ -41,7 +45,23 @@ const premiumFeatures = [
             </p>
         </header>
 
-        <main class="cards-container">
+        <!-- ── Skeleton loading ──────────────────────────────────── -->
+        <main v-if="isLoading" class="cards-container">
+            <div class="plan-card skeleton-card" v-for="i in 2" :key="i">
+                <div class="card-body">
+                    <div class="sk sk-badge"></div>
+                    <div class="sk sk-title"></div>
+                    <div class="sk sk-price"></div>
+                    <div class="sk sk-tagline"></div>
+                    <div class="sk sk-divider"></div>
+                    <div class="sk sk-line" v-for="j in 5" :key="j"></div>
+                </div>
+                <div class="sk sk-btn"></div>
+            </div>
+        </main>
+
+        <!-- ── Cards reais ────────────────────────────────────────── -->
+        <main v-else class="cards-container">
 
             <!-- ── Basic ─────────────────────────────────────────────── -->
             <div class="plan-card" :class="{ 'is-active': currentPlan === 'BASIC' }">
@@ -65,8 +85,8 @@ const premiumFeatures = [
                     </ul>
                 </div>
 
-                <VButton @click="handleChangePlan('BASIC')" :disabled="currentPlan === 'BASIC'" variant="secondary"
-                    class="w-full">
+                <VButton @click="handleChangePlan('BASIC')" :disabled="currentPlan === 'BASIC' || isUpdating"
+                    variant="secondary" class="w-full">
                     <i v-if="currentPlan === 'BASIC'" class="pi pi-check mr-2 text-sm"></i>
                     {{ currentPlan === "BASIC" ? "Plano Atual" : "Selecionar Plano" }}
                 </VButton>
@@ -102,8 +122,8 @@ const premiumFeatures = [
                     </ul>
                 </div>
 
-                <VButton @click="handleChangePlan('PREMIUM')" :disabled="currentPlan === 'PREMIUM'" variant="primary"
-                    class="w-full">
+                <VButton @click="handleChangePlan('PREMIUM')" :disabled="currentPlan === 'PREMIUM' || isUpdating"
+                    variant="primary" class="w-full">
                     <i v-if="currentPlan === 'PREMIUM'" class="pi pi-check mr-2 text-sm"></i>
                     {{ currentPlan === "PREMIUM" ? "Plano Atual" : "Assinar Premium" }}
                 </VButton>
@@ -306,6 +326,78 @@ const premiumFeatures = [
 .feature-icon--premium {
     color: var(--color-on-primary-container);
     opacity: 0.9;
+}
+
+/* ── Skeleton ──────────────────────────────────────────────────── */
+.skeleton-card {
+    pointer-events: none;
+}
+
+.sk {
+    border-radius: 6px;
+    background: linear-gradient(90deg,
+            color-mix(in srgb, var(--color-on-surface) 6%, transparent) 25%,
+            color-mix(in srgb, var(--color-on-surface) 12%, transparent) 50%,
+            color-mix(in srgb, var(--color-on-surface) 6%, transparent) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+    margin-bottom: 0.75rem;
+}
+
+.sk-badge {
+    width: 60px;
+    height: 20px;
+    border-radius: 999px;
+}
+
+.sk-title {
+    width: 50%;
+    height: 36px;
+    margin-top: 0.25rem;
+}
+
+.sk-price {
+    width: 40%;
+    height: 42px;
+    margin-top: 0.5rem;
+}
+
+.sk-tagline {
+    width: 80%;
+    height: 14px;
+    margin-top: 0.25rem;
+}
+
+.sk-divider {
+    width: 100%;
+    height: 1px;
+    margin: 1.25rem 0;
+}
+
+.sk-line {
+    width: 90%;
+    height: 13px;
+}
+
+.sk-line:nth-child(odd) {
+    width: 75%;
+}
+
+.sk-btn {
+    width: 100%;
+    height: 40px;
+    border-radius: 8px;
+    margin-top: 0;
+}
+
+@keyframes shimmer {
+    from {
+        background-position: 200% 0;
+    }
+
+    to {
+        background-position: -200% 0;
+    }
 }
 
 /* ── Animation ─────────────────────────────────────────────────── */

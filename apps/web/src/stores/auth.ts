@@ -14,7 +14,14 @@ const STORAGE_KEY = 'vincis_auth_state'
 export const useAuthStore = defineStore('auth', () => {
   // Load initial state from localStorage
   const savedState = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')
-  
+
+  // Se o dado salvo não tiver o campo `plan`, está desatualizado — força novo login
+  if (savedState?.user && !('plan' in savedState.user)) {
+    localStorage.removeItem(STORAGE_KEY)
+    savedState.user = null
+    savedState.isAuthenticated = false
+  }
+
   const user = ref<any>(savedState?.user || { ...DEFAULT_USER })
   const isAuthenticated = ref(savedState?.isAuthenticated || false)
 

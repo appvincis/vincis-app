@@ -69,6 +69,12 @@ const router = createRouter({
           path: 'error-logs',
           name: 'error-logs',
           component: () => import('../views/ErrorLogsView.vue')
+        },
+        {
+          path: 'premium',
+          name: 'premium',
+          component: () => import('../views/PremiumView.vue'),
+          meta: { requiresPremium: true }
         }
       ]
     },
@@ -89,6 +95,13 @@ router.beforeEach((to, from) => {
     return '/auth'
   } else if (to.path === '/auth' && authStore.isAuthenticated) {
     return '/private'
+  }
+
+  if (to.meta.requiresPremium) {
+    const isPremium = authStore.user?.plan === 'PREMIUM'
+    if (!isPremium) {
+      return '/private/plans'
+    }
   }
 })
 
