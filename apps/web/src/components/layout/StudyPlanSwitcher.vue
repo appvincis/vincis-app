@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, watch } from 'vue'
 import { useStudyPlanStore } from '../../stores/study-plan'
 import {
   useStudyPlansQuery,
@@ -14,6 +14,16 @@ const studyPlans = computed(() => studyPlansData.value || [])
 
 const { mutateAsync: createStudyPlan, isPending: isCreating } = useCreateStudyPlanMutation()
 const { mutateAsync: selectStudyPlan } = useSelectStudyPlanMutation()
+
+// Assim que os planos carregam, verifica o localStorage (via store persistido).
+// Se nenhum plano estiver selecionado, seleciona o primeiro da lista automaticamente.
+watch(studyPlans, (plans) => {
+  if (!plans.length) return
+  if (studyPlanStore.activePlanId) return   // já tem um plano salvo no browser
+  const first = plans[0]
+  if (!first) return
+  selectStudyPlan({ id: first.id, name: first.name })
+}, { immediate: true })
 
 // ─── Dropdown state ───────────────────────────────────────────────────────────
 const isOpen = ref(false)
@@ -96,15 +106,11 @@ const handleCreatePlan = async () => {
 <template>
   <div>
     <!-- Trigger -->
-    <button
-      ref="triggerRef"
-      @click="toggleDropdown"
-      :aria-expanded="isOpen"
+    <button ref="triggerRef" @click="toggleDropdown" :aria-expanded="isOpen"
       class="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border transition-all duration-200 cursor-pointer"
       :class="isOpen
         ? 'border-primary/40 bg-surface-container-high shadow-sm'
-        : 'border-outline-variant/30 bg-surface-container hover:bg-surface-container-high'"
-    >
+        : 'border-outline-variant/30 bg-surface-container hover:bg-surface-container-high'">
       <div class="flex items-center gap-2 min-w-0">
         <div class="w-6 h-6 rounded-md bg-primary-container flex-shrink-0 flex items-center justify-center">
           <i class="pi pi-briefcase text-[10px] text-on-primary-container"></i>
@@ -118,10 +124,8 @@ const handleCreatePlan = async () => {
           </p>
         </div>
       </div>
-      <i
-        class="pi pi-chevron-down text-[11px] text-on-surface-muted flex-shrink-0 transition-transform duration-200"
-        :class="isOpen ? 'rotate-180' : ''"
-      ></i>
+      <i class="pi pi-chevron-down text-[11px] text-on-surface-muted flex-shrink-0 transition-transform duration-200"
+        :class="isOpen ? 'rotate-180' : ''"></i>
     </button>
 
     <!-- Dropdown teleportado para o body — escapa do stacking context do sidebar -->
@@ -130,12 +134,9 @@ const handleCreatePlan = async () => {
       <div v-if="isOpen" class="fixed inset-0 z-[9998]" @mousedown="closeDropdown" />
 
       <Transition name="dropdown">
-        <div
-          v-if="isOpen"
-          id="plan-switcher-dropdown"
+        <div v-if="isOpen" id="plan-switcher-dropdown"
           class="fixed z-[9999] rounded-xl border border-outline-variant/30 bg-surface-container-lowest shadow-lg overflow-hidden"
-          :style="dropdownStyle"
-        >
+          :style="dropdownStyle">
           <!-- Header -->
           <div class="px-4 py-2.5 border-b border-outline-variant/20">
             <p class="text-[9px] font-bold uppercase tracking-widest text-on-surface-muted">
@@ -151,25 +152,14 @@ const handleCreatePlan = async () => {
             <p v-else-if="!studyPlans.length" class="px-4 py-3 text-xs text-on-surface-muted text-center">
               Nenhum plano criado ainda.
             </p>
-            <button
-              v-else
-              v-for="plan in studyPlans"
-              :key="plan.id"
-              @click="handleSelectPlan(plan.id, plan.name)"
-              class="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-surface-container-low transition-colors duration-150 cursor-pointer text-left"
-            >
+            <button v-else v-for="plan in studyPlans" :key="plan.id" @click="handleSelectPlan(plan.id, plan.name)"
+              class="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-surface-container-low transition-colors duration-150 cursor-pointer text-left">
               <div class="w-4 flex-shrink-0 flex items-center justify-center">
-                <i
-                  v-if="studyPlanStore.activePlanId === plan.id"
-                  class="pi pi-check text-[11px] text-primary"
-                ></i>
+                <i v-if="studyPlanStore.activePlanId === plan.id" class="pi pi-check text-[11px] text-primary"></i>
               </div>
-              <span
-                class="text-[13px] font-sans truncate"
-                :class="studyPlanStore.activePlanId === plan.id
-                  ? 'font-bold text-on-surface'
-                  : 'font-medium text-on-surface-muted'"
-              >
+              <span class="text-[13px] font-sans truncate" :class="studyPlanStore.activePlanId === plan.id
+                ? 'font-bold text-on-surface'
+                : 'font-medium text-on-surface-muted'">
                 {{ plan.name }}
               </span>
             </button>
@@ -177,11 +167,8 @@ const handleCreatePlan = async () => {
 
           <!-- Create section -->
           <div class="border-t border-outline-variant/20">
-            <button
-              v-if="!showCreateForm"
-              @click="openCreateForm"
-              class="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-surface-container-low transition-colors duration-150 cursor-pointer text-left"
-            >
+            <button v-if="!showCreateForm" @click="openCreateForm"
+              class="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-surface-container-low transition-colors duration-150 cursor-pointer text-left">
               <div class="w-4 flex-shrink-0 flex items-center justify-center">
                 <i class="pi pi-plus text-[11px] text-primary"></i>
               </div>
@@ -189,34 +176,20 @@ const handleCreatePlan = async () => {
             </button>
 
             <div v-else class="px-3 py-3 space-y-2">
-              <input
-                ref="nameInput"
-                v-model="newPlanName"
-                type="text"
-                placeholder="Nome do plano"
+              <input ref="nameInput" v-model="newPlanName" type="text" placeholder="Nome do plano"
                 class="w-full text-[13px] px-3 py-2 rounded-lg border border-outline-variant/40 bg-surface-container-low text-on-surface placeholder:text-on-surface-muted/50 focus:outline-none focus:border-primary/50 transition-colors"
-                @keyup.enter="handleCreatePlan"
-              />
-              <input
-                v-model="newPlanDesc"
-                type="text"
-                placeholder="Descrição (opcional)"
+                @keyup.enter="handleCreatePlan" />
+              <input v-model="newPlanDesc" type="text" placeholder="Descrição (opcional)"
                 class="w-full text-[13px] px-3 py-2 rounded-lg border border-outline-variant/40 bg-surface-container-low text-on-surface placeholder:text-on-surface-muted/50 focus:outline-none focus:border-primary/50 transition-colors"
-                @keyup.enter="handleCreatePlan"
-              />
+                @keyup.enter="handleCreatePlan" />
               <p v-if="createError" class="text-[11px] text-error pl-1">{{ createError }}</p>
               <div class="flex gap-2">
-                <button
-                  @click="cancelCreate"
-                  class="flex-1 text-xs font-bold py-1.5 rounded-lg border border-outline-variant/40 text-on-surface-muted hover:bg-surface-container transition-colors duration-150 cursor-pointer"
-                >
+                <button @click="cancelCreate"
+                  class="flex-1 text-xs font-bold py-1.5 rounded-lg border border-outline-variant/40 text-on-surface-muted hover:bg-surface-container transition-colors duration-150 cursor-pointer">
                   Cancelar
                 </button>
-                <button
-                  @click="handleCreatePlan"
-                  :disabled="isCreating"
-                  class="flex-1 text-xs font-bold py-1.5 rounded-lg bg-primary text-on-primary hover:bg-primary-hover transition-colors duration-150 cursor-pointer disabled:opacity-60"
-                >
+                <button @click="handleCreatePlan" :disabled="isCreating"
+                  class="flex-1 text-xs font-bold py-1.5 rounded-lg bg-primary text-on-primary hover:bg-primary-hover transition-colors duration-150 cursor-pointer disabled:opacity-60">
                   {{ isCreating ? 'Criando…' : 'Criar' }}
                 </button>
               </div>

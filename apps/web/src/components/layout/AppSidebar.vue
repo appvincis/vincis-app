@@ -2,12 +2,14 @@
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
+import { usePlan } from '../../hooks/usePlan'
 import Menu from 'primevue/menu'
 import StudyPlanSwitcher from './StudyPlanSwitcher.vue'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
+const { plan } = usePlan()
 
 const menu = ref()
 
@@ -36,17 +38,23 @@ const toggleUserMenu = (event: any) => {
 }
 
 const navItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: 'pi-th-large', path: '/private' },
-  { id: 'disciplinas', label: 'Disciplinas', icon: 'pi-book', path: '/private/disciplinas' },
-  { id: 'tasks', label: 'Tarefas', icon: 'pi-check-circle', path: '/private/tasks' },
-  { id: 'performance', label: 'Desempenho', icon: 'pi-chart-bar', path: '/private/performance' },
-  { id: 'plans', label: 'Plano', icon: 'pi-box', path: '/private/plans' },
+  { id: 'dashboard', label: 'Dashboard', icon: 'pi-th-large', path: '/private', isPremium: false },
+  { id: 'disciplinas', label: 'Disciplinas', icon: 'pi-book', path: '/private/disciplinas', isPremium: false },
+  { id: 'tasks', label: 'Tarefas', icon: 'pi-check-circle', path: '/private/tasks', isPremium: false },
+  { id: 'performance', label: 'Desempenho', icon: 'pi-chart-bar', path: '/private/performance', isPremium: false },
+  { id: 'plans', label: 'Plano', icon: 'pi-box', path: '/private/plans', isPremium: false },
+  { id: 'premium', label: 'Premium', icon: 'pi-verified', path: '/private/premium', isPremium: true },
 ]
 
 const isActive = (path: string) => {
   if (path === '/private') return route.path === '/private'
   return route.path.startsWith(path)
 }
+
+// Filtra itens que exigem Premium: só exibe se o usuário tiver assinatura ativa
+const visibleNavItems = computed(() =>
+  navItems.filter(item => !item.isPremium || plan.value.isPremium)
+)
 
 const userInitials = computed(() => {
   const name = authStore.user?.name || 'AV'
@@ -79,7 +87,7 @@ const userInitials = computed(() => {
 
     <!-- Navigation Links -->
     <nav class="flex-1 space-y-3">
-      <router-link v-for="item in navItems" :key="item.id" :to="item.path"
+      <router-link v-for="item in visibleNavItems" :key="item.id" :to="item.path"
         class="flex items-center gap-3 px-4 min-h-[48px] rounded-xl transition-all" :class="isActive(item.path)
           ? 'bg-primary-container text-on-surface shadow-sm'
           : 'text-on-surface-muted hover:bg-background dark:hover:bg-surface-dark-elevated'">
