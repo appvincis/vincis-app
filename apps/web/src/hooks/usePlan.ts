@@ -18,9 +18,11 @@ export const usePlan = () => {
         queryKey: ['user-plan'],
         queryFn: async () => {
             const { data } = await api.get<{ plan: PlanType }>('/users/plan')
+            if (data.plan !== authStore.user?.plan) {
+                authStore.updateProfile({ plan: data.plan })
+            }
             return data.plan
-        },
-        initialData: () => authStore.user?.plan as PlanType
+        }
     })
 
     const plan = computed<UserPlan>(() => {
