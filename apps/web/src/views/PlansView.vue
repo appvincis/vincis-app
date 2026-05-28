@@ -1,10 +1,20 @@
 <script setup lang='ts'>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { VButton } from '@/components/ui';
+import DsModal from '@/components/ui/DsModal.vue';
 import { usePlan, useUpdatePlanMutation, type PlanType } from '@/hooks/usePlan';
+import { useGeneratePixMutation, useSimulatePaymentMutation } from '@/hooks/usePayment';
+import { useAuthStore } from '@/stores/auth';
+import { useQueryClient } from '@tanstack/vue-query';
 
 const { plan, isLoading } = usePlan()
+const authStore = useAuthStore()
+const queryClient = useQueryClient()
 const { mutate: updatePlan, isPending: isUpdating } = useUpdatePlanMutation()
+const { mutateAsync: generatePix, isPending: isGeneratingPix } = useGeneratePixMutation()
+const { mutateAsync: simulatePayment, isPending: isSimulating } = useSimulatePaymentMutation()
+
+
 
 const currentPlan = computed(() => plan.value.type)
 
@@ -25,8 +35,22 @@ const premiumFeatures = [
     { icon: 'pi-bell', text: 'Alertas inteligentes de revisão espaçada' },
 ]
 
-function handleChangePlan(planType: PlanType) {
-    updatePlan(planType)
+async function handleChangePlan(planType: PlanType) {
+    if (planType === 'PREMIUM') {
+        try {
+            const data = await generatePix()
+            if (data.checkoutUrl) {
+                window.location.href = data.checkoutUrl
+            } else {
+                throw new Error('URL de checkout não retornada')
+            }
+        } catch (error) {
+            console.error('Erro ao gerar Checkout:', error)
+            alert('Não foi possível gerar a cobrança no momento. Verifique se a chave da API está correta.')
+        }
+    } else {
+        updatePlan(planType)
+    }
 }
 </script>
 
@@ -130,6 +154,14 @@ function handleChangePlan(planType: PlanType) {
             </div>
 
         </main>
+
+        <!-- Loading Overlay for redirect -->
+        <div v-if="isGeneratingPix" class="fixed inset-0 z-50 flex items-center justify-center bg-surface-container-lowest/80 backdrop-blur-sm">
+            <div class="bg-surface-container-low p-6 rounded-2xl shadow-xl flex flex-col items-center gap-4">
+                <i class="pi pi-spin pi-spinner text-4xl text-primary"></i>
+                <p class="text-on-surface font-sans font-medium">Redirecionando para a AbacatePay...</p>
+            </div>
+        </div>
     </div>
 </template>
 
