@@ -11,7 +11,7 @@ export async function requirePremium(req: Request, res: Response, next: NextFunc
         if (user?.plan == "PREMIUM") {
             return next()
         } else {
-            return res.status(401).json({
+            return res.status(403).json({
                 message: "Não autorizado: Usuário não possui o plano Premium e não pode acessar essa área exclusiva."
             })
         }

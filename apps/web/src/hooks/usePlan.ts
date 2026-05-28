@@ -12,12 +12,15 @@ export interface UserPlan {
 }
 
 export const usePlan = () => {
+    const authStore = useAuthStore()
+
     const { data, isLoading, isError, error } = useQuery({
         queryKey: ['user-plan'],
         queryFn: async () => {
             const { data } = await api.get<{ plan: PlanType }>('/users/plan')
             return data.plan
         },
+        initialData: () => authStore.user?.plan as PlanType
     })
 
     const plan = computed<UserPlan>(() => {
