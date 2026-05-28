@@ -23,6 +23,7 @@ model User {
   planExpiresAt DateTime? // null = plano basico, não expira
   studyPlans    StudyPlan[]
   errorLogs     ErrorLog[]
+  editais       Edital[]
 }
 
 model StudyPlan {
@@ -87,3 +88,18 @@ model ErrorLog {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model Edital {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  fileUrl     String // Storage path, ex: `editais/${userId}/${filename}`
+  fileSize    Int // In bytes
+  
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
