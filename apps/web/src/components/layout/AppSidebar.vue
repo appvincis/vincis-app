@@ -40,6 +40,7 @@ const toggleUserMenu = (event: any) => {
 const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: 'pi-th-large', path: '/private', isPremium: false },
   { id: 'disciplinas', label: 'Disciplinas', icon: 'pi-book', path: '/private/disciplinas', isPremium: false },
+  { id: 'planner', label: 'Planner', icon: 'pi-clock', path: '/private/planner', isPremium: false },
   { id: 'tasks', label: 'Tarefas', icon: 'pi-check-circle', path: '/private/tasks', isPremium: false },
   { id: 'error-logs', label: 'Caderno de Erros', icon: 'pi-pencil', path: '/private/error-logs', isPremium: false },
   { id: 'editais', label: 'Editais', icon: 'pi-file-pdf', path: '/private/editais', isPremium: false },
