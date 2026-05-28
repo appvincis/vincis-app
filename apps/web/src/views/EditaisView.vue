@@ -69,19 +69,27 @@ const submitUpload = async () => {
 
 // ─── Ações de Edital ──────────────────────────────────────────────────────────
 const viewingId = ref<number | null>(null)
+const showPreviewModal = ref(false)
+const previewUrl = ref<string | null>(null)
 
 const handleView = async (id: number) => {
     try {
         viewingId.value = id
         const url = await getSignedUrl.mutateAsync(id)
         if (url) {
-            window.open(url, '_blank')
+            previewUrl.value = url
+            showPreviewModal.value = true
         }
     } catch (e) {
         alert('Erro ao abrir o edital. Ele pode ter sido removido ou não está acessível.')
     } finally {
         viewingId.value = null
     }
+}
+
+const closePreview = () => {
+    showPreviewModal.value = false
+    setTimeout(() => { previewUrl.value = null }, 300)
 }
 
 const handleDelete = async (id: number) => {
@@ -244,6 +252,27 @@ const formatDate = (dateString: string) => {
               </VButton>
           </div>
       </template>
+    </VModal>
+
+    <!-- Modal de Visualização do PDF -->
+    <VModal v-model:visible="showPreviewModal" header="Visualização de Edital" :style="{ width: '90vw', maxWidth: '1200px' }" id="modal-preview-edital" @close="closePreview">
+        <div class="w-full overflow-hidden" style="height: calc(85vh - 160px);">
+            <iframe v-if="previewUrl" :src="previewUrl" class="w-full h-full border-0 rounded-lg shadow-inner bg-surface-container-lowest" title="Visualizador de PDF"></iframe>
+            <div v-else class="w-full h-full flex items-center justify-center">
+                <VSpinner class="w-8 h-8 text-primary" />
+            </div>
+        </div>
+        <template #footer>
+            <div class="modal-footer">
+                <VButton @click="closePreview" variant="ghost">Fechar</VButton>
+                <a v-if="previewUrl" :href="previewUrl" target="_blank" class="inline-flex">
+                    <VButton variant="secondary">
+                        <i class="pi pi-external-link mr-2"></i>
+                        Abrir em nova aba
+                    </VButton>
+                </a>
+            </div>
+        </template>
     </VModal>
   </div>
 </template>
