@@ -41,6 +41,7 @@ const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: 'pi-th-large', path: '/private', isPremium: false },
   { id: 'disciplinas', label: 'Disciplinas', icon: 'pi-book', path: '/private/disciplinas', isPremium: false },
   { id: 'tasks', label: 'Tarefas', icon: 'pi-check-circle', path: '/private/tasks', isPremium: false },
+  { id: 'error-logs', label: 'Caderno de Erros', icon: 'pi-pencil', path: '/private/error-logs', isPremium: false },
   { id: 'performance', label: 'Desempenho', icon: 'pi-chart-bar', path: '/private/performance', isPremium: false },
   { id: 'plans', label: 'Plano', icon: 'pi-box', path: '/private/plans', isPremium: false },
   { id: 'premium', label: 'Premium', icon: 'pi-verified', path: '/private/premium', isPremium: true },
