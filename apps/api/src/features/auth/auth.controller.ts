@@ -48,6 +48,7 @@ export async function signup(req: Request<{}, {}, SignupInput>, res: Response) {
                 email: dbUser.email,
                 name: dbUser.name,
                 avatar: dbUser.avatar,
+                plan: dbUser.plan,
             },
         })
     } catch (err) {
@@ -103,6 +104,7 @@ export async function login(req: Request<{}, {}, LoginInput>, res: Response) {
                 email: dbUser.email,
                 name: dbUser.name,
                 avatar: dbUser.avatar,
+                plan: dbUser.plan,
             },
         })
     } catch (err) {

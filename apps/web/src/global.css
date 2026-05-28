@@ -7,57 +7,57 @@
  * as utilities (bg-primary, text-on-surface, border-outline-variant, etc).
  * ────────────────────────────────────────────────────────────────── */
 @theme {
-  /* Primary */
-  --color-primary: #735c00;
-  --color-primary-container: #d4af37;
-  --color-primary-hover: #554300;
-  --color-primary-light: #ffe088;
-  --color-on-primary: #ffffff;
-  --color-on-primary-container: #554300;
+    /* Primary */
+    --color-primary: #735c00;
+    --color-primary-container: #d4af37;
+    --color-primary-hover: #554300;
+    --color-primary-light: #ffe088;
+    --color-on-primary: #ffffff;
+    --color-on-primary-container: #554300;
 
-  /* Secondary */
-  --color-secondary: #5f5e5c;
-  --color-secondary-container: #e5e2de;
-  --color-on-secondary: #ffffff;
-  --color-on-secondary-container: #656461;
+    /* Secondary */
+    --color-secondary: #5f5e5c;
+    --color-secondary-container: #e5e2de;
+    --color-on-secondary: #ffffff;
+    --color-on-secondary-container: #656461;
 
-  /* Tertiary */
-  --color-tertiary: #595f67;
-  --color-tertiary-container: #aeb3bc;
+    /* Tertiary */
+    --color-tertiary: #595f67;
+    --color-tertiary-container: #aeb3bc;
 
-  /* Surfaces */
-  --color-background: #fdf9f6;
-  --color-surface: #fdf9f6;
-  --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low: #f7f3f0;
-  --color-surface-container: #f1edea;
-  --color-surface-container-high: #ebe7e4;
-  --color-surface-container-highest: #e5e2df;
+    /* Surfaces */
+    --color-background: #fdf9f6;
+    --color-surface: #fdf9f6;
+    --color-surface-container-lowest: #ffffff;
+    --color-surface-container-low: #f7f3f0;
+    --color-surface-container: #f1edea;
+    --color-surface-container-high: #ebe7e4;
+    --color-surface-container-highest: #e5e2df;
 
-  /* Dark surface (usado pelo sidebar em modo escuro) */
-  --color-surface-dark: #1c1c1a;
-  --color-surface-dark-elevated: #2a2a28;
+    /* Dark surface (usado pelo sidebar em modo escuro) */
+    --color-surface-dark: #1c1c1a;
+    --color-surface-dark-elevated: #2a2a28;
 
-  /* Foreground */
-  --color-on-surface: #1c1b1a;
-  --color-on-surface-variant: #4d4635;
-  --color-on-surface-muted: #5f5e5c;
+    /* Foreground */
+    --color-on-surface: #1c1b1a;
+    --color-on-surface-variant: #4d4635;
+    --color-on-surface-muted: #5f5e5c;
 
-  /* Outline */
-  --color-outline: #7f7663;
-  --color-outline-variant: #d0c5af;
+    /* Outline */
+    --color-outline: #7f7663;
+    --color-outline-variant: #d0c5af;
 
-  /* Status */
-  --color-error: #ba1a1a;
-  --color-error-container: #ffdad6;
-  --color-success: #2e7d32;
-  --color-success-container: #c8e6c9;
-  --color-warning: #e65100;
-  --color-warning-container: #ffe0b2;
+    /* Status */
+    --color-error: #ba1a1a;
+    --color-error-container: #ffdad6;
+    --color-success: #2e7d32;
+    --color-success-container: #c8e6c9;
+    --color-warning: #e65100;
+    --color-warning-container: #ffe0b2;
 
-  /* Tipografia */
-  --font-family-serif: 'Newsreader', serif;
-  --font-family-sans: 'Manrope', sans-serif;
+    /* Tipografia */
+    --font-family-serif: 'Newsreader', serif;
+    --font-family-sans: 'Manrope', sans-serif;
 }
 
 /* CSS variables consumidas por PrimeVue e por componentes que precisam
@@ -97,7 +97,11 @@ body {
     color: var(--color-on-surface);
 }
 
-h1, h2, h3, h4, .font-serif {
+h1,
+h2,
+h3,
+h4,
+.font-serif {
     font-family: var(--font-family-serif);
 }
 
@@ -105,6 +109,7 @@ h1, h2, h3, h4, .font-serif {
 .soft-brutalist-border {
     border: 1px solid color-mix(in srgb, var(--color-on-surface) 8%, transparent);
 }
+
 .dark .soft-brutalist-border {
     border: 1px solid rgba(255, 255, 255, 0.08);
 }
@@ -130,4 +135,3 @@ h1, h2, h3, h4, .font-serif {
     background: var(--color-outline-variant);
     opacity: 0.5;
 }
-

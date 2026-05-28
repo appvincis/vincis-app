@@ -48,12 +48,12 @@ const router = createRouter({
         {
           path: 'tasks',
           name: 'tasks',
-          component: () => import('../views/PrivateView.vue')
+          component: () => import('../views/TasksView.vue')
         },
         {
           path: 'performance',
           name: 'performance',
-          component: () => import('../views/PrivateView.vue')
+          component: () => import('../views/PerformanceView.vue')
         },
         {
           path: 'profile',
@@ -61,9 +61,20 @@ const router = createRouter({
           component: () => import('../views/ProfileView.vue')
         },
         {
+          path: 'plans',
+          name: 'plans',
+          component: () => import('../views/PlansView.vue')
+        },
+        {
           path: 'error-logs',
           name: 'error-logs',
           component: () => import('../views/ErrorLogsView.vue')
+        },
+        {
+          path: 'premium',
+          name: 'premium',
+          component: () => import('../views/PremiumView.vue'),
+          meta: { requiresPremium: true }
         }
       ]
     },
@@ -84,6 +95,13 @@ router.beforeEach((to, from) => {
     return '/auth'
   } else if (to.path === '/auth' && authStore.isAuthenticated) {
     return '/private'
+  }
+
+  if (to.meta.requiresPremium) {
+    const isPremium = authStore.user?.plan === 'PREMIUM'
+    if (!isPremium) {
+      return '/private/plans'
+    }
   }
 })
 
