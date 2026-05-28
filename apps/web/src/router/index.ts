@@ -48,12 +48,12 @@ const router = createRouter({
         {
           path: 'tasks',
           name: 'tasks',
-          component: () => import('../views/PrivateView.vue')
+          component: () => import('../views/TasksView.vue')
         },
         {
           path: 'performance',
           name: 'performance',
-          component: () => import('../views/PrivateView.vue')
+          component: () => import('../views/PerformanceView.vue')
         },
         {
           path: 'profile',
