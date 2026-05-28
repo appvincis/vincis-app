@@ -5,6 +5,7 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "prisma generate && tsx watch src/server.ts",
+    "webhook:dev": "smee -u https://smee.io/vincis-webhook-teste -t http://localhost:4000/payments/webhook",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js"
   },
@@ -16,6 +17,7 @@
     "@prisma/adapter-pg": "^7.7.0",
     "@prisma/client": "^7.6.0",
     "@supabase/supabase-js": "^2.103.0",
+    "abacatepay-nodejs-sdk": "^1.6.0",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
@@ -35,6 +37,7 @@
     "@types/node": "^24.12.0",
     "@types/pg": "^8.20.0",
     "prisma": "^7.6.0",
+    "smee-client": "^5.0.0",
     "ts-node-dev": "^2.0.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
