@@ -76,6 +76,11 @@ const router = createRouter({
           component: () => import('../views/EditaisView.vue')
         },
         {
+          path: 'ai-insights',
+          name: 'ai-insights',
+          component: () => import('../views/AIInsightsView.vue')
+        },
+        {
           path: 'premium',
           name: 'premium',
           component: () => import('../views/PremiumView.vue'),
