@@ -3,8 +3,12 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePlan } from '../../hooks/usePlan'
 import { useAuthStore } from '../../stores/auth'
-import { useChat } from '@ai-sdk/vue'
+import { Chat } from '@ai-sdk/vue'
+import { DefaultChatTransport } from 'ai'
 import { marked } from 'marked'
+import { useQueryClient } from '@tanstack/vue-query'
+import { useAiSessionsQuery, useAiSessionQuery, useDeleteAiSessionMutation } from '../../hooks/useAiSession'
+import { useEditaisQuery } from '../../hooks/useEditais'
 
 const props = defineProps<{
   isOpen: boolean
@@ -17,6 +21,7 @@ const emit = defineEmits<{
 const router = useRouter()
 const { plan } = usePlan()
 const authStore = useAuthStore()
+const queryClient = useQueryClient()
 
 const scrollContainerRef = ref<HTMLDivElement | null>(null)
 
@@ -49,19 +54,216 @@ const stopDrag = () => {
 
 const subject = ref('Geral')
 const topic = ref('Estratégia de Estudos')
-const selectedModel = ref('openai')
+const selectedModel = ref('gemini')
 
-const { messages, input, handleSubmit, isLoading } = useChat({
-  api: 'http://localhost:4000/ai/chat',
-  streamProtocol: 'text',
-  initialMessages: [
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content: 'Olá! Sou o seu Tutor IA focado em Concursos. Estou aqui para tirar suas dúvidas sobre editais e matérias. Sobre o que vamos falar hoje?'
+const sessionId = ref<string | null>(null)
+const showHistory = ref(false)
+const isLoadingFromHistory = ref(false)
+const attachedEditalId = ref<number | null>(null)
+const showAttachmentMenu = ref(false)
+
+const { data: sessions, isLoading: isLoadingSessions } = useAiSessionsQuery()
+const { data: currentSession, isFetching: isFetchingSession } = useAiSessionQuery(sessionId)
+const deleteSessionMutation = useDeleteAiSessionMutation()
+const { data: editais } = useEditaisQuery()
+
+const initialWelcomeMessage = {
+  id: 'welcome',
+  role: 'assistant' as const,
+  content: 'Olá! Sou o seu Tutor IA focado em Concursos. Estou aqui para tirar suas dúvidas sobre editais e matérias. Sobre o que vamos falar hoje?'
+}
+
+const input = ref('')
+const isLoading = computed(() => chat.status === 'streaming' || chat.status === 'submitted')
+
+const chat = new Chat({
+  transport: new DefaultChatTransport({
+    api: 'http://localhost:4000/ai/chat',
+    fetch: async (url, options) => {
+      if (options && typeof options.body === 'string') {
+        try {
+          const bodyObj = JSON.parse(options.body);
+          bodyObj.data = {
+            provider: selectedModel.value,
+            sessionId: sessionId.value || '',
+            editalId: attachedEditalId.value?.toString() || ''
+          };
+          options.body = JSON.stringify(bodyObj);
+        } catch (e) {
+          console.error('Failed to parse fetch body', e);
+        }
+      }
+      const res = await fetch(url, { ...options, credentials: 'include' })
+      const newSessionId = res.headers.get('x-session-id')
+      if (newSessionId && !sessionId.value) {
+        sessionId.value = newSessionId
+        // Invalidate list to show new session
+        queryClient.invalidateQueries({ queryKey: ['ai-sessions'] })
+      }
+      return res
     }
-  ]
+  }),
+  messages: [initialWelcomeMessage]
 })
+
+// Quando a stream termina ('ready'), invalida a sessão para buscar os tokens gastos salvos no banco
+watch(() => chat.status, (newStatus, oldStatus) => {
+  if (newStatus === 'ready' && oldStatus === 'streaming' && sessionId.value) {
+    queryClient.invalidateQueries({ queryKey: ['ai-sessions', sessionId.value] })
+  }
+})
+
+const messages = computed(() => chat.messages)
+
+const handleSubmit = (event?: Event) => {
+  event?.preventDefault()
+  if (!input.value.trim()) return
+  
+  const text = input.value
+  input.value = ''
+  
+  const attachments = []
+  if (attachedEditalId.value) {
+    const edital = editais.value?.find((e: any) => e.id === attachedEditalId.value)
+    if (edital && edital.conteudo) {
+      attachments.push({
+        url: 'db://edital',
+        contentType: 'text/plain',
+        content: `CONTEÚDO DO EDITAL DE REFERÊNCIA (${edital.titulo}):\n\n${edital.conteudo}`
+      })
+    }
+  }
+
+  // Support for attachments using Vercel AI SDK parts format
+  const parts: any[] = [{ type: 'text', text }]
+  if (attachments.length > 0) {
+     // Currently we just send the text alongside if there's no native multipart format
+     parts[0].text += '\n\n' + attachments[0].content
+  }
+
+  chat.sendMessage(
+    { text: parts[0].text },
+    { 
+      data: { 
+        provider: selectedModel.value, 
+        sessionId: sessionId.value || '', 
+        editalId: attachedEditalId.value?.toString() || '' 
+      } 
+    }
+  )
+}
+
+const setMessages = (msgs: any[]) => {
+  chat.messages = msgs
+}
+
+const getMessageText = (msg: any) => {
+  if (msg.content) return msg.content
+  if (msg.parts && msg.parts.length > 0) {
+    return msg.parts.map((p: any) => p.text || '').join('')
+  }
+  return ''
+}
+
+watch(currentSession, (session) => {
+  if (session) {
+    if (session.editalId) {
+      attachedEditalId.value = session.editalId
+    }
+    // Sincroniza se clicou no histórico OU se a IA terminou de responder (para pegar os tokens salvos no banco)
+    if (session.messages?.length && (isLoadingFromHistory.value || chat.status === 'ready')) {
+      const mapped = session.messages.map((m: any) => ({
+        id: m.id,
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+        parts: [{ type: 'text', text: m.content }],
+        metadata: { tokens: m.tokens } // Passa o token do db na propriedade metadata
+      }))
+      setMessages(mapped)
+      isLoadingFromHistory.value = false // reset flag after loading
+    }
+  }
+}, { immediate: true, deep: true })
+
+const startNewChat = () => {
+  sessionId.value = null
+  showHistory.value = false
+  isLoadingFromHistory.value = false
+  attachedEditalId.value = null
+  setMessages([initialWelcomeMessage])
+}
+
+const selectSession = (id: string) => {
+  sessionId.value = id
+  showHistory.value = false
+  isLoadingFromHistory.value = true
+}
+
+const deleteSession = (id: string, event: Event) => {
+  event.stopPropagation()
+  deleteSessionMutation.mutate(id)
+  if (sessionId.value === id) {
+    startNewChat()
+    showHistory.value = true // keep history open
+  }
+}
+
+const toggleAttachmentMenu = () => {
+  showAttachmentMenu.value = !showAttachmentMenu.value
+}
+
+const selectEdital = (editalId: number) => {
+  attachedEditalId.value = editalId
+  showAttachmentMenu.value = false
+}
+
+const attachedEditalName = computed(() => {
+  if (!attachedEditalId.value || !editais.value) return null
+  return editais.value.find((e: any) => e.id === attachedEditalId.value)?.title
+})
+
+const firstUserMessage = computed(() => {
+  return messages.value.find(m => m.role === 'user')
+})
+
+const tokenMap = computed(() => {
+  const map: Record<string, number> = {}
+  if (currentSession.value?.messages) {
+    currentSession.value.messages.forEach((m: any) => {
+      if (m.tokens) {
+        map[m.id] = m.tokens
+        // Fallback: mapeia pelo conteúdo exato da mensagem,
+        // já que o Vercel AI SDK usa IDs locais (v-xxx) diferentes dos UUIDs do banco.
+        if (m.content) {
+          map[m.content] = m.tokens
+        }
+      }
+    })
+  }
+  return map
+})
+
+const getTokenUsage = (msg: any) => {
+  if (!msg) return null;
+  // Busca direto do mapa reativo do DB (A prova de falhas)
+  if (tokenMap.value[msg.id]) return tokenMap.value[msg.id];
+  if (tokenMap.value[msg.content]) return tokenMap.value[msg.content];
+  
+  // If loaded from DB history (new format)
+  if (msg.metadata && msg.metadata.tokens) return msg.metadata.tokens;
+  // Fallback para o formato antigo
+  if (msg.tokens) return msg.tokens;
+  
+  // If streaming from Vercel AI SDK
+  if (msg.annotations && Array.isArray(msg.annotations)) {
+    const usageObj = msg.annotations.find((a: any) => a?.type === 'usage' || a?.promptTokens !== undefined);
+    if (usageObj) {
+       const vals = usageObj.value || usageObj;
+       return vals.totalTokens || (vals.promptTokens + vals.completionTokens) || null;
+    }
+  }
+  return null;
+}
 
 const renderMarkdown = (text: string) => {
   if (!text) return ''
@@ -86,14 +288,14 @@ const handleKeyDown = (e: KeyboardEvent) => {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault()
     if (input.value.trim() && !isLoading.value) {
-      handleSubmit(e as unknown as Event, { data: { provider: selectedModel.value } })
+      handleSubmit(e as unknown as Event, { data: { provider: selectedModel.value, sessionId: sessionId.value || '', editalId: attachedEditalId.value?.toString() || '' } })
     }
   }
 }
 
 const sendClick = (e: Event) => {
   if (input.value.trim() && !isLoading.value) {
-    handleSubmit(e, { data: { provider: selectedModel.value } })
+    handleSubmit(e, { data: { provider: selectedModel.value, sessionId: sessionId.value || '', editalId: attachedEditalId.value?.toString() || '' } })
   }
 }
 
@@ -136,8 +338,25 @@ watch(() => props.isOpen, (newVal) => {
         </div>
       </div>
 
-      <!-- Close Button -->
+      <!-- Right Actions -->
       <div class="flex items-center gap-3">
+        <button 
+          v-if="!showHistory"
+          @click="showHistory = true" 
+          class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold font-sans transition-colors bg-surface-container-highest hover:bg-surface-container-high text-on-surface-muted hover:text-on-surface cursor-pointer border border-outline-variant/30"
+        >
+          <i class="pi pi-history text-xs"></i>
+          <span class="hidden md:inline">Histórico</span>
+        </button>
+        <button 
+          v-else
+          @click="showHistory = false" 
+          class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold font-sans transition-colors bg-primary text-on-primary cursor-pointer shadow-sm"
+        >
+          <i class="pi pi-comments text-xs"></i>
+          <span class="hidden md:inline">Voltar ao Chat</span>
+        </button>
+
         <button @click="emit('close')" class="w-8 h-8 rounded-full flex items-center justify-center bg-surface-container hover:bg-surface-container-high text-on-surface-muted hover:text-on-surface transition-colors cursor-pointer border border-outline-variant/30">
           <i class="pi pi-times text-sm"></i>
         </button>
@@ -147,15 +366,69 @@ watch(() => props.isOpen, (newVal) => {
     <!-- Main Content Area with Paywall Blur & Shift -->
     <div class="flex-1 flex flex-col relative overflow-hidden bg-background dark:bg-surface-dark">
       
-      <!-- Se não for premium, aplica blur, deslocamento (shift) e impede eventos de mouse -->
+      <!-- Se não for premium, aplica blur -->
       <div 
-        class="flex-1 flex flex-col transition-all duration-500 ease-out min-h-0"
+        class="flex-1 flex flex-col transition-all duration-500 ease-out min-h-0 relative"
         :class="{ 'blur-md translate-y-4 scale-[0.98] pointer-events-none select-none opacity-40 origin-bottom': !plan.isPremium }"
       >
-        <!-- Área de Mensagens -->
-        <div ref="scrollContainerRef" class="flex-1 overflow-y-auto px-4 md:px-6 custom-scrollbar scroll-auto min-h-0">
+        <!-- TELA DE HISTÓRICO -->
+        <div 
+          v-if="showHistory" 
+          class="absolute inset-0 bg-background dark:bg-surface-dark z-20 flex flex-col overflow-hidden"
+        >
+          <div class="p-6 border-b border-outline-variant/20 flex justify-between items-center bg-surface-container-lowest">
+            <h3 class="font-headline font-bold text-lg">Suas Conversas</h3>
+            <button @click="startNewChat" class="px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-xl text-sm font-bold transition-colors flex items-center gap-2">
+              <i class="pi pi-plus"></i> Nova Conversa
+            </button>
+          </div>
+          
+          <div class="flex-1 overflow-y-auto px-4 py-4 custom-scrollbar">
+            <div v-if="isLoadingSessions" class="flex justify-center p-8">
+              <i class="pi pi-spinner animate-spin text-primary text-2xl"></i>
+            </div>
+            <div v-else-if="!sessions?.length" class="text-center p-8 text-on-surface-muted">
+              Nenhuma conversa encontrada.
+            </div>
+            <div v-else class="flex flex-col gap-2">
+              <div 
+                v-for="session in sessions" 
+                :key="session.id"
+                class="flex items-center text-left p-4 rounded-xl transition-all border hover:shadow-sm group relative"
+                :class="session.id === sessionId ? 'bg-primary/5 border-primary/30' : 'bg-surface-container-lowest border-outline-variant/30 hover:bg-surface-container-highest'"
+              >
+                <button @click="selectSession(session.id)" class="flex-1 flex flex-col items-start cursor-pointer text-left w-full pr-10">
+                  <span class="font-sans font-bold text-on-surface truncate w-full text-[15px] mb-1">
+                    {{ session.title }}
+                  </span>
+                  <span class="text-xs text-on-surface-muted font-sans flex items-center gap-1.5">
+                    <i class="pi pi-clock text-[10px]"></i>
+                    {{ new Date(session.updatedAt).toLocaleDateString('pt-BR') }} às {{ new Date(session.updatedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) }}
+                  </span>
+                </button>
+                <button 
+                  @click="deleteSession(session.id, $event)" 
+                  class="absolute right-4 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-error/10 hover:text-error text-on-surface-muted opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+                  title="Excluir conversa"
+                  :disabled="deleteSessionMutation.isPending.value"
+                >
+                  <i class="pi pi-trash text-sm" :class="{'pi-spinner animate-spin': deleteSessionMutation.isPending.value && deleteSessionMutation.variables.value === session.id}"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Área de Mensagens (Oculta se Histórico aberto) -->
+        <div v-show="!showHistory" ref="scrollContainerRef" class="flex-1 overflow-y-auto px-4 md:px-6 custom-scrollbar scroll-auto min-h-0 relative">
+          
+          <!-- Loading overlay quando estiver trocando de sessão -->
+          <div v-if="isFetchingSession" class="absolute inset-0 z-10 bg-background/50 backdrop-blur-sm flex items-center justify-center">
+            <i class="pi pi-spinner animate-spin text-primary text-3xl"></i>
+          </div>
+
           <div class="max-w-3xl mx-auto w-full py-8 md:py-12 flex flex-col gap-10">
-            
+
             <div 
               v-for="msg in messages" 
               :key="msg.id" 
@@ -175,17 +448,32 @@ watch(() => props.isOpen, (newVal) => {
                 <div class="flex-1 min-w-0">
                   <div 
                     class="prose prose-sm md:prose-base prose-neutral dark:prose-invert max-w-none prose-p:leading-relaxed prose-headings:font-headline prose-a:text-primary prose-strong:text-on-surface dark:prose-strong:text-white"
-                    v-html="renderMarkdown(msg.content)"
+                    v-html="renderMarkdown(getMessageText(msg))"
                   ></div>
+                  <!-- Tokens Counter (Claude Style) -->
+                  <div v-if="getTokenUsage(msg)" class="mt-3 flex items-center gap-1.5 text-[11px] text-on-surface-muted font-mono bg-surface-container w-fit px-2 py-0.5 rounded-md border border-outline-variant/30">
+                    <i class="pi pi-sparkles text-[9px] text-primary"></i>
+                    <span>{{ getTokenUsage(msg).toLocaleString('pt-BR') }} tokens</span>
+                  </div>
                 </div>
               </div>
 
               <!-- User Layout (Bubble on the right) -->
               <div 
                 v-else
-                class="max-w-[85%] bg-surface-container-high dark:bg-surface-dark-elevated text-on-surface px-5 py-3.5 rounded-[24px] rounded-br-sm shadow-sm border border-outline-variant/10"
+                class="max-w-[85%] flex flex-col items-end gap-2"
               >
-                <div class="text-[15px] leading-relaxed whitespace-pre-wrap" v-html="msg.content.replace(/\n/g, '<br/>')"></div>
+                <!-- Attachment Card -->
+                <div v-if="msg.id === firstUserMessage?.id && attachedEditalName" class="bg-surface-container dark:bg-surface-dark-elevated text-on-surface p-3 rounded-2xl flex flex-col items-center justify-center gap-2 border border-outline-variant/20 shadow-sm w-28 h-28 shrink-0">
+                  <div class="bg-error text-white w-10 h-10 rounded-lg flex items-center justify-center shadow-sm">
+                    <i class="pi pi-file-pdf text-xl"></i>
+                  </div>
+                  <span class="text-xs font-bold text-center w-full truncate px-1 mt-1" :title="attachedEditalName">{{ attachedEditalName }}</span>
+                </div>
+
+                <div class="bg-surface-container-high dark:bg-surface-dark-elevated text-on-surface px-5 py-3.5 rounded-[24px] rounded-br-sm shadow-sm border border-outline-variant/10">
+                  <div class="text-[15px] leading-relaxed whitespace-pre-wrap" v-html="getMessageText(msg).replace(/\n/g, '<br/>')"></div>
+                </div>
               </div>
             </div>
             
@@ -210,9 +498,20 @@ watch(() => props.isOpen, (newVal) => {
         </div>
 
         <!-- Input Area (Fixed at bottom) -->
-        <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-background via-background to-transparent dark:from-surface-dark dark:via-surface-dark pt-12 pb-6 md:pb-8 px-4 md:px-6 pointer-events-none">
+        <div v-show="!showHistory" class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-background via-background to-transparent dark:from-surface-dark dark:via-surface-dark pt-12 pb-6 md:pb-8 px-4 md:px-6 pointer-events-none z-10">
           <div class="max-w-3xl mx-auto w-full pointer-events-auto relative">
             <div class="bg-surface-container-lowest dark:bg-[#1a1a24] rounded-3xl border border-outline-variant/40 shadow-sm focus-within:shadow-md focus-within:border-primary/40 transition-all flex flex-col p-2">
+              <!-- Attachment Badge (Only for new session) -->
+              <div v-if="attachedEditalName && !sessionId" class="px-3 pt-2 flex items-center justify-between">
+                <div class="flex items-center gap-1.5 bg-primary/10 text-primary px-2 py-1 rounded-md text-xs font-bold font-sans">
+                  <i class="pi pi-file-pdf"></i>
+                  <span class="truncate max-w-[200px]">Edital: {{ attachedEditalName }}</span>
+                  <button @click="attachedEditalId = null" class="ml-1 hover:text-error cursor-pointer">
+                    <i class="pi pi-times text-[10px]"></i>
+                  </button>
+                </div>
+              </div>
+
               <textarea 
                 v-model="input"
                 @keydown="handleKeyDown"
@@ -221,12 +520,36 @@ watch(() => props.isOpen, (newVal) => {
                 rows="1"
               ></textarea>
               
-              <div class="flex items-center justify-between mt-1 pl-2 pr-1">
+              <div class="flex items-center justify-between mt-1 pl-2 pr-1 relative">
                 <!-- Left Toolbar: Attach + Model Selector -->
                 <div class="flex items-center gap-2">
-                  <button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-muted hover:bg-surface-container hover:text-on-surface transition-colors cursor-pointer" title="Anexar arquivo ou imagem">
-                    <i class="pi pi-paperclip text-[15px]"></i>
-                  </button>
+                  <div class="relative" v-if="!sessionId">
+                    <button @click="toggleAttachmentMenu" class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-muted hover:bg-surface-container hover:text-on-surface transition-colors cursor-pointer" title="Anexar edital" :class="{'bg-surface-container text-on-surface': showAttachmentMenu}">
+                      <i class="pi pi-paperclip text-[15px]"></i>
+                    </button>
+
+                    <!-- Attachment Popover -->
+                    <div v-if="showAttachmentMenu" class="absolute bottom-10 left-0 w-64 bg-surface-container-highest border border-outline-variant/30 rounded-xl shadow-lg z-50 overflow-hidden flex flex-col">
+                      <div class="px-3 py-2 border-b border-outline-variant/20 bg-surface-container-lowest">
+                        <span class="text-xs font-bold text-on-surface-muted uppercase tracking-wider">Anexar Edital</span>
+                      </div>
+                      <div class="max-h-48 overflow-y-auto custom-scrollbar flex flex-col p-1">
+                        <div v-if="!editais?.length" class="p-3 text-center text-xs text-on-surface-muted">
+                          Nenhum edital cadastrado.
+                        </div>
+                        <button 
+                          v-else
+                          v-for="edital in editais" 
+                          :key="edital.id"
+                          @click="selectEdital(edital.id)"
+                          class="flex items-center gap-2 px-3 py-2 hover:bg-surface-container rounded-lg text-left text-sm text-on-surface transition-colors"
+                        >
+                          <i class="pi pi-file-pdf text-primary opacity-70"></i>
+                          <span class="truncate flex-1">{{ edital.title }}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                   
                   <div class="flex items-center bg-surface-container-highest dark:bg-[#1e1e2d] p-0.5 rounded-lg shadow-inner border border-outline-variant/30">
                     <button 

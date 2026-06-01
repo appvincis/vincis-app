@@ -16,7 +16,7 @@
     "type-check": "vue-tsc --build"
   },
   "dependencies": {
-    "@ai-sdk/vue": "^1.2.0",
+    "@ai-sdk/vue": "^3.0.194",
     "@primevue/themes": "^4.5.4",
     "@tailwindcss/typography": "^0.5.19",
     "@tanstack/vue-query": "^5.100.9",

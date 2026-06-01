@@ -21,9 +21,12 @@ model User {
   supabaseId    String?     @unique
   plan          Plan        @default(BASIC)
   planExpiresAt DateTime? // null = plano basico, não expira
+  
   studyPlans    StudyPlan[]
   errorLogs     ErrorLog[]
   editais       Edital[]
+  aiSessions    AiSession[]
+  FocusSession  FocusSession[]
 }
 
 model StudyPlan {
@@ -34,8 +37,11 @@ model StudyPlan {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   userId      Int
+  
   disciplines Discipline[]
   errorLogs   ErrorLog[]
+  FocusSession FocusSession[]
+  
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -48,8 +54,10 @@ model Discipline {
   studyPlanId Int
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+  
   studyPlan   StudyPlan @relation(fields: [studyPlanId], references: [id], onDelete: Cascade)
   topics      Topic[]
+  FocusSession FocusSession[]
 }
 
 model Topic {
@@ -60,6 +68,7 @@ model Topic {
   disciplineId Int
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
+  
   discipline   Discipline @relation(fields: [disciplineId], references: [id], onDelete: Cascade)
   errorLogs    ErrorLog[]
 }
@@ -95,11 +104,58 @@ model Edital {
   description String?
   fileUrl     String // Storage path, ex: `editais/${userId}/${filename}`
   fileSize    Int // In bytes
+  parsedContent String? // Conteúdo de texto extraído do PDF
   
   userId      Int
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  aiSessions  AiSession[]
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
 
+model AiSession {
+  id        String      @id @default(uuid())
+  title     String      @default("Nova Conversa")
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  userId    Int
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  editalId  Int?
+  edital    Edital?     @relation(fields: [editalId], references: [id], onDelete: SetNull)
+  
+  messages  AiMessage[]
+}
+
+model AiMessage {
+  id        String    @id @default(uuid())
+  role      String    // "user" | "assistant"
+  content   String
+  createdAt DateTime  @default(now())
+  tokens    Int?
+  
+  sessionId String
+  session   AiSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model FocusSession {
+  id              Int        @id @default(autoincrement())
+  duration        Int
+  focusTime       Int
+  breakTime       Int
+  longBreakTime   Int
+  cyclesTarget    Int
+  cyclesCompleted Int
+  isCompleted     Boolean    @default(false)
+  startedAt       DateTime
+  finishedAt      DateTime?
+  disciplineId    Int
+  studyPlanId     Int
+  userId          Int
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime
+  Discipline      Discipline @relation(fields: [disciplineId], references: [id], onDelete: Cascade)
+  StudyPlan       StudyPlan  @relation(fields: [studyPlanId], references: [id], onDelete: Cascade)
+  User            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
