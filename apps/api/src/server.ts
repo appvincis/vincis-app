@@ -12,13 +12,15 @@ import { topicRouter } from './features/topic/topic.routes.js'
 import { errorLogRouter } from './features/error-log/error-log.routes.js'
 import { editalRouter } from './features/edital/edital.routes.js'
 import { paymentRouter } from './features/payment/payment.routes.js'
+import { aiRouter } from './features/ai/ai.routes.js'
 
 const PORT = Number(process.env.PORT) || 4000
 const app = express()
 
 app.use(cors({
     origin: ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5174', 'http://127.0.0.1:5174'], // Endereços padrão do Vite
-    credentials: true // Necessário para enviar/receber cookies
+    credentials: true, // Necessário para enviar/receber cookies
+    exposedHeaders: ['x-session-id'] // Necessário para o frontend ler o ID da nova sessão criada pela IA
 }))
 app.use(cookieParser())
 app.use(express.json())
@@ -39,6 +41,7 @@ app.use("/topics", topicRouter)
 app.use("/error-logs", errorLogRouter)
 app.use("/editais", editalRouter)
 app.use("/payments", paymentRouter)
+app.use("/ai", aiRouter)
 
 // Verifica conexão com banco antes de escutar na porta
 prisma.$connect()

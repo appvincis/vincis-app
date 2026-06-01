@@ -5,6 +5,7 @@ import {
   useStudyPlansQuery,
   useCreateStudyPlanMutation,
   useSelectStudyPlanMutation,
+  useDeleteStudyPlanMutation
 } from '../../hooks/useStudyPlans'
 import DsModal from '../ui/DsModal.vue'
 
@@ -15,11 +16,15 @@ const studyPlans = computed(() => studyPlansData.value || [])
 
 const { mutateAsync: createStudyPlan, isPending: isCreating } = useCreateStudyPlanMutation()
 const { mutateAsync: selectStudyPlan } = useSelectStudyPlanMutation()
+const { mutateAsync: deleteStudyPlan } = useDeleteStudyPlanMutation()
 
 // Assim que os planos carregam, verifica o localStorage (via store persistido).
 // Se nenhum plano estiver selecionado, seleciona o primeiro da lista automaticamente.
 watch(studyPlans, (plans) => {
-  if (!plans.length) return
+  if (!plans.length) {
+    if (studyPlanStore.activePlanId) studyPlanStore.clearPlan()
+    return
+  }
   if (studyPlanStore.activePlanId) return   // já tem um plano salvo no browser
   const first = plans[0]
   if (!first) return
@@ -70,6 +75,21 @@ const handleSelectPlan = async (id: number, name: string) => {
   closeModal()
 }
 
+const handleDeletePlan = async (id: number) => {
+  if (!confirm('Tem certeza que deseja excluir este plano de estudos? Esta ação não pode ser desfeita.')) return
+  
+  await deleteStudyPlan(id)
+  
+  if (studyPlanStore.activePlanId === id) {
+    const remainingPlans = studyPlans.value.filter(p => p.id !== id)
+    if (remainingPlans.length > 0) {
+      await selectStudyPlan({ id: remainingPlans[0].id, name: remainingPlans[0].name })
+    } else {
+      studyPlanStore.clearPlan()
+    }
+  }
+}
+
 const handleCreatePlan = async () => {
   if (!newPlanName.value.trim()) {
     createError.value = 'Informe o nome do plano.'
@@ -107,19 +127,28 @@ const handleCreatePlan = async () => {
         <p v-else-if="!studyPlans.length" class="px-4 py-6 text-sm text-on-surface-muted text-center">
           Nenhum plano criado ainda.
         </p>
-        <button v-else v-for="plan in studyPlans" :key="plan.id" @click="handleSelectPlan(plan.id, plan.name)"
-          class="w-full flex items-center gap-3 px-3 py-3 hover:bg-surface-container-low transition-colors duration-150 cursor-pointer text-left rounded-xl group"
+        <div v-else v-for="plan in studyPlans" :key="plan.id"
+          class="w-full flex items-center justify-between px-2 py-1.5 hover:bg-surface-container-low transition-colors duration-150 rounded-xl group"
           :class="studyPlanStore.activePlanId === plan.id ? 'bg-primary-container/30' : ''">
-          <div class="w-5 flex-shrink-0 flex items-center justify-center">
-            <i v-if="studyPlanStore.activePlanId === plan.id" class="pi pi-check text-[14px] text-primary"></i>
-            <div v-else class="w-1.5 h-1.5 rounded-full bg-outline-variant/40 group-hover:bg-primary/40 transition-colors"></div>
-          </div>
-          <span class="text-[14px] font-sans truncate transition-colors" :class="studyPlanStore.activePlanId === plan.id
-            ? 'font-bold text-on-surface'
-            : 'font-medium text-on-surface-muted group-hover:text-on-surface'">
-            {{ plan.name }}
-          </span>
-        </button>
+          
+          <button @click="handleSelectPlan(plan.id, plan.name)"
+            class="flex-1 flex items-center gap-3 px-1 py-1.5 bg-transparent border-none cursor-pointer text-left overflow-hidden">
+            <div class="w-5 flex-shrink-0 flex items-center justify-center">
+              <i v-if="studyPlanStore.activePlanId === plan.id" class="pi pi-check text-[14px] text-primary"></i>
+              <div v-else class="w-1.5 h-1.5 rounded-full bg-outline-variant/40 group-hover:bg-primary/40 transition-colors"></div>
+            </div>
+            <span class="text-[14px] font-sans truncate transition-colors" :class="studyPlanStore.activePlanId === plan.id
+              ? 'font-bold text-on-surface'
+              : 'font-medium text-on-surface-muted group-hover:text-on-surface'">
+              {{ plan.name }}
+            </span>
+          </button>
+          
+          <button @click.stop="handleDeletePlan(plan.id)" title="Excluir Plano"
+            class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-lg text-on-surface-muted hover:text-error hover:bg-error/10 opacity-0 group-hover:opacity-100 transition-all cursor-pointer border-none bg-transparent">
+            <i class="pi pi-trash text-sm"></i>
+          </button>
+        </div>
       </div>
 
       <!-- Create section -->
