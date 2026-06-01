@@ -47,6 +47,19 @@ export const useSelectStudyPlanMutation = () => {
     })
 }
 
+export const useDeleteStudyPlanMutation = () => {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async (id: number) => {
+            const { data } = await api.delete(`/study-plans/${id}`)
+            return data
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['study-plans'] })
+        }
+    })
+}
+
 export const useAuthMeQuery = () => {
     return useQuery({
         queryKey: ['auth-me'],
