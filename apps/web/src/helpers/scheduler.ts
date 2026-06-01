@@ -39,7 +39,9 @@ function seededShuffle<T>(arr: T[], seed: number): T[] {
     for (let i = a.length - 1; i > 0; i--) {
         s = (Math.imul(s, 1664525) + 1013904223) >>> 0
         const j = s % (i + 1)
-            ;[a[i], a[j]] = [a[j], a[i]]
+        const temp = a[i]!
+        a[i] = a[j]!
+        a[j] = temp
     }
     return a
 }
@@ -126,7 +128,7 @@ export function generateMonthlySchedule(
         let guard = 0
 
         while (todayDiscs.length < subjectsPerDay && guard < shuffled.length * 3) {
-            const d = shuffled[ptr % shuffled.length]
+            const d = shuffled[ptr % shuffled.length]!
             ptr++
             guard++
             if (!seen.has(d.id)) {
@@ -154,7 +156,7 @@ export function generateMonthlySchedule(
             // In negative-offset timezones (e.g. UTC-3) that shifts to the
             // previous calendar day, so getDay() would return the wrong weekday.
             // Parse manually with the Date(y,m,d) constructor to stay in local time.
-            const [ky, km, kd] = key.split('-').map(Number)
+            const [ky, km, kd] = key.split('-').map(Number) as [number, number, number]
             const weekday = new Date(ky, km - 1, kd).getDay()
             if (!studyDays.includes(weekday)) continue   // skip non-study days
 

@@ -114,10 +114,11 @@ const userInitials = computed(() => {
     </nav>
 
     <!-- Upgrade CTA -->
-    <div v-if="!plan.isPremium" class="mt-auto mb-3 p-3 rounded-xl bg-primary-container/30 border border-primary/10 flex flex-col gap-1.5 relative overflow-hidden shrink-0">
+    <div v-if="!plan.isPremium"
+      class="mt-auto mb-3 p-3 rounded-xl bg-primary-container/30 border border-primary/10 flex flex-col gap-1.5 relative overflow-hidden shrink-0">
       <!-- Glow effect -->
       <div class="absolute -top-6 -right-6 w-20 h-20 bg-primary/20 rounded-full blur-xl pointer-events-none"></div>
-      
+
       <div class="flex items-center gap-1.5 z-10">
         <i class="pi pi-star-fill text-primary text-[10px]"></i>
         <span class="text-[13px] font-bold text-on-surface font-sans leading-none">Plano Free</span>
@@ -125,7 +126,8 @@ const userInitials = computed(() => {
       <p class="text-[11px] text-on-surface-muted leading-tight z-10 font-sans">
         Desbloqueie recursos avançados.
       </p>
-      <router-link to="/private/plans" class="mt-0.5 w-full text-center py-1.5 px-3 bg-primary text-on-primary rounded-md text-[11px] font-bold transition-all hover:bg-primary/90 hover:shadow-sm hover:-translate-y-0.5 active:translate-y-0 z-10 font-sans">
+      <router-link to="/private/plans"
+        class="mt-0.5 w-full text-center py-1.5 px-3 bg-primary text-on-primary rounded-md text-[11px] font-bold transition-all hover:bg-primary/90 hover:shadow-sm hover:-translate-y-0.5 active:translate-y-0 z-10 font-sans">
         Fazer Upgrade
       </router-link>
     </div>
@@ -166,7 +168,8 @@ const userInitials = computed(() => {
       }">
         <template #start>
           <div class="px-2 py-3 flex items-center gap-3 border-b border-outline-variant/20 mx-1.5 mb-1.5">
-            <div class="w-9 h-9 rounded-full bg-surface-container-lowest border border-outline-variant/40 shadow-sm text-primary font-bold flex items-center justify-center shrink-0 uppercase text-xs">
+            <div
+              class="w-9 h-9 rounded-full bg-surface-container-lowest border border-outline-variant/40 shadow-sm text-primary font-bold flex items-center justify-center shrink-0 uppercase text-xs">
               {{ studyPlanStore.activePlanName ? studyPlanStore.activePlanName.substring(0, 2) : 'NA' }}
             </div>
             <div class="flex flex-col min-w-0">
@@ -191,13 +194,16 @@ const userInitials = computed(() => {
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--color-on-surface) 10%, transparent);
   border-radius: 10px;
 }
+
 .custom-scrollbar:hover::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--color-on-surface) 20%, transparent);
 }

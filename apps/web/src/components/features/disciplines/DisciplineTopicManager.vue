@@ -56,7 +56,7 @@ async function fetchTopics(disciplineId: number) {
 }
 
 async function addTopic() {
-    if (!newTopicName.value.trim() || !props.disciplineId) return
+    if (isAddingTopic.value || !newTopicName.value.trim() || !props.disciplineId) return
     isAddingTopic.value = true
     try {
         const res = await api.post('/topics', {
@@ -147,8 +147,7 @@ const progress = computed(() =>
             <VSpinner size="sm" />
         </div>
         <div v-else-if="!topics.length" class="detail__empty">
-            <i class="pi pi-article text-4xl text-outline-variant mb-2"
-                style="display:block"></i>
+            <i class="pi pi-article text-4xl text-outline-variant mb-2" style="display:block"></i>
             <p class="text-secondary text-sm">Nenhum tópico ainda. Adicione abaixo.</p>
         </div>
         <ul v-else class="topic-list">
@@ -156,12 +155,13 @@ const progress = computed(() =>
                 :class="{ 'topic-item--done': topic.isCompleted && editingTopicId !== topic.id }">
                 <template v-if="editingTopicId !== topic.id">
                     <button class="topic-item__check" @click="toggleTopic(topic)">
-                        <i class="pi" :class="topic.isCompleted ? 'pi-check-circle' : 'pi-circle'" :style="{ color: topic.isCompleted ? panelColor : '' }"></i>
+                        <i class="pi" :class="topic.isCompleted ? 'pi-check-circle' : 'pi-circle'"
+                            :style="{ color: topic.isCompleted ? panelColor : '' }"></i>
                     </button>
                     <div class="topic-item__text">
                         <span class="topic-item__name">{{ topic.name }}</span>
                         <span v-if="topic.description" class="topic-item__desc">{{ topic.description
-                        }}</span>
+                            }}</span>
                     </div>
                     <button class="topic-item__action" @click="startEditTopic(topic)" title="Editar">
                         <i class="pi pi-pencil "></i>
@@ -173,8 +173,7 @@ const progress = computed(() =>
                 <template v-else>
                     <div class="topic-edit-form">
                         <VInput v-model="editTopicName" placeholder="Nome do tópico..." icon="edit_note" />
-                        <VInput v-model="editTopicDesc" placeholder="Descrição (opcional)..."
-                            icon="notes" />
+                        <VInput v-model="editTopicDesc" placeholder="Descrição (opcional)..." icon="notes" />
                         <div class="flex gap-2">
                             <VButton variant="primary" :disabled="isSavingTopic || !editTopicName.trim()"
                                 @click="saveTopicEdit(topic.id)" style="flex:1">
@@ -194,8 +193,10 @@ const progress = computed(() =>
         <h4 class="text-xs font-bold uppercase tracking-widest text-secondary mb-3">Adicionar
             Tópico</h4>
         <div class="flex flex-col gap-3">
-            <VInput v-model="newTopicName" placeholder="Nome do tópico..." icon="edit_note" @keydown.enter="addTopic" />
-            <VInput v-model="newTopicDesc" placeholder="Descrição (opcional)..." icon="notes" @keydown.enter="addTopic" />
+            <VInput v-model="newTopicName" placeholder="Nome do tópico..." icon="edit_note"
+                @keydown.enter.prevent="addTopic" />
+            <VInput v-model="newTopicDesc" placeholder="Descrição (opcional)..." icon="notes"
+                @keydown.enter.prevent="addTopic" />
             <VButton variant="primary" :disabled="isAddingTopic || !newTopicName.trim()" @click="addTopic">
                 {{ isAddingTopic ? 'Adicionando...' : 'Adicionar Tópico' }}
             </VButton>

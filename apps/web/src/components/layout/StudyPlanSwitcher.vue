@@ -16,14 +16,34 @@ const studyPlans = computed(() => studyPlansData.value || [])
 const { mutateAsync: createStudyPlan, isPending: isCreating } = useCreateStudyPlanMutation()
 const { mutateAsync: selectStudyPlan } = useSelectStudyPlanMutation()
 
-// Assim que os planos carregam, verifica o localStorage (via store persistido).
-// Se nenhum plano estiver selecionado, seleciona o primeiro da lista automaticamente.
+// ─── Auto-select logic ────────────────────────────────────────────────────────
+let hasSyncedInitialPlan = false
+
 watch(studyPlans, (plans) => {
-  if (!plans.length) return
-  if (studyPlanStore.activePlanId) return   // já tem um plano salvo no browser
-  const first = plans[0]
-  if (!first) return
-  selectStudyPlan({ id: first.id, name: first.name })
+  // Se a lista está vazia e não está carregando, limpa o plano ativo
+  if (!plans.length) {
+    if (!isLoading.value) studyPlanStore.clearPlan()
+    return
+  }
+
+  // Garante que a auto-seleção / sincronização com o backend rode apenas uma vez no carregamento
+  if (hasSyncedInitialPlan) return
+  hasSyncedInitialPlan = true
+
+  // Se já há um plano salvo no localStorage e ele existe na lista do usuário
+  if (studyPlanStore.activePlanId) {
+    const savedPlan = plans.find(p => p.id === studyPlanStore.activePlanId)
+    if (savedPlan) {
+      selectStudyPlan({ id: savedPlan.id, name: savedPlan.name })
+      return
+    }
+  }
+
+  // Fallback: se não há plano salvo (ou o salvo foi deletado), seleciona o primeiro
+  const defaultPlan = plans[0]
+  if (defaultPlan) {
+    selectStudyPlan({ id: defaultPlan.id, name: defaultPlan.name })
+  }
 }, { immediate: true })
 
 // ─── Dropdown state ───────────────────────────────────────────────────────────
@@ -112,7 +132,8 @@ const handleCreatePlan = async () => {
           :class="studyPlanStore.activePlanId === plan.id ? 'bg-primary-container/30' : ''">
           <div class="w-5 flex-shrink-0 flex items-center justify-center">
             <i v-if="studyPlanStore.activePlanId === plan.id" class="pi pi-check text-[14px] text-primary"></i>
-            <div v-else class="w-1.5 h-1.5 rounded-full bg-outline-variant/40 group-hover:bg-primary/40 transition-colors"></div>
+            <div v-else
+              class="w-1.5 h-1.5 rounded-full bg-outline-variant/40 group-hover:bg-primary/40 transition-colors"></div>
           </div>
           <span class="text-[14px] font-sans truncate transition-colors" :class="studyPlanStore.activePlanId === plan.id
             ? 'font-bold text-on-surface'
@@ -130,7 +151,8 @@ const handleCreatePlan = async () => {
           <span class="text-[13px] font-bold font-sans tracking-wide">Criar Novo Plano</span>
         </button>
 
-        <div v-else class="p-4 space-y-3 bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-sm">
+        <div v-else
+          class="p-4 space-y-3 bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-sm">
           <h3 class="text-xs font-bold uppercase tracking-widest text-on-surface-muted mb-2">Novo Plano de Estudos</h3>
           <input ref="nameInput" v-model="newPlanName" type="text" placeholder="Nome do plano"
             class="w-full text-sm px-3 py-2.5 rounded-lg border border-outline-variant/40 bg-surface-container-low text-on-surface placeholder:text-on-surface-muted/50 focus:outline-none focus:border-primary/50 transition-colors"
@@ -159,13 +181,16 @@ const handleCreatePlan = async () => {
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--color-on-surface) 10%, transparent);
   border-radius: 10px;
 }
+
 .custom-scrollbar:hover::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--color-on-surface) 20%, transparent);
 }
