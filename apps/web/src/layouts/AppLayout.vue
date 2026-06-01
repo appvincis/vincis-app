@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import AppSidebar from '../components/layout/AppSidebar.vue'
 import { useAuthStore } from '../stores/auth'
+import Toast from 'primevue/toast'
 
 const authStore = useAuthStore()
 
@@ -13,6 +14,7 @@ const firstName = computed(() => {
 
 <template>
   <div class="min-h-screen flex bg-background dark:bg-surface-dark">
+    <Toast />
     <!-- Navigation Sidebar & Mobile Bar -->
     <AppSidebar />
 

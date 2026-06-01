@@ -80,9 +80,9 @@ const firstName = computed(() => {
         <button class="bg-surface-container-low rounded-lg text-sm font-label font-bold soft-brutalist-border hover:bg-surface-container-highest transition-colors active:scale-95" style="padding: 10px 24px; min-height: 44px; display: flex; align-items: center; justify-content: center;">
           Exportar Relatório
         </button>
-        <button class="bg-on-surface text-surface rounded-lg text-sm font-label font-bold active:scale-95 transition-all shadow-sm" style="padding: 10px 24px; min-height: 44px; display: flex; align-items: center; justify-content: center;">
+        <router-link to="/private/focus" class="bg-on-surface text-surface rounded-lg text-sm font-label font-bold active:scale-95 transition-all shadow-sm" style="padding: 10px 24px; min-height: 44px; display: flex; align-items: center; justify-content: center;">
           Nova Sessão
-        </button>
+        </router-link>
       </div>
     </section>
 

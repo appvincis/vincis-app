@@ -71,6 +71,11 @@ const router = createRouter({
           component: () => import('../views/ErrorLogsView.vue')
         },
         {
+          path: 'focus',
+          name: 'focus',
+          component: () => import('../views/FocusView.vue')
+        },
+        {
           path: 'editais',
           name: 'editais',
           component: () => import('../views/EditaisView.vue')

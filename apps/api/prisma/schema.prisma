@@ -12,44 +12,47 @@ enum Plan {
 }
 
 model User {
-  id            Int         @id @default(autoincrement())
-  email         String      @unique
+  id            Int            @id @default(autoincrement())
+  email         String         @unique
   name          String?
   avatar        String?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  supabaseId    String?     @unique
-  plan          Plan        @default(BASIC)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  supabaseId    String?        @unique
+  plan          Plan           @default(BASIC)
   planExpiresAt DateTime? // null = plano basico, não expira
   studyPlans    StudyPlan[]
   errorLogs     ErrorLog[]
   editais       Edital[]
+  focusSessions FocusSession[]
 }
 
 model StudyPlan {
-  id          Int          @id @default(autoincrement())
-  name        String
-  description String?
-  is_active   Boolean      @default(true)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  userId      Int
-  disciplines Discipline[]
-  errorLogs   ErrorLog[]
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            Int            @id @default(autoincrement())
+  name          String
+  description   String?
+  is_active     Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  userId        Int
+  disciplines   Discipline[]
+  errorLogs     ErrorLog[]
+  focusSessions FocusSession[]
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Discipline {
-  id          Int       @id @default(autoincrement())
-  name        String
-  description String?
-  color       String
-  weight      Float     @default(1.0)
-  studyPlanId Int
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  studyPlan   StudyPlan @relation(fields: [studyPlanId], references: [id], onDelete: Cascade)
-  topics      Topic[]
+  id            Int            @id @default(autoincrement())
+  name          String
+  description   String?
+  color         String
+  weight        Float          @default(1.0)
+  studyPlanId   Int
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  studyPlan     StudyPlan      @relation(fields: [studyPlanId], references: [id], onDelete: Cascade)
+  topics        Topic[]
+  focusSessions FocusSession[]
 }
 
 model Topic {
@@ -101,5 +104,32 @@ model Edital {
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model FocusSession {
+  id              Int        @id @default(autoincrement())
+
+  duration        Int        // Duração total em segundos
+  focusTime       Int        // Tempo de foco configurado (em segundos)
+  breakTime       Int        // Tempo de pausa curta (em segundos)
+  longBreakTime   Int        // Tempo de pausa longa (em segundos)
+  cyclesTarget    Int        // Quantidade de ciclos alvo
+  cyclesCompleted Int        // Ciclos efetivamente completados
+  isCompleted     Boolean    @default(false) // Se completou todos os ciclos
+
+  startedAt       DateTime
+  finishedAt      DateTime?
+
+  disciplineId    Int
+  discipline      Discipline @relation(fields: [disciplineId], references: [id], onDelete: Cascade)
+
+  studyPlanId     Int
+  studyPlan       StudyPlan  @relation(fields: [studyPlanId], references: [id], onDelete: Cascade)
+
+  userId          Int
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 }
 

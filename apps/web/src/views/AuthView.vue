@@ -81,12 +81,9 @@ const submitForm = async () => {
       <!-- Content Overlay -->
       <div class="aside-content animate-fade-in">
         <div class="aside-logo-group">
-          <img 
-            class="aside-logo-img" 
-            alt="Vincis Logo" 
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuAq0C7hHyckDAfHDD_6LDleOFvjv0G6ocQ_iNrYcfUQVxXyGsWmacNr6dOcnxDe6jkXIYHr0inlbYBnrabyIpmSqrEEhvIIr7JXuMNvLwC_8gJlUmY51C1FdwxRQitUHdJiq49twZbYHAKVoP5Banu0DdxKVXakQ9npxTjj56NSDMKvbn4esbKwa4Qioa387B5gZZJTinemlmlZTKajn8fDwiGmGLDZtNacIhMLezl_M1aD3wG8xBJz5RqGEjGfiofJTIWUACOIv0Yy"
-          />
-          <h1 class="serif-headline logo-text">Vincis</h1>
+          <h1 class="serif-headline logo-text italic">
+            VINCIS<span style="color: #d4af37">.</span>
+          </h1>
         </div>
         
         <div class="aside-middle">
@@ -112,12 +109,9 @@ const submitForm = async () => {
         
         <!-- Mobile Header (Only visible on mobile screens) -->
         <div class="mobile-header">
-          <img 
-            class="mobile-logo-img" 
-            alt="Vincis Logo" 
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuDvavl7fo2LX0CQ2HizNr-hYHjVh_3CBA4UUzq4O_t4LZ3I2iIWjFrLgmuwa_d-EWzAf3lBMq_aJNOvHKiIaei1Xr8ddxy7B3dn9SChS5J-36w8TivQG75wmVgWp-jAlMsfEKYmyClb0gSdNjCBUyD3Xvm2a0gfKPD6aE3ey6c0bIjvRUsKzyLAj4CiflDJk7Vrzo7T5twm5ZOUzZlCvE9LSnh210ihi-dOFF2472GGOUGxkuLn1m2BesMCeqHK20Trwxv03hLM-Xen"
-          />
-          <h1 class="serif-headline mobile-logo-text">Vincis</h1>
+          <h1 class="serif-headline mobile-logo-text italic">
+            VINCIS<span style="color: #d4af37">.</span>
+          </h1>
         </div>
 
         <!-- Login Header -->
