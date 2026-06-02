@@ -12,7 +12,7 @@ const baseCookieOptions = {
 }
 
 export async function signup(req: Request<{}, {}, SignupInput>, res: Response) {
-    const { email, password } = req.body
+    const { email, password, name } = req.body
 
     try {
         const { data, error } = await supabase.auth.signUp({
@@ -32,6 +32,7 @@ export async function signup(req: Request<{}, {}, SignupInput>, res: Response) {
         const dbUser = await userService.createFromAuth({
             supabaseId: supabaseUser.id,
             email: supabaseUser.email!,
+            name, // Passa o nome para gravar no banco
         })
 
         // Se require_email_confirmation estiver ativado no Supabase, a sessão será null até o usuário confirmar.
