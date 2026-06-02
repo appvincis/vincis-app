@@ -155,17 +155,16 @@ function onGenerate() {
         </main>
 
 
+        <!-- ── Painel de configurações (teleport para evitar overflow/z-index) -->
+        <Teleport to="body">
+            <PlannerSettingsPanel
+                v-model:open="settingsOpen"
+                :settings="settings"
+                @update:settings="onSettingsUpdate"
+                @generate="onGenerate"
+            />
+        </Teleport>
     </div>
-
-    <!-- ── Painel de configurações (teleport para evitar overflow/z-index) -->
-    <Teleport to="body">
-        <PlannerSettingsPanel
-            v-model:open="settingsOpen"
-            :settings="settings"
-            @update:settings="onSettingsUpdate"
-            @generate="onGenerate"
-        />
-    </Teleport>
 </template>
 
 <style scoped>

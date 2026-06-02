@@ -37,15 +37,15 @@ const emit = defineEmits<{
 
 // ─── Internal state (cópia local para edição) ─────────────────────────────────
 
-const local = ref<PlannerSettings>(structuredClone(toRaw(props.settings)))
+const local = ref<PlannerSettings>(JSON.parse(JSON.stringify(props.settings)))
 
 // Sincroniza quando o pai atualiza settings
 import { watch, toRaw } from 'vue'
-watch(() => props.settings, (v) => { local.value = structuredClone(toRaw(v)) }, { deep: true })
+watch(() => props.settings, (v) => { local.value = JSON.parse(JSON.stringify(v)) }, { deep: true })
 
 function close() { emit('update:open', false) }
 function save()  {
-    emit('update:settings', structuredClone(toRaw(local.value)))
+    emit('update:settings', JSON.parse(JSON.stringify(local.value)))
     emit('generate')
     close()
 }
