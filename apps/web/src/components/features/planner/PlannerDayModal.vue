@@ -26,6 +26,12 @@ function isReview(s: StudySession): boolean {
 function cleanName(s: StudySession): string {
   return s.disciplineName.replace(/^↻\s*/, '')
 }
+
+function formatDuration(minutes: number): string {
+  const h = Math.floor(minutes / 60)
+  const m = String(minutes % 60).padStart(2, '0')
+  return `${h}:${m}`
+}
 </script>
 
 <template>
@@ -108,12 +114,11 @@ function cleanName(s: StudySession): string {
 
               <!-- Duration pill -->
               <div
-                class="flex flex-col items-center justify-center flex-shrink-0 min-w-12
+                class="flex items-center justify-center flex-shrink-0 min-w-14
                        px-2 py-1.5 rounded-lg bg-white/40"
                 :style="{ color: session.color }"
               >
-                <span class="font-sans text-base font-extrabold leading-none">{{ session.durationMin }}</span>
-                <span class="font-sans text-[0.6rem] font-semibold opacity-70 uppercase tracking-wide">min</span>
+                <span class="font-sans text-base font-extrabold leading-none">{{ formatDuration(session.durationMin) }}h</span>
               </div>
             </div>
           </div>

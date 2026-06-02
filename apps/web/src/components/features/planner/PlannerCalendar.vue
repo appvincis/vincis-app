@@ -25,9 +25,10 @@ const props = defineProps<{
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
-const today = new Date()
-const viewYear = ref(today.getFullYear())
-const viewMonth = ref(today.getMonth())
+const rawToday = new Date()
+const today = new Date(Date.UTC(rawToday.getFullYear(), rawToday.getMonth(), rawToday.getDate()))
+const viewYear = ref(today.getUTCFullYear())
+const viewMonth = ref(today.getUTCMonth())
 
 const selectedDay = ref<DayData | null>(null)
 
@@ -44,8 +45,8 @@ function nextMonth() {
 }
 
 function goToToday() {
-  viewYear.value = today.getFullYear()
-  viewMonth.value = today.getMonth()
+  viewYear.value = today.getUTCFullYear()
+  viewMonth.value = today.getUTCMonth()
 }
 
 // ─── Calendar grid ────────────────────────────────────────────────────────────
@@ -53,14 +54,14 @@ function goToToday() {
 const WEEK_DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
 const monthLabel = computed(() =>
-  new Date(viewYear.value, viewMonth.value, 1)
-    .toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  new Date(Date.UTC(viewYear.value, viewMonth.value, 1))
+    .toLocaleDateString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' })
 )
 
 function toKey(date: Date): string {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
+  const y = date.getUTCFullYear()
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0')
+  const d = String(date.getUTCDate()).padStart(2, '0')
   return `${y}-${m}-${d}`
 }
 
@@ -71,20 +72,24 @@ function sessionsFor(date: Date): StudySession[] {
 const calendarDays = computed((): DayData[] => {
   const year = viewYear.value
   const month = viewMonth.value
-  const firstDay = new Date(year, month, 1)
-  const lastDay = new Date(year, month + 1, 0)
-  const startPad = firstDay.getDay()
-  const endPad = 6 - lastDay.getDay()
+  const firstDay = new Date(Date.UTC(year, month, 1))
+  const lastDay = new Date(Date.UTC(year, month + 1, 0))
+  const startPad = firstDay.getUTCDay()
+  const endPad = 6 - lastDay.getUTCDay()
 
   const days: DayData[] = []
-  for (let i = startPad - 1; i >= 0; i--)
-    days.push({ date: new Date(year, month, -i), sessions: sessionsFor(new Date(year, month, -i)) })
-  for (let d = 1; d <= lastDay.getDate(); d++) {
-    const date = new Date(year, month, d)
+  for (let i = startPad - 1; i >= 0; i--) {
+    const d = new Date(Date.UTC(year, month, -i))
+    days.push({ date: d, sessions: sessionsFor(d) })
+  }
+  for (let d = 1; d <= lastDay.getUTCDate(); d++) {
+    const date = new Date(Date.UTC(year, month, d))
     days.push({ date, sessions: sessionsFor(date) })
   }
-  for (let i = 1; i <= endPad; i++)
-    days.push({ date: new Date(year, month + 1, i), sessions: sessionsFor(new Date(year, month + 1, i)) })
+  for (let i = 1; i <= endPad; i++) {
+    const d = new Date(Date.UTC(year, month + 1, i))
+    days.push({ date: d, sessions: sessionsFor(d) })
+  }
 
   return days
 })
@@ -96,11 +101,17 @@ function isToday(date: Date): boolean {
 }
 
 function isCurrentMonth(date: Date): boolean {
-  return date.getMonth() === viewMonth.value && date.getFullYear() === viewYear.value
+  return date.getUTCMonth() === viewMonth.value && date.getUTCFullYear() === viewYear.value
 }
 
 function sessionStyle(color: string) {
   return { backgroundColor: color + '22', borderLeftColor: color, color }
+}
+
+function formatDuration(minutes: number): string {
+  const h = Math.floor(minutes / 60)
+  const m = String(minutes % 60).padStart(2, '0')
+  return `${h}:${m}h`
 }
 </script>
 
@@ -182,7 +193,7 @@ function sessionStyle(color: string) {
                   : 'text-on-surface-variant'
             "
           >
-            {{ dayData.date.getDate() }}
+            {{ dayData.date.getUTCDate() }}
           </span>
 
           <!-- Session chips -->
@@ -194,11 +205,11 @@ function sessionStyle(color: string) {
                      font-sans text-[0.68rem] font-semibold whitespace-nowrap overflow-hidden
                      flex-shrink-0 cursor-pointer transition-[filter] hover:brightness-95"
               :style="sessionStyle(session.color)"
-              :title="`${session.disciplineName} — ${session.durationMin} min`"
+              :title="`${session.disciplineName} — ${formatDuration(session.durationMin)}`"
             >
               <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" :style="{ backgroundColor: session.color }" />
               <span class="flex-1 overflow-hidden text-ellipsis">{{ session.disciplineName }}</span>
-              <span class="opacity-70 text-[0.6rem] flex-shrink-0">{{ session.durationMin }}m</span>
+              <span class="opacity-70 text-[0.6rem] flex-shrink-0">{{ formatDuration(session.durationMin) }}</span>
             </div>
 
             <div

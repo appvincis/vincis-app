@@ -23,9 +23,9 @@ import type { StudySession } from '../components/features/planner/PlannerCalenda
 // ─── Internal helpers ──────────────────────────────────────────────────────────
 
 function toKey(date: Date): string {
-    const y = date.getFullYear()
-    const m = String(date.getMonth() + 1).padStart(2, '0')
-    const d = String(date.getDate()).padStart(2, '0')
+    const y = date.getUTCFullYear()
+    const m = String(date.getUTCMonth() + 1).padStart(2, '0')
+    const d = String(date.getUTCDate()).padStart(2, '0')
     return `${y}-${m}-${d}`
 }
 
@@ -75,7 +75,7 @@ export function generateMonthlySchedule(
 
     const year = viewDate.getFullYear()
     const month = viewDate.getMonth()
-    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
     const srsOn = revisionMode === 'auto' || revisionMode === 'manual'
 
     // ── 1. Weighted pool ───────────────────────────────────────────────────────
@@ -102,7 +102,7 @@ export function generateMonthlySchedule(
         for (const offset of intervals) {
             const target = studiedOnDay + offset
             if (target > daysInMonth) continue
-            const k = toKey(new Date(year, month, target))
+            const k = toKey(new Date(Date.UTC(year, month, target)))
             if (!pendingReviews.has(k)) pendingReviews.set(k, new Set())
             pendingReviews.get(k)!.add(disc.id)
         }
@@ -117,10 +117,10 @@ export function generateMonthlySchedule(
     const perTheory = Math.max(15, Math.floor(totalMinutes / subjectsPerDay))
 
     for (let day = 1; day <= daysInMonth; day++) {
-        const weekday = new Date(year, month, day).getDay()
+        const weekday = new Date(Date.UTC(year, month, day)).getUTCDay()
         if (!studyDays.includes(weekday)) continue
 
-        const key = toKey(new Date(year, month, day))
+        const key = toKey(new Date(Date.UTC(year, month, day)))
 
         // Pick unique disciplines for today
         const todayDiscs: DisciplineConfig[] = []
@@ -152,12 +152,9 @@ export function generateMonthlySchedule(
         const reviewBudget = totalMinutes * 0.25
 
         for (const [key, discIds] of pendingReviews) {
-            // ⚠️ IMPORTANT: new Date("YYYY-MM-DD") parses as UTC midnight.
-            // In negative-offset timezones (e.g. UTC-3) that shifts to the
-            // previous calendar day, so getDay() would return the wrong weekday.
-            // Parse manually with the Date(y,m,d) constructor to stay in local time.
+            // ⚠️ IMPORTANT: new Date(Date.UTC(y, m, d)) stays strictly in UTC.
             const [ky, km, kd] = key.split('-').map(Number) as [number, number, number]
-            const weekday = new Date(ky, km - 1, kd).getDay()
+            const weekday = new Date(Date.UTC(ky, km - 1, kd)).getUTCDay()
             if (!studyDays.includes(weekday)) continue   // skip non-study days
 
 
@@ -174,10 +171,13 @@ export function generateMonthlySchedule(
             const reviewDiscs = toReview.filter(d => !theoryNames.has(d.name))
             if (!reviewDiscs.length) continue
 
-            const perReview = Math.max(15, Math.floor(reviewBudget / reviewDiscs.length))
+            // ⚠️ Limitar a no máximo 3 revisões por dia para evitar o "efeito bola de neve"
+            const limitedReviews = reviewDiscs.slice(0, 3)
+
+            const perReview = Math.max(15, Math.floor(reviewBudget / limitedReviews.length))
 
             if (!result[key]) result[key] = []
-            for (const d of reviewDiscs) {
+            for (const d of limitedReviews) {
                 result[key].push({
                     id: nextId++,
                     disciplineName: `↻ ${d.name}`,
@@ -188,15 +188,41 @@ export function generateMonthlySchedule(
         }
     }
 
-    // ── 6. Fill all available daily minutes ──────────────────────────────────────
+    // ── 6. Fill all available daily minutes proportionally ───────────────────────
     //
-    // Divide totalMinutes equally across every session in each study day.
-    // This ensures the user's full available time is always consumed, regardless
-    // of how many theory + review sessions landed on that day.
+    // Divide totalMinutes proportionally based on the discipline's weight.
+    // Reviews get half the weight of a theory session.
+    const disciplineWeights = new Map(disciplines.map(d => [d.name, d.priority * (5 - d.knowledgeLevel)]))
+
     for (const sessions of Object.values(result)) {
         if (!sessions.length) continue
-        const perSession = Math.max(15, Math.floor(totalMinutes / sessions.length))
-        for (const s of sessions) s.durationMin = perSession
+
+        let totalWeight = 0
+        const sessionWeights = new Map<typeof sessions[0], number>()
+
+        for (const s of sessions) {
+            const isReview = s.disciplineName.startsWith('↻ ')
+            const rawName = isReview ? s.disciplineName.substring(2) : s.disciplineName
+            const baseWeight = disciplineWeights.get(rawName) || 1
+            const weight = isReview ? baseWeight * 0.5 : baseWeight
+            sessionWeights.set(s, weight)
+            totalWeight += weight
+        }
+
+        for (const s of sessions) {
+            const w = sessionWeights.get(s)!
+            const rawMinutes = totalMinutes * (w / totalWeight)
+            s.durationMin = Math.max(15, Math.round(rawMinutes / 15) * 15)
+        }
+
+        // Squeeze if the sum strictly exceeds totalMinutes (prevents silent overflow)
+        const dayTotal = sessions.reduce((acc, s) => acc + s.durationMin, 0)
+        if (dayTotal > totalMinutes && sessions.length > 0) {
+            for (const s of sessions) {
+                const w = sessionWeights.get(s)!
+                s.durationMin = Math.max(5, Math.round(totalMinutes * (w / totalWeight)))
+            }
+        }
     }
 
     return result
