@@ -3,6 +3,10 @@ import { AuthenticatedRequest } from '../auth/auth.middleware.js';
 import { prisma } from '../../lib/prisma.js';
 import { supabaseAdmin } from '../../lib/supabase.js';
 import crypto from 'crypto';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+const pdfParse = require('pdf-parse');
 
 export const uploadEdital = async (req: AuthenticatedRequest, res: Response): Promise<any> => {
     try {
@@ -42,12 +46,23 @@ export const uploadEdital = async (req: AuthenticatedRequest, res: Response): Pr
             return res.status(500).json({ error: 'Falha ao fazer upload do arquivo' });
         }
 
+        // Extrair texto do PDF
+        let parsedContent = null;
+        try {
+            const pdfData = await pdfParse(file.buffer);
+            parsedContent = pdfData.text;
+        } catch (pdfError) {
+            console.error('Erro ao extrair texto do PDF:', pdfError);
+            // Continua mesmo se falhar a extração, mas o campo ficará null
+        }
+
         const edital = await prisma.edital.create({
             data: {
                 title,
                 description,
                 fileUrl: filePath,
                 fileSize: file.size,
+                parsedContent,
                 userId
             }
         });

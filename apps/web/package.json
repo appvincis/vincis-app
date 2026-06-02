@@ -16,9 +16,12 @@
     "type-check": "vue-tsc --build"
   },
   "dependencies": {
+    "@ai-sdk/vue": "^3.0.194",
     "@primevue/themes": "^4.5.4",
+    "@tailwindcss/typography": "^0.5.19",
     "@tanstack/vue-query": "^5.100.9",
     "axios": "^1.14.0",
+    "marked": "^18.0.4",
     "pinia": "^3.0.4",
     "pinia-plugin-persistedstate": "^4.7.1",
     "primeicons": "^7.0.0",

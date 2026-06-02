@@ -19,7 +19,8 @@ const app = express()
 
 app.use(cors({
     origin: ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5174', 'http://127.0.0.1:5174'], // Endereços padrão do Vite
-    credentials: true // Necessário para enviar/receber cookies
+    credentials: true, // Necessário para enviar/receber cookies
+    exposedHeaders: ['x-session-id'] // Necessário para o frontend ler o ID da nova sessão criada pela IA
 }))
 app.use(cookieParser())
 app.use(express.json())

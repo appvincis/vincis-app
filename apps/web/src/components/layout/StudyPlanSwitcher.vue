@@ -5,6 +5,7 @@ import {
   useStudyPlansQuery,
   useCreateStudyPlanMutation,
   useSelectStudyPlanMutation,
+  useDeleteStudyPlanMutation
 } from '../../hooks/useStudyPlans'
 import DsModal from '../ui/DsModal.vue'
 
@@ -15,15 +16,36 @@ const studyPlans = computed(() => studyPlansData.value || [])
 
 const { mutateAsync: createStudyPlan, isPending: isCreating } = useCreateStudyPlanMutation()
 const { mutateAsync: selectStudyPlan } = useSelectStudyPlanMutation()
+const { mutateAsync: deleteStudyPlan } = useDeleteStudyPlanMutation()
 
-// Assim que os planos carregam, verifica o localStorage (via store persistido).
-// Se nenhum plano estiver selecionado, seleciona o primeiro da lista automaticamente.
+// ─── Auto-select logic ────────────────────────────────────────────────────────
+let hasSyncedInitialPlan = false
+
 watch(studyPlans, (plans) => {
-  if (!plans.length) return
-  if (studyPlanStore.activePlanId) return   // já tem um plano salvo no browser
-  const first = plans[0]
-  if (!first) return
-  selectStudyPlan({ id: first.id, name: first.name })
+  // Se a lista está vazia e não está carregando, limpa o plano ativo
+  if (!plans.length) {
+    if (!isLoading.value) studyPlanStore.clearPlan()
+    return
+  }
+
+  // Garante que a auto-seleção / sincronização com o backend rode apenas uma vez no carregamento
+  if (hasSyncedInitialPlan) return
+  hasSyncedInitialPlan = true
+
+  // Se já há um plano salvo no localStorage e ele existe na lista do usuário
+  if (studyPlanStore.activePlanId) {
+    const savedPlan = plans.find(p => p.id === studyPlanStore.activePlanId)
+    if (savedPlan) {
+      selectStudyPlan({ id: savedPlan.id, name: savedPlan.name })
+      return
+    }
+  }
+
+  // Fallback: se não há plano salvo (ou o salvo foi deletado), seleciona o primeiro
+  const defaultPlan = plans[0]
+  if (defaultPlan) {
+    selectStudyPlan({ id: defaultPlan.id, name: defaultPlan.name })
+  }
 }, { immediate: true })
 
 // ─── Dropdown state ───────────────────────────────────────────────────────────
@@ -70,6 +92,21 @@ const handleSelectPlan = async (id: number, name: string) => {
   closeModal()
 }
 
+const handleDeletePlan = async (id: number) => {
+  if (!confirm('Tem certeza que deseja excluir este plano de estudos? Esta ação não pode ser desfeita.')) return
+  
+  await deleteStudyPlan(id)
+  
+  if (studyPlanStore.activePlanId === id) {
+    const remainingPlans = studyPlans.value.filter(p => p.id !== id)
+    if (remainingPlans.length > 0) {
+      await selectStudyPlan({ id: remainingPlans[0].id, name: remainingPlans[0].name })
+    } else {
+      studyPlanStore.clearPlan()
+    }
+  }
+}
+
 const handleCreatePlan = async () => {
   if (!newPlanName.value.trim()) {
     createError.value = 'Informe o nome do plano.'
@@ -107,18 +144,26 @@ const handleCreatePlan = async () => {
         <p v-else-if="!studyPlans.length" class="px-4 py-6 text-sm text-on-surface-muted text-center">
           Nenhum plano criado ainda.
         </p>
-        <button v-else v-for="plan in studyPlans" :key="plan.id" @click="handleSelectPlan(plan.id, plan.name)"
-          class="w-full flex items-center gap-3 px-3 py-3 hover:bg-surface-container-low transition-colors duration-150 cursor-pointer text-left rounded-xl group"
-          :class="studyPlanStore.activePlanId === plan.id ? 'bg-primary-container/30' : ''">
-          <div class="w-5 flex-shrink-0 flex items-center justify-center">
-            <i v-if="studyPlanStore.activePlanId === plan.id" class="pi pi-check text-[14px] text-primary"></i>
-            <div v-else class="w-1.5 h-1.5 rounded-full bg-outline-variant/40 group-hover:bg-primary/40 transition-colors"></div>
+        <button v-else v-for="plan in studyPlans" :key="plan.id"
+          class="w-full flex items-center justify-between px-2 py-1.5 hover:bg-surface-container-low transition-colors duration-150 rounded-xl group"
+          :class="studyPlanStore.activePlanId === plan.id ? 'bg-primary-container/30' : ''"
+          @click="handleSelectPlan(plan.id, plan.name)">
+          <div class="flex items-center gap-2 flex-1 min-w-0">
+            <div class="w-5 flex-shrink-0 flex items-center justify-center">
+              <i v-if="studyPlanStore.activePlanId === plan.id" class="pi pi-check text-[14px] text-primary"></i>
+              <div v-else
+                class="w-1.5 h-1.5 rounded-full bg-outline-variant/40 group-hover:bg-primary/40 transition-colors"></div>
+            </div>
+            <span class="text-[14px] font-sans truncate transition-colors text-left" :class="studyPlanStore.activePlanId === plan.id
+              ? 'font-bold text-on-surface'
+              : 'font-medium text-on-surface-muted group-hover:text-on-surface'">
+              {{ plan.name }}
+            </span>
           </div>
-          <span class="text-[14px] font-sans truncate transition-colors" :class="studyPlanStore.activePlanId === plan.id
-            ? 'font-bold text-on-surface'
-            : 'font-medium text-on-surface-muted group-hover:text-on-surface'">
-            {{ plan.name }}
-          </span>
+          <div @click.stop="handleDeletePlan(plan.id)" title="Excluir plano"
+            class="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-error/10 text-error/70 hover:text-error rounded-md transition-all cursor-pointer">
+            <i class="pi pi-trash text-[12px]"></i>
+          </div>
         </button>
       </div>
 
@@ -130,7 +175,8 @@ const handleCreatePlan = async () => {
           <span class="text-[13px] font-bold font-sans tracking-wide">Criar Novo Plano</span>
         </button>
 
-        <div v-else class="p-4 space-y-3 bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-sm">
+        <div v-else
+          class="p-4 space-y-3 bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-sm">
           <h3 class="text-xs font-bold uppercase tracking-widest text-on-surface-muted mb-2">Novo Plano de Estudos</h3>
           <input ref="nameInput" v-model="newPlanName" type="text" placeholder="Nome do plano"
             class="w-full text-sm px-3 py-2.5 rounded-lg border border-outline-variant/40 bg-surface-container-low text-on-surface placeholder:text-on-surface-muted/50 focus:outline-none focus:border-primary/50 transition-colors"
@@ -159,13 +205,16 @@ const handleCreatePlan = async () => {
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--color-on-surface) 10%, transparent);
   border-radius: 10px;
 }
+
 .custom-scrollbar:hover::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--color-on-surface) 20%, transparent);
 }

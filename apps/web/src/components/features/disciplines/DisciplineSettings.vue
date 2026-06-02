@@ -2,8 +2,7 @@
 import { ref, watch } from 'vue'
 import { api } from '../../../lib/axios'
 import { VInput, VButton } from '../../ui'
-import { PRESET_COLORS } from '../../../helpers/disciplineColors'
-
+import ColorPicker from './ColorPicker.vue'
 import { useToast } from 'primevue/usetoast'
 
 const toast = useToast()
@@ -63,14 +62,7 @@ async function saveDisciplineInfo() {
         </summary>
         <div class="detail__edit-body">
             <VInput v-model="panelName" label="Nome" icon="subject" />
-            <div>
-                <p class="text-xs text-secondary mb-2">Cor</p>
-                <div class="flex gap-2 flex-wrap">
-                    <button v-for="color in PRESET_COLORS" :key="color" class="color-swatch"
-                        :class="{ 'color-swatch--active': panelColor === color }" :style="{ background: color }"
-                        @click="panelColor = color" />
-                </div>
-            </div>
+            <ColorPicker v-model="panelColor" />
             <div>
                 <div class="flex justify-between items-center mb-1">
                     <p class="text-xs text-secondary">Peso / Importância</p>
@@ -128,25 +120,6 @@ async function saveDisciplineInfo() {
     flex-direction: column;
     gap: 0.75rem;
     background: var(--surface-container-low);
-}
-
-/* Color Swatches */
-.color-swatch {
-    width: 1.75rem;
-    height: 1.75rem;
-    border-radius: 50%;
-    border: 2px solid transparent;
-    cursor: pointer;
-    transition: transform 0.15s, border-color 0.15s;
-}
-
-.color-swatch:hover {
-    transform: scale(1.15);
-}
-
-.color-swatch--active {
-    border-color: var(--on-surface);
-    transform: scale(1.15);
 }
 
 /* Weight editor */
