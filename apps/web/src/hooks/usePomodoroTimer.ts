@@ -90,7 +90,7 @@ export function usePomodoroTimer() {
     })
 
     const isSessionComplete = computed(() => {
-        return currentCycle.value > settings.value.cycles && currentPhase.value === 'focus'
+        return currentCycle.value > settings.value.cycles
     })
 
     // ─── Notification ─────────────────────────────────────────────────────────────

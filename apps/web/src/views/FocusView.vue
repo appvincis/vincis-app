@@ -103,6 +103,11 @@ async function handleStop() {
 async function saveSession(completed: boolean) {
     if (!selectedDisciplineId.value || !sessionStartedAt.value) return
 
+    // Evita poluir o banco com sessões acidentais (menos de 60 segundos de foco real)
+    if (totalElapsed.value < 60 && !completed) {
+        return
+    }
+
     const cyclesCompleted = completed
         ? settings.value.cycles
         : Math.max(0, currentCycle.value - 1)
