@@ -285,7 +285,8 @@ const navigateToAuth = () => {
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-16 mb-24">
           <div class="lg:col-span-5">
             <div class="font-['Newsreader',serif] italic text-4xl font-bold tracking-tighter text-[#1c1b1a] mb-8">
-              VINCIS<span class="text-[#735c00]">.</span>
+                VINCIS<span class="text-[#735c00]">.</span>
+              </div>
             </div>
             <p class="text-base text-[#1c1b1a]/50 max-w-sm leading-relaxed">
               Unindo o legado da tradição acadêmica clássica com a fronteira da inovação digital. Projetado para mentes que se recusam a aceitar limites.

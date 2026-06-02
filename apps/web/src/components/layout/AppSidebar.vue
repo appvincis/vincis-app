@@ -60,6 +60,7 @@ const navItems = [
   { id: 'planner', label: 'Planner', icon: 'pi-clock', path: '/private/planner', isPremium: false },
   { id: 'tasks', label: 'Tarefas', icon: 'pi-check-circle', path: '/private/tasks', isPremium: false },
   { id: 'error-logs', label: 'Caderno de Erros', icon: 'pi-pencil', path: '/private/error-logs', isPremium: false },
+  { id: 'focus', label: 'Modo Foco', icon: 'pi-stopwatch', path: '/private/focus', isPremium: false },
   { id: 'editais', label: 'Editais', icon: 'pi-file-pdf', path: '/private/editais', isPremium: false },
   { id: 'performance', label: 'Desempenho', icon: 'pi-chart-bar', path: '/private/performance', isPremium: false },
   { id: 'premium', label: 'Premium', icon: 'pi-verified', path: '/private/premium', isPremium: true },

@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import AppSidebar from '../components/layout/AppSidebar.vue'
 import AITutorDrawer from '../components/layout/AITutorDrawer.vue'
 import { useAuthStore } from '../stores/auth'
+import Toast from 'primevue/toast'
 
 const authStore = useAuthStore()
 
@@ -15,7 +16,8 @@ const isAITutorOpen = ref(false)
 </script>
 
 <template>
-  <div class="min-h-screen flex bg-background dark:bg-surface-dark overflow-hidden relative">
+  <div class="min-h-screen flex bg-background dark:bg-surface-dark">
+    <Toast />
     <!-- Navigation Sidebar & Mobile Bar -->
     <AppSidebar />
 
