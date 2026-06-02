@@ -1,4 +1,12 @@
 export const PRESET_COLORS = [
-    '#6366f1', '#8b5cf6', '#ec4899', '#ef4444',
-    '#f97316', '#eab308', '#22c55e', '#14b8a6', '#3b82f6',
+    '#6366f1', // Indigo
+    '#8b5cf6', // Violet
+    '#ec4899', // Pink
+    '#ef4444', // Red
+    '#f97316', // Orange
+    '#eab308', // Yellow
+    '#22c55e', // Green
+    '#14b8a6', // Teal
+    '#3b82f6', // Blue
+    '#735c00', // Gold (project primary)
 ]
