@@ -32,7 +32,7 @@ const userMenuItems = ref([
     }
   },
   {
-    label: 'Trocar de Plano',
+    label: 'Trocar Plano de Estudo',
     icon: 'pi pi-arrow-right-arrow-left',
     command: () => {
       studyPlanSwitcherRef.value?.open()
@@ -107,8 +107,15 @@ const userInitials = computed(() => {
           : 'text-on-surface-muted hover:bg-background dark:hover:bg-surface-dark-elevated'">
         <i class="pi text-[18px]" :class="item.icon"
           :style="isActive(item.path) ? { textShadow: '0 0 1px currentColor' } : {}"></i>
-        <span class="text-sm tracking-wide font-sans" :class="isActive(item.path) ? 'font-bold' : 'font-medium'">
+        <span class="text-sm tracking-wide font-sans flex-1" :class="isActive(item.path) ? 'font-bold' : 'font-medium'">
           {{ item.label }}
+        </span>
+        <span v-if="item.showPremiumTag && !plan.isPremium"
+          class="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border leading-none transition-all"
+          :class="isActive(item.path)
+            ? 'bg-secondary-container text-on-secondary-container border-white/50'
+            : 'bg-primary/10 text-primary border-primary/20'">
+          Pro
         </span>
       </router-link>
     </nav>

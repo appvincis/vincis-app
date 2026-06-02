@@ -5,6 +5,7 @@ import {
   useStudyPlansQuery,
   useCreateStudyPlanMutation,
   useSelectStudyPlanMutation,
+  useDeleteStudyPlanMutation
 } from '../../hooks/useStudyPlans'
 import DsModal from '../ui/DsModal.vue'
 
@@ -15,6 +16,7 @@ const studyPlans = computed(() => studyPlansData.value || [])
 
 const { mutateAsync: createStudyPlan, isPending: isCreating } = useCreateStudyPlanMutation()
 const { mutateAsync: selectStudyPlan } = useSelectStudyPlanMutation()
+const { mutateAsync: deleteStudyPlan } = useDeleteStudyPlanMutation()
 
 // ─── Auto-select logic ────────────────────────────────────────────────────────
 let hasSyncedInitialPlan = false
@@ -90,6 +92,21 @@ const handleSelectPlan = async (id: number, name: string) => {
   closeModal()
 }
 
+const handleDeletePlan = async (id: number) => {
+  if (!confirm('Tem certeza que deseja excluir este plano de estudos? Esta ação não pode ser desfeita.')) return
+  
+  await deleteStudyPlan(id)
+  
+  if (studyPlanStore.activePlanId === id) {
+    const remainingPlans = studyPlans.value.filter(p => p.id !== id)
+    if (remainingPlans.length > 0) {
+      await selectStudyPlan({ id: remainingPlans[0].id, name: remainingPlans[0].name })
+    } else {
+      studyPlanStore.clearPlan()
+    }
+  }
+}
+
 const handleCreatePlan = async () => {
   if (!newPlanName.value.trim()) {
     createError.value = 'Informe o nome do plano.'
@@ -127,8 +144,8 @@ const handleCreatePlan = async () => {
         <p v-else-if="!studyPlans.length" class="px-4 py-6 text-sm text-on-surface-muted text-center">
           Nenhum plano criado ainda.
         </p>
-        <button v-else v-for="plan in studyPlans" :key="plan.id" @click="handleSelectPlan(plan.id, plan.name)"
-          class="w-full flex items-center gap-3 px-3 py-3 hover:bg-surface-container-low transition-colors duration-150 cursor-pointer text-left rounded-xl group"
+        <div v-else v-for="plan in studyPlans" :key="plan.id"
+          class="w-full flex items-center justify-between px-2 py-1.5 hover:bg-surface-container-low transition-colors duration-150 rounded-xl group"
           :class="studyPlanStore.activePlanId === plan.id ? 'bg-primary-container/30' : ''">
           <div class="w-5 flex-shrink-0 flex items-center justify-center">
             <i v-if="studyPlanStore.activePlanId === plan.id" class="pi pi-check text-[14px] text-primary"></i>

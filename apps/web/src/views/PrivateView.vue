@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { VCard, VButton, VBadge, VSelect, VCardStat, VDiagnosticCard, VActivityItem, VSpinner } from '../components/ui'
 import { useStudyPlanStore } from '../stores/study-plan'
 import { useAuthMeQuery, useStudyPlansQuery, useSelectStudyPlanMutation } from '../hooks/useStudyPlans'
+import { useDisciplinesQuery } from '../hooks/useDisciplines'
 import { api } from '../lib/axios'
 
 const studyPlanStore = useStudyPlanStore()
@@ -13,9 +14,23 @@ const user = computed(() => userData.value)
 const { data: studyPlansData, isLoading: isLoadingPlans } = useStudyPlansQuery()
 const studyPlans = computed(() => studyPlansData.value || [])
 
+const { data: disciplinesData, isLoading: isLoadingDisciplines } = useDisciplinesQuery()
+const disciplines = computed(() => disciplinesData.value || [])
+const isAiInsightsEmpty = computed(() => disciplines.value.length === 0)
+
+const highlightDiscipline = computed(() => disciplines.value[0]?.name || 'Sistemas Operacionais')
+const fatigueDiscipline = computed(() => disciplines.value[1]?.name || disciplines.value[0]?.name || 'Cálculo Diferencial')
+const recommendationText = computed(() => {
+  const firstDisc = disciplines.value[0]?.name
+  if (firstDisc) {
+    return `Recomendamos priorizar a revisão de tópicos de '${firstDisc}' hoje às 15:00 para consolidar a memória de longo prazo antes das provas.`
+  }
+  return "Recomendamos priorizar a revisão de 'Gerenciamento de Memória' hoje às 15:00 para consolidar a memória de longo prazo antes da prova de amanhã."
+})
+
 const selectStudyPlanMutation = useSelectStudyPlanMutation()
 
-const isLoading = computed(() => isLoadingUser.value || isLoadingPlans.value)
+const isLoading = computed(() => isLoadingUser.value || isLoadingPlans.value || isLoadingDisciplines.value)
 
 // ─── State ────────────────────────────────────────────────────────────────────
 const currentStudyPlanId = ref<number | null>(studyPlanStore.activePlanId)
@@ -97,11 +112,12 @@ const firstName = computed(() => {
       <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
         <!-- IA Diagnostic Card (Main) -->
         <VDiagnosticCard 
-          class="md:col-span-8"
-          highlightDiscipline="Sistemas Operacionais"
+          class="md:col-span-8 h-fit"
+          :isEmpty="isAiInsightsEmpty"
+          :highlightDiscipline="highlightDiscipline"
           retentionRate="92%"
-          fatigueDiscipline="Cálculo Diferencial"
-          recommendationText="Recomendamos priorizar a revisão de 'Gerenciamento de Memória' hoje às 15:00 para consolidar a memória de longo prazo antes da prova de amanhã."
+          :fatigueDiscipline="fatigueDiscipline"
+          :recommendationText="recommendationText"
           actionLink="/private/disciplinas"
         />
 
