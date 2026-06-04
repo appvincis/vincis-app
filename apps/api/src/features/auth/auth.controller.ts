@@ -165,3 +165,88 @@ export async function refresh(req: Request, res: Response) {
         return res.status(500).json({ message: 'Erro interno ao renovar o token' })
     }
 }
+
+export async function googleLogin(req: Request, res: Response) {
+    try {
+        const { data, error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: `${process.env.CLIENT_URL || 'http://localhost:5173'}/auth/callback`,
+                queryParams: {
+                    access_type: 'offline',
+                    prompt: 'consent'
+                }
+            },
+        })
+
+        if (error) {
+            return res.status(400).json({ message: error.message })
+        }
+
+        if (data?.url) {
+            return res.redirect(data.url)
+        }
+        
+        return res.status(400).json({ message: 'Não foi possível gerar a URL de autenticação do Google.' })
+    } catch (err: any) {
+        console.error('Erro no googleLogin:', err)
+        return res.status(500).json({ message: 'Erro interno ao iniciar login com Google' })
+    }
+}
+
+export async function authCallback(req: Request, res: Response) {
+    const { access_token, refresh_token, expires_in } = req.body
+
+    if (!access_token || !refresh_token) {
+        return res.status(400).json({ message: 'Tokens de autenticação não fornecidos.' })
+    }
+
+    try {
+        // Valida o access_token buscando o usuário autenticado no Supabase
+        const { data: { user }, error } = await supabase.auth.getUser(access_token)
+
+        if (error || !user) {
+            console.error('Erro ao validar token do Google:', error)
+            return res.status(401).json({ message: error?.message || 'Token inválido ou expirado.' })
+        }
+
+        let dbUser = await userService.getBySupabaseId(user.id)
+
+        if (!dbUser) {
+            dbUser = await userService.createFromAuth({
+                supabaseId: user.id,
+                email: user.email!,
+                name: user.user_metadata?.full_name || user.user_metadata?.name || '',
+                avatar: user.user_metadata?.avatar_url || '',
+            })
+        }
+
+        const tokenMaxAge = typeof expires_in === 'number' ? expires_in * 1000 : 3600 * 1000
+
+        res.cookie('access_token', access_token, {
+            ...baseCookieOptions,
+            maxAge: tokenMaxAge,
+        })
+
+        res.cookie('refresh_token', refresh_token, {
+            ...baseCookieOptions,
+            maxAge: 30 * 24 * 60 * 60 * 1000,
+        })
+
+        return res.status(200).json({
+            message: 'Login com Google realizado com sucesso',
+            user: {
+                id: dbUser.id,
+                supabaseId: dbUser.supabaseId,
+                email: dbUser.email,
+                name: dbUser.name,
+                avatar: dbUser.avatar,
+                plan: dbUser.plan,
+            }
+        })
+    } catch (err: any) {
+        console.error('Erro no callback do Google Auth:', err)
+        return res.status(500).json({ message: err.message || 'Erro interno no callback de autenticação.' })
+    }
+}
+
