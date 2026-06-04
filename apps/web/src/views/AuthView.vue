@@ -1,9 +1,104 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { api } from '../lib/axios'
 import { VButton, VInput, VAlert } from '../components/ui'
+
+const canvasRef = ref<HTMLCanvasElement | null>(null)
+let animationFrameId: number | null = null
+
+onMounted(() => {
+  const canvas = canvasRef.value
+  if (!canvas) return
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+
+  let width = canvas.width = canvas.parentElement?.clientWidth || 400
+  let height = canvas.height = canvas.parentElement?.clientHeight || 800
+
+  const handleResize = () => {
+    width = canvas.width = canvas.parentElement?.clientWidth || 400
+    height = canvas.height = canvas.parentElement?.clientHeight || 800
+  }
+  window.addEventListener('resize', handleResize)
+
+  // Configuração dos Nódulos
+  const particles: Array<{
+    x: number
+    y: number
+    vx: number
+    vy: number
+    radius: number
+  }> = []
+
+  const particleCount = 45
+  for (let i = 0; i < particleCount; i++) {
+    particles.push({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      vx: (Math.random() - 0.5) * 0.4, // Velocidade lenta e suave
+      vy: (Math.random() - 0.5) * 0.4,
+      radius: Math.random() * 2 + 1
+    })
+  }
+
+  // Loop de Animação
+  const animate = () => {
+    ctx.clearRect(0, 0, width, height)
+    ctx.fillStyle = '#ebe7e4' // Fundo escuro igual ao aside
+    ctx.fillRect(0, 0, width, height)
+
+    // Desenhar linhas de conexão entre os pontos próximos
+    for (let i = 0; i < particleCount; i++) {
+      const p1 = particles[i]
+      if (!p1) continue
+      for (let j = i + 1; j < particleCount; j++) {
+        const p2 = particles[j]
+        if (!p2) continue
+        const dx = p1.x - p2.x
+        const dy = p1.y - p2.y
+        const dist = Math.sqrt(dx * dx + dy * dy)
+
+        if (dist < 110) {
+          ctx.strokeStyle = `rgba(115, 92, 0, ${0.15 * (1 - dist / 110)})` // Linhas em tom dourado suave
+          ctx.lineWidth = 0.8
+          ctx.beginPath()
+          ctx.moveTo(p1.x, p1.y)
+          ctx.lineTo(p2.x, p2.y)
+          ctx.stroke()
+        }
+      }
+    }
+
+    // Atualizar posição e desenhar os pontos (nódulos)
+    for (let i = 0; i < particleCount; i++) {
+      const p = particles[i]
+      if (!p) continue
+      ctx.fillStyle = 'rgba(115, 92, 0, 0.4)'
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2)
+      ctx.fill()
+
+      p.x += p.vx
+      p.y += p.vy
+
+      // Colisão com as bordas
+      if (p.x < 0 || p.x > width) p.vx *= -1
+      if (p.y < 0 || p.y > height) p.vy *= -1
+    }
+
+    animationFrameId = requestAnimationFrame(animate)
+  }
+
+  animate()
+
+  onUnmounted(() => {
+    window.removeEventListener('resize', handleResize)
+    if (animationFrameId) cancelAnimationFrame(animationFrameId)
+  })
+})
+
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -14,16 +109,37 @@ const message = ref('')
 const isError = ref(false)
 const isLoading = ref(false)
 const isPasswordVisible = ref(false)
+const isConfirmPasswordVisible = ref(false)
+const currentYear = new Date().getFullYear()
+const name = ref('')
+const confirmPassword = ref('')
+
+const hasMinLength = computed(() => password.value.length >= 8)
+const hasLowercase = computed(() => /[a-z]/.test(password.value))
+const hasUppercase = computed(() => /[A-Z]/.test(password.value))
+const hasNumber = computed(() => /[0-9]/.test(password.value))
+const hasSpecialChar = computed(() => /[^a-zA-Z0-9]/.test(password.value))
+const doPasswordsMatch = computed(() => password.value === confirmPassword.value)
 
 const togglePasswordVisibility = () => {
   isPasswordVisible.value = !isPasswordVisible.value
 }
 
+const toggleConfirmPasswordVisibility = () => {
+  isConfirmPasswordVisible.value = !isConfirmPasswordVisible.value
+}
+
 const toggleMode = () => {
   isLoginMode.value = !isLoginMode.value
+  name.value = ''
+  confirmPassword.value = ''
+  email.value = ''
+  password.value = ''
   message.value = ''
   isError.value = false
+  isConfirmPasswordVisible.value = false
 }
+
 
 const handleGoogleLogin = () => {
   message.value = 'A autenticação com o Google estará disponível em breve.'
@@ -31,17 +147,22 @@ const handleGoogleLogin = () => {
 }
 
 const submitForm = async () => {
-  isLoading.value = true
-  message.value = ''
-  isError.value = false
+if (!isLoginMode.value && password.value !== confirmPassword.value) {
+  message.value = 'As senhas não coincidem.'
+  isError.value = true
+  isLoading.value = false
+  return
+}
 
   const endpoint = isLoginMode.value ? '/auth/login' : '/auth/register'
 
   try {
-    const res = await api.post(endpoint, {
-      email: email.value,
-      password: password.value
-    })
+    const payload = isLoginMode.value 
+      ? { email: email.value, password: password.value }
+      : { email: email.value, password: password.value, name: name.value, confirmPassword: confirmPassword.value }
+
+    const res = await api.post(endpoint, payload)
+
     
     isError.value = false
     message.value = res.data.message || 'Sucesso!'
@@ -68,37 +189,31 @@ const submitForm = async () => {
     
     <!-- Left Side: Editorial Visual Anchor (Visible only on Desktop) -->
     <aside class="auth-aside">
-      <!-- Background Image with Editorial Soft Overlay -->
+            <!-- Dynamic Neural Network Canvas Background -->
       <div class="aside-bg">
-        <img 
-          class="aside-image" 
-          alt="Brutalist concrete architecture" 
-          src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5a9jk6pjNqlh-3ru2IU7VB4IR_7rgxReK_7D5BYoug8oPBW6dpYxvDjkAFkrPYUtlPNeMC_D0fRFJ92nw7O4zXZTdreSDUeWUs58FMnqvgbQsEmJXJjTcgkfnFLukTeCHa_YcA_hpzBCeQfs2-llyuppmC2DFEUx6zyUdaqpRkvzUOww_7p8RqVCi8K53izqM-QejDETvFc94Xav1bvJIa4quFWv1BfXZfG23ud5Enfb6tp1HUxNDSmSPy7wLtw1huml8SflYyzT9"
-        />
+        <canvas ref="canvasRef" class="aside-canvas"></canvas>
         <div class="aside-overlay"></div>
       </div>
+
       
       <!-- Content Overlay -->
       <div class="aside-content animate-fade-in">
-        <div class="aside-logo-group">
-          <h1 class="serif-headline logo-text italic">
-            VINCIS<span style="color: #d4af37">.</span>
-          </h1>
-        </div>
+        <router-link to="/" class="aside-logo-group cursor-pointer hover:opacity-90 transition-opacity">
+          <img src="/vincis-logo.svg" alt="Vincis Logo" class="aside-logo-img" />
+        </router-link>
         
         <div class="aside-middle">
           <h2 class="serif-headline aside-title">
-            Redefining the architecture of academic intelligence.
+            Acesse seu ecossistema de estudos inteligente.
           </h2>
           <div class="aside-divider"></div>
           <p class="aside-description">
-            Access your personalized AI-driven study environment. Designed for the modern scholar who values precision and depth.
+            Monitore disciplinas, otimize sua rotina e domine o edital com precisão e método.
           </p>
         </div>
         
         <div class="aside-footer">
-          <span class="aside-footer-tag">Academic Portal</span>
-          <span class="aside-footer-copy">© 2026 Vincis Research Group</span>
+          <span class="aside-footer-copy">© {{ currentYear }} Vincis App</span>
         </div>
       </div>
     </aside>
@@ -109,9 +224,9 @@ const submitForm = async () => {
         
         <!-- Mobile Header (Only visible on mobile screens) -->
         <div class="mobile-header">
-          <h1 class="serif-headline mobile-logo-text italic">
-            VINCIS<span style="color: #d4af37">.</span>
-          </h1>
+          <router-link to="/" class="cursor-pointer hover:opacity-90 transition-opacity">
+            <img src="/vincis-logo.svg" alt="Vincis Logo" class="h-10 w-auto" />
+          </router-link>
         </div>
 
         <!-- Login Header -->
@@ -148,6 +263,18 @@ const submitForm = async () => {
 
         <!-- Form -->
         <form @submit.prevent="submitForm" class="login-form">
+          <!-- Campo Nome (Exibido apenas no Cadastro) -->
+          <div v-if="!isLoginMode" class="input-group">
+            <VInput 
+              v-model="name" 
+              label="Nome Completo"
+              placeholder="Seu nome completo"
+              icon="user"
+              required 
+            />
+          </div>
+
+          <!-- Campo E-mail -->
           <div class="input-group">
             <VInput 
               v-model="email" 
@@ -158,33 +285,88 @@ const submitForm = async () => {
             />
           </div>
           
+          <!-- Campo Senha -->
           <div class="input-group password-group">
-          <VInput 
-            v-model="password" 
-            label="Senha"
-            :type="isPasswordVisible ? 'text' : 'password'"
-            placeholder="••••••••"
-            icon="lock"
-            required 
-          />
-          
-          <button 
-            type="button" 
-            class="toggle-password-btn" 
-            @click="togglePasswordVisibility"
-            :aria-label="isPasswordVisible ? 'Esconder senha' : 'Mostrar senha'"
-          >
-            <i :class="['pi', isPasswordVisible ? 'pi-eye-slash' : 'pi-eye']"></i>
-          </button>
+            <VInput 
+              v-model="password" 
+              label="Senha"
+              :type="isPasswordVisible ? 'text' : 'password'"
+              placeholder="••••••••"
+              icon="lock"
+              required 
+            />
+            
+            <button 
+              type="button" 
+              class="toggle-password-btn" 
+              @click="togglePasswordVisibility"
+              :aria-label="isPasswordVisible ? 'Esconder senha' : 'Mostrar senha'"
+            >
+              <i :class="['pi', isPasswordVisible ? 'pi-eye-slash' : 'pi-eye']"></i>
+            </button>
+  
+            <a 
+              v-if="isLoginMode"
+              class="forgot-password-link" 
+              href="#"
+            >
+              Esqueci a senha
+            </a>
+          </div>
 
-          <a 
-            v-if="isLoginMode"
-            class="forgot-password-link" 
-            href="#"
-          >
-            Esqueci a senha
-          </a>
-        </div>
+          <!-- Requisitos de Senha Forte (Exibido apenas no Cadastro) -->
+          <div v-if="!isLoginMode" class="password-requirements animate-fade-in">
+            <p class="requirements-title">A senha deve conter:</p>
+            <ul class="requirements-list">
+              <li :class="{ 'satisfied': hasMinLength }">
+                <i :class="['pi', hasMinLength ? 'pi-check-circle' : 'pi-circle']"></i>
+                No mínimo 8 caracteres
+              </li>
+              <li :class="{ 'satisfied': hasLowercase && hasUppercase }">
+                <i :class="['pi', (hasLowercase && hasUppercase) ? 'pi-check-circle' : 'pi-circle']"></i>
+                Letras maiúsculas e minúsculas
+              </li>
+              <li :class="{ 'satisfied': hasNumber }">
+                <i :class="['pi', hasNumber ? 'pi-check-circle' : 'pi-circle']"></i>
+                Pelo menos um número
+              </li>
+              <li :class="{ 'satisfied': hasSpecialChar }">
+                <i :class="['pi', hasSpecialChar ? 'pi-check-circle' : 'pi-circle']"></i>
+                Pelo menos um caractere especial (ex: @, #, $)
+              </li>
+            </ul>
+          </div>
+
+          <!-- Campo Confirmar Senha (Exibido apenas no Cadastro) -->
+          <div v-if="!isLoginMode" class="input-group password-group">
+            <VInput 
+              v-model="confirmPassword" 
+              label="Confirmar Senha"
+              :type="isConfirmPasswordVisible ? 'text' : 'password'"
+              placeholder="••••••••"
+              icon="lock"
+              required 
+            />
+            
+            <button 
+              type="button" 
+              class="toggle-password-btn" 
+              @click="toggleConfirmPasswordVisibility"
+              :aria-label="isConfirmPasswordVisible ? 'Esconder senha' : 'Mostrar senha'"
+            >
+              <i :class="['pi', isConfirmPasswordVisible ? 'pi-eye-slash' : 'pi-eye']"></i>
+            </button>
+          </div>
+
+          <!-- Validação em tempo real se coincidem -->
+          <div v-if="!isLoginMode" class="validation-message-wrapper">
+            <p v-if="confirmPassword && !doPasswordsMatch" class="password-mismatch-warning animate-fade-in">
+              <i class="pi pi-exclamation-circle"></i> As senhas não coincidem.
+            </p>
+            <p v-else-if="confirmPassword && doPasswordsMatch" class="password-match-success animate-fade-in">
+              <i class="pi pi-check-circle"></i> As senhas coincidem.
+            </p>
+          </div>
 
           <!-- Alert/Message Box -->
           <div v-if="message" class="alert-box animate-fade-in">
@@ -244,7 +426,7 @@ const submitForm = async () => {
   width: 45% !important;
   height: 100% !important; /* Garante que segue os 100vh do pai */
   position: relative !important;
-  background-color: #1c1b1a !important; 
+  background-color: #ebe7e4 !important;
   overflow: hidden !important; /* Impede scroll na parte editorial */
   box-sizing: border-box !important;
 }
@@ -299,9 +481,18 @@ const submitForm = async () => {
 .forgot-password-link {
   top: -1.5rem !important; 
 }
+
+
 /* ─────────────────────────────────────────────────────────────────
    ELEMENTOS DA LATERAL ESQUERDA (EDITORIAL)
    ───────────────────────────────────────────────────────────────── */
+
+   .aside-canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
+}
+
 .aside-bg {
   position: absolute !important;
   inset: 0 !important;
@@ -319,7 +510,7 @@ const submitForm = async () => {
 .aside-overlay {
   position: absolute !important;
   inset: 0 !important;
-  background: linear-gradient(to top, #1c1b1a 0%, transparent 60%, #1c1b1a 100%) !important;
+  background: linear-gradient(to top, #ebe7e4 0%, transparent 60%, #ebe7e4 100%) !important;
   opacity: 0.90 !important;
   z-index: 1 !important;
 }
@@ -332,23 +523,22 @@ const submitForm = async () => {
   height: 100% !important;
   padding: 4rem !important;
   justify-content: space-between !important;
-  color: #ffffff !important;
+  color: #1c1b1a !important;
   box-sizing: border-box !important;
 }
 
 .aside-logo-group {
   display: flex !important;
+  justify-content: center !important; /* Centraliza o logo horizontalmente */
   align-items: center !important;
   gap: 1rem !important;
+  width: 100% !important;            /* Garante que o container use a largura total */
 }
 
 .aside-logo-img {
-  width: 3rem !important;
-  height: 3rem !important;
-  border-radius: var(--border-radius-md) !important;
-  background-color: #ffffff !important;
-  padding: 0.25rem !important;
-  object-fit: contain !important;
+  height: 12rem !important;
+  width: auto !important;
+  filter: none !important;
 }
 
 .logo-text {
@@ -370,7 +560,7 @@ const submitForm = async () => {
   line-height: 1.15 !important;
   margin-bottom: 2rem !important;
   font-style: italic !important;
-  color: #ffffff !important;
+  color: #1c1b1a !important;
 }
 
 .aside-divider {
@@ -383,7 +573,7 @@ const submitForm = async () => {
 .aside-description {
   font-family: var(--ds-font-sans) !important;
   font-size: 1.125rem !important;
-  color: rgba(229, 226, 223, 0.8) !important;
+  color: rgba(28, 27, 26, 0.7) !important;
   line-height: 1.65 !important;
 }
 
@@ -400,13 +590,13 @@ const submitForm = async () => {
   font-weight: 700 !important;
   text-transform: uppercase !important;
   letter-spacing: 0.22em !important;
-  color: #ffffff !important;
+  color: #1c1b1a !important;
 }
 
 .aside-footer-copy {
   font-family: var(--ds-font-sans) !important;
   font-size: 0.875rem !important;
-  color: #ffffff !important;
+  color: #1c1b1a !important;
 }
 
 /* ─────────────────────────────────────────────────────────────────
@@ -571,6 +761,75 @@ const submitForm = async () => {
 
 .form-toggle-btn:hover {
   color: var(--primary) !important;
+}
+
+.password-requirements {
+  margin-top: 0.75rem !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.35rem !important;
+  box-sizing: border-box !important;
+}
+
+.requirements-title {
+  font-family: var(--ds-font-sans) !important;
+  font-size: 0.6875rem !important;
+  font-weight: 700 !important;
+  color: var(--secondary) !important;
+  margin-bottom: 0.25rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+}
+
+.requirements-list {
+  list-style: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.35rem !important;
+}
+
+.requirements-list li {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  font-family: var(--ds-font-sans) !important;
+  font-size: 0.75rem !important;
+  color: var(--secondary) !important;
+  opacity: 0.65 !important;
+  transition: all 0.2s ease !important;
+}
+
+.requirements-list li .pi {
+  font-size: 0.8rem !important;
+}
+
+.requirements-list li.satisfied {
+  color: var(--primary) !important;
+  opacity: 1 !important;
+  font-weight: 600 !important;
+}
+
+.password-mismatch-warning {
+  font-family: var(--ds-font-sans) !important;
+  font-size: 0.75rem !important;
+  color: #ea4335 !important; /* Vermelho */
+  margin-top: 0.5rem !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.35rem !important;
+}
+
+.password-match-success {
+  font-family: var(--ds-font-sans) !important;
+  font-size: 0.75rem !important;
+  color: var(--primary) !important; /* Dourado */
+  margin-top: 0.5rem !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.35rem !important;
+  font-weight: 600 !important;
 }
 
 

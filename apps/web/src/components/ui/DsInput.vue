@@ -1,8 +1,9 @@
 <!-- components/ui/DsInput.vue -->
 <script setup>
+import { computed } from 'vue'
 import InputText from 'primevue/inputtext'
 
-defineProps({
+const props = defineProps({
   modelValue: {
     type: [String, Number],
     default: ''
@@ -34,6 +35,23 @@ defineProps({
 })
 
 defineEmits(['update:modelValue'])
+
+const iconClass = computed(() => {
+  if (!props.icon) return '';
+  if (props.icon.startsWith('pi-') || props.icon.startsWith('pi ')) {
+    return props.icon;
+  }
+  const mapping = {
+    'user': 'pi-user',
+    'person': 'pi-user',
+    'mail': 'pi-envelope',
+    'lock': 'pi-lock',
+    'subject': 'pi-file',
+    'edit_note': 'pi-pencil',
+    'notes': 'pi-align-left'
+  };
+  return mapping[props.icon] || `pi-${props.icon}`;
+})
 </script>
 
 <template>
@@ -44,7 +62,7 @@ defineEmits(['update:modelValue'])
     </label>
     
     <div class="ds-input-wrapper">
-      <i v-if="icon" class="ds-input-icon pi" :class="icon"></i>
+      <i v-if="icon" class="ds-input-icon pi" :class="iconClass"></i>
       <InputText 
         :type="type"
         :modelValue="modelValue"

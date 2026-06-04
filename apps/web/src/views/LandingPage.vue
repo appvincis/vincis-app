@@ -1,13 +1,17 @@
 <script setup lang="ts">
+// Lógica de controle de estado e roteamento da Landing Page
 import { useRouter } from 'vue-router'
 import { ref, onMounted } from 'vue'
 
 const router = useRouter()
 const visible = ref(false)
+const isMenuOpen = ref(false)
 
 onMounted(() => {
   setTimeout(() => { visible.value = true }, 50)
 })
+
+const currentYear = new Date().getFullYear()
 
 const navigateToAuth = () => {
   router.push('/auth')
@@ -15,31 +19,77 @@ const navigateToAuth = () => {
 </script>
 
 <template>
+  <!-- Container Principal: Define a paleta de cores creme, tipografia geral e ruído de fundo sutil -->
   <div class="bg-[#fdf9f6] text-[#1c1b1a] min-h-screen antialiased font-['Manrope',sans-serif] selection:bg-[#ffe088] selection:text-[#241a00] relative">
-    <div class="fixed inset-0 pointer-events-none z-[100] bg-repeat opacity-[0.02] mix-blend-overlay" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuB06q0j1pBG3vL9wkq_E_lkJoiqBexJmUKzsImTOW87PdmqlglImGmJFgI6qnQV7OY8_7x1PiLmZamNSt-ztLt1Gqad-adfiqc1ytlIhIJeUihNNDcIbbqlXkHL_7cVIQ1XSStETJUDDuzKKh5XMWlfUo4pIvMQ9x7rFD1iTwGeqeS0nBYbmGOqY8m3M1JYg0cs_V-_lHmdj6ItG3GdhtksvTcxSE7cUTByd1C8JnPN81j4P03sVJPsyI6ITcTDEQFE8C8Kl59af6JJ');"></div>
+    <div class="fixed inset-0 pointer-events-none z-[100] bg-repeat opacity-[0.02] mix-blend-overlay bg-[url('https://lh3.googleusercontent.com/aida-public/AB6AXuB06q0j1pBG3vL9wkq_E_lkJoiqBexJmUKzsImTOW87PdmqlglImGmJFgI6qnQV7OY8_7x1PiLmZamNSt-ztLt1Gqad-adfiqc1ytlIhIJeUihNNDcIbbqlXkHL_7cVIQ1XSStETJUDDuzKKh5XMWlfUo4pIvMQ9x7rFD1iTwGeqeS0nBYbmGOqY8m3M1JYg0cs_V-_lHmdj6ItG3GdhtksvTcxSE7cUTByd1C8JnPN81j4P03sVJPsyI6ITcTDEQFE8C8Kl59af6JJ')]"></div>
 
+    <!-- Cabeçalho (Header): Navegação principal da landing page e botão para entrar/registrar -->
     <header class="fixed top-0 w-full z-50 bg-[#fdf9f6]/80 backdrop-blur-xl border-b border-[#1c1b1a]/5">
-      <nav class="flex justify-between items-center px-8 py-5 max-w-screen-2xl mx-auto">
-        <div class="flex items-center gap-3">
-          <div class="font-['Newsreader',serif] italic text-3xl font-bold tracking-tighter text-[#1c1b1a] flex items-baseline">
-            VINCIS<span class="text-[#735c00] text-4xl leading-none">.</span>
-          </div>
-        </div>
+      <nav class="flex justify-between items-center px-8 h-20 max-w-screen-2xl mx-auto">
+        <router-link to="/" class="flex items-center gap-3 hover:opacity-90 transition-opacity cursor-pointer">
+          <img src="/vincis-logo.svg" alt="Vincis Logo" class="h-24 w-auto" />
+        </router-link>
         <div class="hidden md:flex items-center space-x-12">
           <a class="text-[#735c00] font-bold border-b-2 border-[#735c00]/40 pb-1 text-xs uppercase tracking-[0.2em]" href="#metodologia">Metodologia</a>
-          <a class="text-[#1c1b1a]/60 font-medium hover:text-[#1c1b1a] transition-colors text-xs uppercase tracking-[0.2em]" href="#recursos">Recursos</a>
-          <a class="text-[#1c1b1a]/60 font-medium hover:text-[#1c1b1a] transition-colors text-xs uppercase tracking-[0.2em]" href="#diagnostico">Diagnóstico</a>
+          <a class="text-[#1c1b1a]/80 font-medium hover:text-[#1c1b1a] transition-colors text-xs uppercase tracking-[0.2em]" href="#recursos">Recursos</a>
+          <a class="text-[#1c1b1a]/80 font-medium hover:text-[#1c1b1a] transition-colors text-xs uppercase tracking-[0.2em]" href="#diagnostico">Diagnóstico</a>
         </div>
+        <div class="flex items-center gap-4">
+          <button 
+            @click="navigateToAuth" 
+            class="hidden sm:inline-block bg-[#1c1b1a] text-[#fdf9f6] px-8 py-3 rounded-full text-xs font-black uppercase tracking-[0.25em] hover:bg-[#735c00] hover:text-white transition-all active:scale-95 shadow-lg shadow-[#1c1b1a]/10"
+          >
+            Iniciar Jornada
+          </button>
+          
+          <!-- Botão Hambúrguer para Menu Mobile -->
+          <button 
+            @click="isMenuOpen = !isMenuOpen" 
+            class="md:hidden flex items-center justify-center w-10 h-10 rounded-full border border-[#1c1b1a]/10 hover:bg-[#1c1b1a]/5 text-[#1c1b1a] transition-colors"
+            aria-label="Toggle Menu"
+          >
+            <i :class="isMenuOpen ? 'pi pi-times' : 'pi pi-bars'" class="text-lg"></i>
+          </button>
+        </div>
+      </nav>
+
+      <!-- Menu Mobile Dropdown/Overlay -->
+      <div 
+        v-if="isMenuOpen" 
+        class="md:hidden border-t border-[#1c1b1a]/5 bg-[#fdf9f6] px-8 py-6 space-y-6 flex flex-col shadow-xl absolute top-full left-0 w-full z-40"
+      >
+        <a 
+          @click="isMenuOpen = false" 
+          class="text-[#735c00] font-bold border-b border-[#735c00]/20 pb-2 text-xs uppercase tracking-[0.2em]" 
+          href="#metodologia"
+        >
+          Metodologia
+        </a>
+        <a 
+          @click="isMenuOpen = false" 
+          class="text-[#1c1b1a]/80 font-medium hover:text-[#1c1b1a] transition-colors pb-2 border-b border-[#1c1b1a]/5 text-xs uppercase tracking-[0.2em]" 
+          href="#recursos"
+        >
+          Recursos
+        </a>
+        <a 
+          @click="isMenuOpen = false" 
+          class="text-[#1c1b1a]/80 font-medium hover:text-[#1c1b1a] transition-colors pb-2 border-b border-[#1c1b1a]/5 text-xs uppercase tracking-[0.2em]" 
+          href="#diagnostico"
+        >
+          Diagnóstico
+        </a>
         <button 
-          @click="navigateToAuth" 
-          class="bg-[#1c1b1a] text-[#fdf9f6] px-8 py-3 rounded-full text-xs font-black uppercase tracking-[0.25em] hover:bg-[#735c00] hover:text-white transition-all active:scale-95 shadow-lg shadow-[#1c1b1a]/10"
+          @click="navigateToAuth(); isMenuOpen = false" 
+          class="w-full bg-[#1c1b1a] text-[#fdf9f6] py-4 rounded-full text-xs font-black uppercase tracking-[0.25em] hover:bg-[#735c00] hover:text-white transition-all active:scale-95"
         >
           Iniciar Jornada
         </button>
-      </nav>
+      </div>
     </header>
 
-    <section id="metodologia" class="relative min-h-[95vh] flex items-center pt-32 pb-20 overflow-hidden" style="background: radial-gradient(circle at 50% 50%, rgba(212, 175, 55, 0.08) 0%, rgba(253, 249, 246, 0) 70%);">
+    <!-- Seção Hero / Metodologia: Apresentação da proposta de valor inicial com mockup interativo de progresso -->
+    <section id="metodologia" class="relative min-h-[95vh] flex items-center pt-32 pb-20 overflow-hidden bg-[radial-gradient(circle_at_50%_50%,rgba(212,175,55,0.08)_0%,rgba(253,249,246,0)_70%)]">
       <div class="absolute inset-0 z-0 overflow-hidden">
         <img class="w-full h-full object-cover opacity-[0.05] scale-110 lg:scale-100" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBn7PWUM_BN9Ma_1mA0MjouKhxOSXG92coN1cLvzt4lZBnv3JMb5Qd7eUDEzottC8sMPTuL_YH-bTAaSY9H_RkWplfeKDAFNRZJJey8spQOYyDZPeq94aIMZkV91uYl_J1fBGGK6m7zBsBbd7qyVPer0VFdH0-USgrJ_9NZzz5j4bdMu3AdZn3EJ9e12-GRjyUfxvgFZCvBCp3BiCPngL6erqScyLd6d5nQxx5WlqpGd3m6otWIGDgK7RkQhI_UyIJohWN-nUPoXKbh" alt="Esboços anatômicos vintage">
         <div class="absolute inset-0 bg-gradient-to-b from-transparent via-[#fdf9f6]/20 to-[#fdf9f6]"></div>
@@ -50,7 +100,7 @@ const navigateToAuth = () => {
           <span class="inline-block px-5 py-2 bg-[#735c00]/5 text-[#735c00] font-black text-[10px] tracking-[0.4em] uppercase rounded-full mb-10 border border-[#735c00]/10">
             Organização inteligente para concursos
           </span>
-          <h1 class="font-['Newsreader',serif] text-6xl md:text-8xl lg:text-9xl font-bold text-[#1c1b1a] leading-[0.95] tracking-tight mb-12 drop-shadow-sm">
+          <h1 class="font-['Newsreader',serif] text-5xl md:text-7xl lg:text-8xl font-bold text-[#1c1b1a] leading-[0.95] tracking-tight mb-8 drop-shadow-sm">
             Sua aprovação <br>
             começa com <br>
             <span class="italic text-[#735c00] font-normal">método.</span>
@@ -61,7 +111,7 @@ const navigateToAuth = () => {
           <div class="flex flex-col sm:flex-row gap-6 justify-center items-center">
             <button 
               @click="navigateToAuth" 
-              class="prestige-btn bg-[#735c00] text-white px-12 py-6 rounded-full font-black text-sm uppercase tracking-[0.3em] hover:shadow-2xl hover:shadow-[#735c00]/20 hover:-translate-y-1 transition-all active:scale-95"
+              class="relative bg-[#735c00] text-white px-12 py-6 rounded-full font-black text-sm uppercase tracking-[0.3em] hover:shadow-2xl hover:shadow-[#735c00]/20 hover:-translate-y-1 transition-all active:scale-95 after:content-[''] after:absolute after:inset-[-4px] after:border after:border-[#735c00]/20 after:rounded-full after:pointer-events-none after:transition-all after:duration-300 hover:after:inset-[-6px] hover:after:opacity-50"
             >
               Começar Gratuitamente
             </button>
@@ -80,15 +130,15 @@ const navigateToAuth = () => {
                 <div class="space-y-4">
                   <div>
                     <div class="flex justify-between text-xs font-bold mb-1"><span>D. Constitucional</span><span class="text-[#735c00]">72%</span></div>
-                    <div class="h-1.5 w-full bg-[#1c1b1a]/5 rounded-full"><div class="h-full bg-[#735c00] rounded-full" style="width: 72%"></div></div>
+                    <div class="h-1.5 w-full bg-[#1c1b1a]/5 rounded-full"><div class="h-full bg-[#735c00] rounded-full w-[72%]"></div></div>
                   </div>
                   <div>
                     <div class="flex justify-between text-xs font-bold mb-1"><span>Raciocínio Lógico</span><span class="text-[#735c00]">55%</span></div>
-                    <div class="h-1.5 w-full bg-[#1c1b1a]/5 rounded-full"><div class="h-full bg-[#735c00] rounded-full" style="width: 55%"></div></div>
+                    <div class="h-1.5 w-full bg-[#1c1b1a]/5 rounded-full"><div class="h-full bg-[#735c00] rounded-full w-[55%]"></div></div>
                   </div>
                   <div>
                     <div class="flex justify-between text-xs font-bold mb-1"><span>Português</span><span class="text-[#735c00]">88%</span></div>
-                    <div class="h-1.5 w-full bg-[#1c1b1a]/5 rounded-full"><div class="h-full bg-[#735c00] rounded-full" style="width: 88%"></div></div>
+                    <div class="h-1.5 w-full bg-[#1c1b1a]/5 rounded-full"><div class="h-full bg-[#735c00] rounded-full w-[88%]"></div></div>
                   </div>
                 </div>
               </div>
@@ -115,6 +165,7 @@ const navigateToAuth = () => {
       </div>
     </section>
 
+    <!-- Barra de Prova Social: Estatísticas gerais e métricas de impacto no mercado -->
     <div class="border-y border-[#1c1b1a]/5 bg-[#f1edea]">
       <div class="max-w-4xl mx-auto padding py-10 px-8 flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16">
         <div class="text-center">
@@ -134,14 +185,15 @@ const navigateToAuth = () => {
       </div>
     </div>
 
-    <section id="recursos" class="py-40 bg-[#1c1b1a] text-[#fdf9f6] relative overflow-hidden">
+    <!-- Seção de Recursos: Grid com as principais ferramentas e pilares da plataforma -->
+    <section id="recursos" class="py-20 md:py-40 bg-[#1c1b1a] text-[#fdf9f6] relative overflow-hidden">
       <div class="absolute top-0 right-0 w-1/2 h-full bg-[#735c00]/5 -skew-x-12 translate-x-1/2 pointer-events-none"></div>
       <div class="container mx-auto px-8 relative z-10">
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-16 items-start">
           <div class="lg:col-span-5">
             <span class="text-[#735c00] font-black text-[10px] tracking-[0.5em] uppercase mb-8 block">Rigor Intelectual</span>
             <h2 class="font-['Newsreader',serif] text-5xl md:text-7xl font-bold leading-tight mb-10">Projetado para quem busca a maestria.</h2>
-            <p class="text-xl text-[#fdf9f6]/60 leading-relaxed mb-12">
+            <p class="text-xl text-[#fdf9f6]/75 leading-relaxed mb-12">
               Ferramentas que não apenas organizam, mas elevam sua capacidade de retenção a níveis sem precedentes.
             </p>
             <div class="h-px w-32 bg-[#735c00] mb-12"></div>
@@ -152,8 +204,8 @@ const navigateToAuth = () => {
               <div class="w-12 h-12 rounded-xl bg-[#735c00]/20 flex items-center justify-center mb-10 text-[#e9c349]">
                 <i class="pi pi-book text-xl"></i>
               </div>
-              <h3 class="font-['Newsreader',serif] text-3xl font-bold mb-6">Planos de Estudo</h3>
-              <p class="text-[#fdf9f6]/50 leading-relaxed text-sm">
+              <h3 class="font-['Newsreader',serif] text-2xl font-bold mb-6">Planos de Estudo</h3>
+              <p class="text-[#fdf9f6]/75 leading-relaxed text-sm">
                 Monte rotinas baseadas no seu edital de forma fluida. O Vincis organiza o conteúdo de acordo com o seu tempo disponível.
               </p>
             </div>
@@ -162,8 +214,8 @@ const navigateToAuth = () => {
               <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center mb-10">
                 <i class="pi pi-chart-bar text-xl"></i>
               </div>
-              <h3 class="font-['Newsreader',serif] text-3xl font-bold mb-6">Métricas Reais</h3>
-              <p class="text-white/80 leading-relaxed text-sm">
+              <h3 class="font-['Newsreader',serif] text-2xl font-bold mb-6">Métricas Reais</h3>
+              <p class="text-white/90 leading-relaxed text-sm">
                 Gráficos analíticos e relatórios preditivos que mostram sua evolução semanal real até o dia de abertura do edital.
               </p>
             </div>
@@ -172,8 +224,8 @@ const navigateToAuth = () => {
               <div class="w-12 h-12 rounded-xl bg-[#735c00]/20 flex items-center justify-center mb-10 text-[#e9c349]">
                 <i class="pi pi-sitemap text-xl"></i>
               </div>
-              <h3 class="font-['Newsreader',serif] text-3xl font-bold mb-6">Gestão Temática</h3>
-              <p class="text-[#fdf9f6]/50 leading-relaxed text-sm">
+              <h3 class="font-['Newsreader',serif] text-2xl font-bold mb-6">Gestão Temática</h3>
+              <p class="text-[#fdf9f6]/75 leading-relaxed text-sm">
                 Monitore o avanço em tópicos específicos de cada matéria e descubra instantaneamente quais pontos exigem revisão urgente.
               </p>
             </div>
@@ -182,8 +234,8 @@ const navigateToAuth = () => {
               <div class="w-12 h-12 rounded-xl bg-[#735c00]/20 flex items-center justify-center mb-10 text-[#e9c349]">
                 <i class="pi pi-clock text-xl"></i>
               </div>
-              <h3 class="font-['Newsreader',serif] text-3xl font-bold mb-6">Controle de Horas</h3>
-              <p class="text-[#fdf9f6]/50 leading-relaxed text-sm">
+              <h3 class="font-['Newsreader',serif] text-2xl font-bold mb-6">Controle de Horas</h3>
+              <p class="text-[#fdf9f6]/75 leading-relaxed text-sm">
                 Cronometre sessões de foco profundo e entenda perfeitamente a divisão do tempo investido por disciplina estudada.
               </p>
             </div>
@@ -192,7 +244,8 @@ const navigateToAuth = () => {
       </div>
     </section>
 
-    <section id="diagnostico" class="py-40 bg-[#f7f3f0] overflow-hidden">
+    <!-- Seção de Diagnóstico por IA: Demonstração conceitual de análises preditivas e insights de estudo -->
+    <section id="diagnostico" class="py-20 md:py-40 bg-[#f7f3f0] overflow-hidden">
       <div class="container mx-auto px-8">
         <div class="bg-white rounded-[3rem] shadow-xl border border-[#1c1b1a]/5 overflow-hidden">
           <div class="grid lg:grid-cols-2 items-stretch">
@@ -203,7 +256,7 @@ const navigateToAuth = () => {
                 Nossa inteligência compreende seus padrões biológicos e de retenção. Receba relatórios profundos sobre níveis de fadiga mental e recomendações cirúrgicas de revisão bibliográfica.
               </p>
               <button @click="navigateToAuth" class="flex items-center gap-4 text-xs font-black uppercase tracking-[0.3em] text-[#1c1b1a] hover:text-[#735c00] transition-colors group text-left">
-                Descobrir meu perfil
+                Iniciar Diagnóstico Grátis
                 <i class="pi pi-arrow-right group-hover:translate-x-2 transition-transform text-xs"></i>
               </button>
             </div>
@@ -249,7 +302,8 @@ const navigateToAuth = () => {
       </div>
     </section>
 
-    <section class="py-40 bg-[#fdf9f6] relative flex justify-center text-center">
+    <!-- Seção de Filosofia / Citação: Bloco conceitual e inspiracional inspirado pelo legado clássico de Leonardo da Vinci -->
+    <section class="py-20 md:py-40 bg-[#fdf9f6] relative flex justify-center text-center">
       <div class="container mx-auto px-8 max-w-4xl flex flex-col items-center">
         <i class="pi pi-comment text-[#735c00]/15 mb-10 text-6xl md:text-7xl"></i>
         <blockquote class="font-['Newsreader',serif] italic text-4xl md:text-6xl leading-tight text-[#1c1b1a] mb-16">
@@ -265,7 +319,8 @@ const navigateToAuth = () => {
       </div>
     </section>
 
-    <section class="py-40 bg-[#fdf9f6] relative border-t border-[#1c1b1a]/5">
+    <!-- Chamada para Ação (CTA) Final: Incentivo para o usuário testar a plataforma gratuitamente -->
+    <section class="py-20 md:py-40 bg-[#fdf9f6] relative border-t border-[#1c1b1a]/5">
       <div class="container mx-auto px-8 text-center">
         <h2 class="font-['Newsreader',serif] text-6xl md:text-8xl font-bold mb-16 tracking-tight">
           Pronto para sua <br>
@@ -280,13 +335,13 @@ const navigateToAuth = () => {
       </div>
     </section>
 
-    <footer class="bg-[#ebe7e4] w-full py-24 px-8 border-t border-[#1c1b1a]/5">
+    <!-- Rodapé (Footer): Links institucionais, corporativos, suporte e direitos autorais -->
+    <footer class="bg-[#ebe7e4] w-full py-12 md:py-24 px-8 border-t border-[#1c1b1a]/5">
       <div class="max-w-screen-2xl mx-auto">
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-16 mb-24">
           <div class="lg:col-span-5">
             <div class="font-['Newsreader',serif] italic text-4xl font-bold tracking-tighter text-[#1c1b1a] mb-8">
-                VINCIS<span class="text-[#735c00]">.</span>
-              </div>
+              VINCIS<span class="text-[#735c00]">.</span>
             </div>
             <p class="text-base text-[#1c1b1a]/50 max-w-sm leading-relaxed">
               Unindo o legado da tradição acadêmica clássica com a fronteira da inovação digital. Projetado para mentes que se recusam a aceitar limites.
@@ -296,27 +351,27 @@ const navigateToAuth = () => {
           <div class="lg:col-span-7 grid grid-cols-2 md:grid-cols-4 gap-8">
             <div class="space-y-6">
               <h4 class="text-[10px] font-black uppercase tracking-[0.3em] text-[#735c00]">Plataforma</h4>
-              <ul class="space-y-4 text-sm font-bold text-[#1c1b1a]/60">
+              <ul class="space-y-4 text-sm font-bold text-[#1c1b1a]/80">
                 <li><a class="hover:text-[#1c1b1a] transition-colors" href="#">Metodologia</a></li>
                 <li><a class="hover:text-[#1c1b1a] transition-colors" href="#">Recursos</a></li>
               </ul>
             </div>
             <div class="space-y-6">
               <h4 class="text-[10px] font-black uppercase tracking-[0.3em] text-[#735c00]">Empresa</h4>
-              <ul class="space-y-4 text-sm font-bold text-[#1c1b1a]/60">
+              <ul class="space-y-4 text-sm font-bold text-[#1c1b1a]/80">
                 <li><a class="hover:text-[#1c1b1a] transition-colors" href="#">Sobre Nós</a></li>
                 <li><a class="hover:text-[#1c1b1a] transition-colors" href="#">Manifesto</a></li>
               </ul>
             </div>
             <div class="space-y-6">
               <h4 class="text-[10px] font-black uppercase tracking-[0.3em] text-[#735c00]">Suporte</h4>
-              <ul class="space-y-4 text-sm font-bold text-[#1c1b1a]/60">
+              <ul class="space-y-4 text-sm font-bold text-[#1c1b1a]/80">
                 <li><a class="hover:text-[#1c1b1a] transition-colors" href="#">Central de Ajuda</a></li>
               </ul>
             </div>
             <div class="space-y-6">
               <h4 class="text-[10px] font-black uppercase tracking-[0.3em] text-[#735c00]">Legal</h4>
-              <ul class="space-y-4 text-sm font-bold text-[#1c1b1a]/60">
+              <ul class="space-y-4 text-sm font-bold text-[#1c1b1a]/80">
                 <li><a class="hover:text-[#1c1b1a] transition-colors" href="#">Privacidade</a></li>
               </ul>
             </div>
@@ -325,7 +380,7 @@ const navigateToAuth = () => {
         
         <div class="flex flex-col md:flex-row justify-between items-center pt-12 border-t border-[#1c1b1a]/5">
           <p class="text-[10px] font-bold text-[#1c1b1a]/40 uppercase tracking-widest mb-8 md:mb-0">
-            © {{ new Date().getFullYear() }} Vincis Academic. Inspirado pelo mestre, movido por inteligência.
+            © {{ currentYear }} Vincis Academic. Inspirado pelo mestre, movido por inteligência.
           </p>
           <div class="flex gap-4">
             <button class="w-12 h-12 rounded-full flex items-center justify-center bg-[#1c1b1a]/5 hover:bg-[#735c00]/20 transition-all group">
@@ -340,22 +395,3 @@ const navigateToAuth = () => {
     </footer>
   </div>
 </template>
-
-<style scoped>
-.prestige-btn {
-  position: relative;
-}
-.prestige-btn::after {
-  content: '';
-  position: absolute;
-  inset: -4px;
-  border: 1px solid rgba(115, 92, 0, 0.2);
-  border-radius: inherit;
-  pointer-events: none;
-  transition: all 0.3s ease;
-}
-.prestige-btn:hover::after {
-  inset: -6px;
-  opacity: 0.5;
-}
-</style>
