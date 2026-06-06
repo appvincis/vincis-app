@@ -126,8 +126,80 @@ function moveTask(taskId: string, newStatus: ColumnKey) {
   const task = tasks.value.find(t => t.id === taskId)
   if (task) {
     task.status = newStatus
+    // Atualiza o createdAt para o momento atual para que ele apareça no topo da coluna
+    task.createdAt = new Date().toISOString()
     saveTasks()
   }
+}
+
+// ─── Drag & Drop (Pointer Events) ─────────────────────────────────────────────
+const activeDraggedTaskId = ref<string | null>(null)
+const draggedTask = ref<Task | null>(null)
+const isDragging = ref(false)
+const dragX = ref(0)
+const dragY = ref(0)
+const offsetX = ref(0)
+const offsetY = ref(0)
+const dragWidth = ref(0)
+const dragHeight = ref(0)
+const activeDragOverColumn = ref<ColumnKey | null>(null)
+
+function startDrag(event: PointerEvent, task: Task) {
+  // Ignorar se clicou em um botão de ação (editar/excluir) ou qualquer elemento de controle
+  if ((event.target as HTMLElement).closest('button')) return
+
+  const card = (event.currentTarget as HTMLElement)
+  const rect = card.getBoundingClientRect()
+
+  draggedTask.value = task
+  activeDraggedTaskId.value = task.id
+  offsetX.value = event.clientX - rect.left
+  offsetY.value = event.clientY - rect.top
+  dragWidth.value = rect.width
+  dragHeight.value = rect.height
+
+  dragX.value = event.clientX
+  dragY.value = event.clientY
+
+  activeDragOverColumn.value = task.status
+
+  window.addEventListener('pointermove', onPointerMove)
+  window.addEventListener('pointerup', onPointerUp)
+
+  card.setPointerCapture(event.pointerId)
+}
+
+function onPointerMove(event: PointerEvent) {
+  if (!activeDraggedTaskId.value) return
+  isDragging.value = true
+
+  dragX.value = event.clientX
+  dragY.value = event.clientY
+
+  // Encontra qual coluna está sob o ponteiro do mouse
+  const element = document.elementFromPoint(event.clientX, event.clientY)
+  const columnEl = element?.closest('.board-column')
+  if (columnEl) {
+    const colKey = columnEl.getAttribute('data-column-key') as ColumnKey
+    if (colKey) {
+      activeDragOverColumn.value = colKey
+    }
+  }
+}
+
+function onPointerUp(event: PointerEvent) {
+  window.removeEventListener('pointermove', onPointerMove)
+  window.removeEventListener('pointerup', onPointerUp)
+
+  if (isDragging.value && activeDraggedTaskId.value && activeDragOverColumn.value) {
+    moveTask(activeDraggedTaskId.value, activeDragOverColumn.value)
+  }
+
+  // Limpa estados
+  activeDraggedTaskId.value = null
+  draggedTask.value = null
+  isDragging.value = false
+  activeDragOverColumn.value = null
 }
 
 // ─── Format date ──────────────────────────────────────────────────────────────
@@ -203,7 +275,13 @@ const doneTasks = computed(() => tasks.value.filter(t => t.status === 'done').le
 
     <!-- Board -->
     <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-6">
-      <div v-for="col in columns" :key="col.key" class="board-column">
+      <div
+        v-for="col in columns"
+        :key="col.key"
+        class="board-column"
+        :class="{ 'board-column--drag-over': activeDragOverColumn === col.key }"
+        :data-column-key="col.key"
+      >
         <div class="column-header" :class="col.bgColor">
           <i class="pi text-sm" :class="[col.icon, col.color]"></i>
           <span class="font-sans font-bold text-sm text-on-surface">{{ col.label }}</span>
@@ -213,46 +291,55 @@ const doneTasks = computed(() => tasks.value.filter(t => t.status === 'done').le
         </div>
 
         <div class="column-body">
+          <!-- Preview temporário de onde o card vai cair se arrastado de outra coluna -->
+          <div
+            v-if="isDragging && activeDragOverColumn === col.key && draggedTask?.status !== col.key"
+            class="task-card task-card--placeholder-target"
+            :style="{ height: `${dragHeight}px` }"
+          ></div>
+
           <div
             v-for="task in getColumnTasks(col.key)"
             :key="task.id"
             class="task-card"
-            draggable="true"
-            @dragstart="(e) => e.dataTransfer?.setData('taskId', task.id)"
-            @dragover.prevent
-            @drop.prevent="moveTask(task.id, col.key)"
+            :class="{ 'task-card--placeholder': activeDraggedTaskId === task.id }"
+            @pointerdown="startDrag($event, task)"
           >
-            <div class="flex items-start justify-between gap-2">
-              <div class="min-w-0 flex-1">
-                <h4 class="font-sans font-bold text-sm text-on-surface leading-snug break-words">{{ task.title }}</h4>
-                <p v-if="task.description" class="font-sans text-xs text-on-surface-variant mt-1.5 leading-relaxed break-words">
-                  {{ task.description }}
-                </p>
-              </div>
-              <div class="flex gap-1 shrink-0">
-                <button class="task-action-btn" title="Editar" @click="openEditModal(task)">
-                  <i class="pi pi-pencil text-[11px]"></i>
-                </button>
-                <button class="task-action-btn task-action-btn--delete" title="Excluir" @click="confirmDelete(task)">
-                  <i class="pi pi-trash text-[11px]"></i>
-                </button>
-              </div>
-            </div>
 
-            <div class="flex items-center justify-between mt-3 pt-3 border-t border-outline-variant/10">
-              <span class="text-[10px] font-sans font-bold uppercase tracking-wider text-outline">{{ formatDate(task.createdAt) }}</span>
-              <div class="flex gap-1">
-                <button
-                  v-for="c in columns.filter(c => c.key !== task.status)"
-                  :key="c.key"
-                  class="text-[10px] font-sans font-bold uppercase tracking-wider px-2 py-1 rounded-md transition-colors"
-                  :class="c.key === 'done' ? 'text-green-600 hover:bg-green-50' : c.key === 'in-progress' ? 'text-amber-600 hover:bg-amber-50' : 'text-outline hover:bg-surface-container'"
-                  @click="moveTask(task.id, c.key)"
-                >
-                  {{ c.key === 'done' ? 'Concluir' : c.key === 'in-progress' ? 'Iniciar' : 'Voltar' }}
-                </button>
+            <!-- Conteúdo do card de tarefa (oculto se for o placeholder ativo) -->
+            <template v-if="activeDraggedTaskId !== task.id">
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0 flex-1">
+                  <h4 class="font-sans font-bold text-sm text-on-surface leading-snug break-words">{{ task.title }}</h4>
+                  <p v-if="task.description" class="font-sans text-xs text-on-surface-variant mt-1.5 leading-relaxed break-words">
+                    {{ task.description }}
+                  </p>
+                </div>
+                <div class="flex gap-1 shrink-0">
+                  <button class="task-action-btn" title="Editar" @click="openEditModal(task)">
+                    <i class="pi pi-pencil text-[11px]"></i>
+                  </button>
+                  <button class="task-action-btn task-action-btn--delete" title="Excluir" @click="confirmDelete(task)">
+                    <i class="pi pi-trash text-[11px]"></i>
+                  </button>
+                </div>
               </div>
-            </div>
+
+              <div class="flex items-center justify-between mt-3 pt-3 border-t border-outline-variant/10">
+                <span class="text-[10px] font-sans font-bold uppercase tracking-wider text-outline">{{ formatDate(task.createdAt) }}</span>
+                <div class="flex gap-1">
+                  <button
+                    v-for="c in columns.filter(c => c.key !== task.status)"
+                    :key="c.key"
+                    class="text-[10px] font-sans font-bold uppercase tracking-wider px-2 py-1 rounded-md transition-colors"
+                    :class="c.key === 'done' ? 'text-green-600 hover:bg-green-50' : c.key === 'in-progress' ? 'text-amber-600 hover:bg-amber-50' : 'text-outline hover:bg-surface-container'"
+                    @click="moveTask(task.id, c.key)"
+                  >
+                    {{ c.key === 'done' ? 'Concluir' : c.key === 'in-progress' ? 'Iniciar' : 'Voltar' }}
+                  </button>
+                </div>
+              </div>
+            </template>
           </div>
 
           <!-- Drop zone empty state -->
@@ -262,6 +349,8 @@ const doneTasks = computed(() => tasks.value.filter(t => t.status === 'done').le
         </div>
       </div>
     </div>
+
+
 
     <!-- Add Modal -->
     <VModal v-model:visible="showAddModal" header="Nova Tarefa">
@@ -319,8 +408,35 @@ const doneTasks = computed(() => tasks.value.filter(t => t.status === 'done').le
         </div>
       </div>
     </VModal>
+
+    <!-- Floating Clone for Custom Drag & Drop -->
+    <Teleport to="body">
+      <div
+        v-if="isDragging && draggedTask"
+        class="task-card-clone"
+        :style="{
+          left: `${dragX - offsetX}px`,
+          top: `${dragY - offsetY}px`,
+          width: `${dragWidth}px`,
+          height: `${dragHeight}px`
+        }"
+      >
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0 flex-1">
+            <h4 class="font-sans font-bold text-sm text-on-surface leading-snug break-words">{{ draggedTask.title }}</h4>
+            <p v-if="draggedTask.description" class="font-sans text-xs text-on-surface-variant mt-1.5 leading-relaxed break-words">
+              {{ draggedTask.description }}
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center justify-between mt-3 pt-3 border-t border-outline-variant/10">
+          <span class="text-[10px] font-sans font-bold uppercase tracking-wider text-outline">{{ formatDate(draggedTask.createdAt) }}</span>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
+
 
 <style scoped>
 .animate-fade-in {
@@ -346,6 +462,13 @@ const doneTasks = computed(() => tasks.value.filter(t => t.status === 'done').le
   border: 1px solid var(--color-outline-variant);
   border-radius: 1.25rem;
   min-height: 300px;
+  transition: all 0.2s ease;
+}
+
+.board-column--drag-over {
+  background: var(--color-surface-container-low);
+  border-color: var(--color-primary);
+  box-shadow: inset 0 0 0 1px var(--color-primary);
 }
 
 .column-header {
@@ -372,16 +495,75 @@ const doneTasks = computed(() => tasks.value.filter(t => t.status === 'done').le
   border: 1px solid transparent;
   border-radius: 0.875rem;
   padding: 1rem;
-  cursor: default;
-  transition: all 0.18s ease;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
 }
 
-.task-card:hover {
+.task-card:active {
+  cursor: grabbing;
+}
+
+.task-card--placeholder {
+  background: transparent;
+  border: 1.5px dashed var(--color-outline-variant);
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.task-card--placeholder * {
+  visibility: hidden;
+}
+
+.task-card--placeholder-target {
+  background: transparent;
+  border: 1.5px dashed var(--color-primary);
+  box-shadow: none !important;
+  transform: none !important;
+  animation: placeholderSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+@keyframes placeholderSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+    height: 0px !important;
+    padding-top: 0px !important;
+    padding-bottom: 0px !important;
+    margin-bottom: 0px !important;
+    border-color: transparent;
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+
+.task-card:hover:not(.task-card--placeholder) {
   background: var(--color-surface-container-lowest);
   border-color: var(--color-outline-variant);
   box-shadow: 0 2px 8px rgba(28, 27, 26, 0.05);
   transform: translateY(-1px);
 }
+
+/* ── Task Card Clone (Floating) ── */
+.task-card-clone {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  background: var(--color-surface-container-low);
+  border: 1px solid var(--color-primary);
+  border-radius: 0.875rem;
+  padding: 1rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+  transform: rotate(2.5deg);
+  will-change: left, top;
+}
+
+
 
 .task-action-btn {
   width: 28px;
