@@ -1,13 +1,28 @@
 <script setup lang="ts">
 import { useStudyPlanStore } from '@/stores/study-plan';
 import { VButton } from '@/components/ui'
-const props = defineProps(['errorMsg'])
+
+const props = defineProps<{
+    errorMsg?: string;
+    viewMode: 'ACTIVE' | 'ARCHIVED';
+    displayFormat: 'GRID' | 'LIST';
+    hasOtherPlans: boolean;
+}>()
+
 const studyPlanStore = useStudyPlanStore()
-defineEmits(['create-discipline'])
+
+defineEmits<{
+    (e: 'create-discipline'): void;
+    (e: 'export-disciplines'): void;
+    (e: 'import-disciplines'): void;
+    (e: 'clone-disciplines'): void;
+    (e: 'update:viewMode', value: 'ACTIVE' | 'ARCHIVED'): void;
+    (e: 'update:displayFormat', value: 'GRID' | 'LIST'): void;
+}>()
 </script>
 
 <template>
-    <header class="mb-12">
+    <header class="mb-8">
         <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div>
                 <p class="text-xs font-label font-bold uppercase tracking-[0.2em] text-primary mb-2">Módulo Acadêmico</p>
@@ -19,15 +34,83 @@ defineEmits(['create-discipline'])
                     Gerencie seu percurso acadêmico. Acompanhe o progresso das matérias e organize seus tópicos de estudo.
                 </p>
             </div>
-            <VButton
-                @click="$emit('create-discipline')"
-                variant="primary"
-                :disabled="!studyPlanStore.hasActivePlan"
-                :title="!studyPlanStore.hasActivePlan ? 'Selecione um plano de estudo primeiro' : ''"
-            >
-                <i class="pi pi-plus" style="font-size:1rem;vertical-align:-2px;margin-right:6px"></i>
-                Nova Disciplina
-            </VButton>
+            <div class="flex flex-wrap gap-2">
+                <VButton
+                    v-if="hasOtherPlans"
+                    @click="$emit('clone-disciplines')"
+                    variant="secondary"
+                    :disabled="!studyPlanStore.hasActivePlan"
+                >
+                    <i class="pi pi-copy" style="font-size:1rem;vertical-align:-2px;margin-right:6px"></i>
+                    Clonar
+                </VButton>
+                <VButton
+                    @click="$emit('export-disciplines')"
+                    variant="secondary"
+                    :disabled="!studyPlanStore.hasActivePlan"
+                >
+                    <i class="pi pi-download" style="font-size:1rem;vertical-align:-2px;margin-right:6px"></i>
+                    Exportar
+                </VButton>
+                <VButton
+                    @click="$emit('import-disciplines')"
+                    variant="secondary"
+                    :disabled="!studyPlanStore.hasActivePlan"
+                >
+                    <i class="pi pi-upload" style="font-size:1rem;vertical-align:-2px;margin-right:6px"></i>
+                    Importar
+                </VButton>
+                <VButton
+                    @click="$emit('create-discipline')"
+                    variant="primary"
+                    :disabled="!studyPlanStore.hasActivePlan"
+                    :title="!studyPlanStore.hasActivePlan ? 'Selecione um plano de estudo primeiro' : ''"
+                >
+                    <i class="pi pi-plus" style="font-size:1rem;vertical-align:-2px;margin-right:6px"></i>
+                    Nova Disciplina
+                </VButton>
+            </div>
+        </div>
+
+        <!-- Secondary Navigation and Layout Toggles Bar -->
+        <div v-if="studyPlanStore.hasActivePlan" class="mt-8 flex flex-wrap items-center justify-between gap-4 border-b border-outline-variant/20 pb-4">
+            <!-- Active/Archived Tabs -->
+            <div class="flex bg-surface-container-low p-1 rounded-xl border border-outline-variant/30">
+                <button
+                    @click="$emit('update:viewMode', 'ACTIVE')"
+                    class="px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer"
+                    :class="viewMode === 'ACTIVE' ? 'bg-primary text-white shadow-md' : 'text-on-surface-muted hover:text-on-surface'"
+                >
+                    Ativas
+                </button>
+                <button
+                    @click="$emit('update:viewMode', 'ARCHIVED')"
+                    class="px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer"
+                    :class="viewMode === 'ARCHIVED' ? 'bg-primary text-white shadow-md' : 'text-on-surface-muted hover:text-on-surface'"
+                >
+                    Arquivadas
+                </button>
+            </div>
+
+            <!-- Grid/List View Toggles -->
+            <div class="flex bg-surface-container-low p-1 rounded-xl border border-outline-variant/30">
+                <button
+                    @click="$emit('update:displayFormat', 'GRID')"
+                    class="p-2 rounded-lg transition-all cursor-pointer flex items-center justify-center"
+                    :class="displayFormat === 'GRID' ? 'bg-surface-container text-primary shadow-sm' : 'text-on-surface-muted hover:text-on-surface'"
+                    title="Visualizar em Grade"
+                >
+                    <i class="pi pi-th-large text-sm"></i>
+                </button>
+                <button
+                    @click="$emit('update:displayFormat', 'LIST')"
+                    class="p-2 rounded-lg transition-all cursor-pointer flex items-center justify-center"
+                    :class="displayFormat === 'LIST' ? 'bg-surface-container text-primary shadow-sm' : 'text-on-surface-muted hover:text-on-surface'"
+                    title="Visualizar em Lista"
+                >
+                    <i class="pi pi-list text-sm"></i>
+                </button>
+            </div>
         </div>
 
         <div

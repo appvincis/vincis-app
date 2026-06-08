@@ -54,7 +54,7 @@ const toggleUserMenu = (event: any) => {
   menu.value.toggle(event)
 }
 
-const navItems = [
+const navItems: Array<{ id: string; label: string; icon: string; path: string; isPremium: boolean; showPremiumTag?: boolean }> = [
   { id: 'dashboard', label: 'Dashboard', icon: 'pi-th-large', path: '/private', isPremium: false },
   { id: 'disciplinas', label: 'Disciplinas', icon: 'pi-book', path: '/private/disciplinas', isPremium: false },
   { id: 'planner', label: 'Planner', icon: 'pi-clock', path: '/private/planner', isPremium: false },
@@ -63,7 +63,7 @@ const navItems = [
   { id: 'focus', label: 'Modo Foco', icon: 'pi-stopwatch', path: '/private/focus', isPremium: false },
   { id: 'editais', label: 'Editais', icon: 'pi-file-pdf', path: '/private/editais', isPremium: false },
   { id: 'performance', label: 'Desempenho', icon: 'pi-chart-bar', path: '/private/performance', isPremium: false },
-  { id: 'premium', label: 'Premium', icon: 'pi-verified', path: '/private/premium', isPremium: true },
+  { id: 'premium', label: 'Premium', icon: 'pi-verified', path: '/private/premium', isPremium: true, showPremiumTag: true },
 ]
 
 const isActive = (path: string) => {

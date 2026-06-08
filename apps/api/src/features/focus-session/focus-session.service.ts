@@ -31,9 +31,10 @@ export const focusSessionService = {
                 disciplineId: data.disciplineId,
                 studyPlanId,
                 userId,
+                updatedAt: new Date(),
             },
             include: {
-                discipline: {
+                Discipline: {
                     select: { id: true, name: true, color: true },
                 },
             },
@@ -44,7 +45,7 @@ export const focusSessionService = {
         return prisma.focusSession.findMany({
             where: { studyPlanId },
             include: {
-                discipline: {
+                Discipline: {
                     select: { id: true, name: true, color: true },
                 },
             },
@@ -56,7 +57,7 @@ export const focusSessionService = {
         return prisma.focusSession.findMany({
             where: { disciplineId, studyPlanId },
             include: {
-                discipline: {
+                Discipline: {
                     select: { id: true, name: true, color: true },
                 },
             },

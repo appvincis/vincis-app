@@ -96,6 +96,7 @@ const router = createRouter({
     {
       path: '/old-ds',
       name: 'old-ds',
+      component: { render: () => null },
       beforeEnter() {
         window.location.href = '/design-system.html'
       }

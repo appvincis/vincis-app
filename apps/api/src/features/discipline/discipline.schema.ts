@@ -11,7 +11,8 @@ export const updateDisciplineSchema = z.object({
   name: z.string().min(1, "O nome da disciplina não pode ser vazio.").optional(),
   description: z.string().optional(),
   color: z.string().min(1, "A cor não pode ser vazia.").optional(),
-  weight: z.number().optional()
+  weight: z.number().optional(),
+  isActive: z.boolean().optional()
 });
 
 export type CreateDisciplineInput = z.infer<typeof createDisciplineSchema>;

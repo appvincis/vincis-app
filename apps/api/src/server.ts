@@ -6,6 +6,7 @@ import { userRouter } from './features/user/user.routes.js'
 import { authRouter } from './features/auth/auth.routes.js'
 import { prisma } from './lib/prisma.js'
 import { studyPlanRouter } from './features/study-plan/study-plan.routes.js'
+import { aiRouter } from './features/ai/ai.routes.js'
 
 import { disciplineRouter } from './features/discipline/discipline.routes.js'
 import { topicRouter } from './features/topic/topic.routes.js'
@@ -42,6 +43,7 @@ app.use("/error-logs", errorLogRouter)
 app.use("/editais", editalRouter)
 app.use("/payments", paymentRouter)
 app.use("/focus-sessions", focusSessionRouter)
+app.use("/ai", aiRouter)
 
 // Verifica conexão com banco antes de escutar na porta
 prisma.$connect()
