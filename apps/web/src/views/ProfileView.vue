@@ -158,12 +158,18 @@ const saveProfile = async () => {
 
 <template>
   <div class="profile-view">
+    <!-- Decorative background -->
+    <div class="profile-bg-decor" aria-hidden="true"></div>
+
     <header class="view-header">
-      <h1 class="text-4xl font-serif font-bold text-on-surface">Seu Perfil</h1>
-      <p class="text-secondary mt-2">Gerencie suas informações pessoais e preferências.</p>
+      <h1 class="text-3xl lg:text-4xl font-serif font-bold text-on-surface tracking-tight relative inline-block">
+        Seu Perfil
+        <div class="absolute -bottom-2 left-0 w-20 h-1 bg-primary-container/70 rounded-full"></div>
+      </h1>
+      <p class="text-secondary mt-2 font-sans text-sm">Gerencie suas informações pessoais e preferências.</p>
     </header>
 
-    <div class="mt-8 max-w-2xl space-y-4">
+    <div class="mt-6 max-w-4xl space-y-3">
       <VAlert 
         v-if="errorMsg" 
         variant="error" 
@@ -180,73 +186,88 @@ const saveProfile = async () => {
         @close="successMsg = ''" 
       />
 
-      <VCard class="p-8">
+      <VCard class="p-5 md:p-6">
         <!-- Modo Leitura / Visualização -->
-        <div v-if="!isEditing" class="space-y-6">
-          <div class="flex items-center gap-6 mb-8">
-            <Avatar 
-              :image="avatar || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'" 
-              size="xlarge" 
-              shape="circle" 
-              class="profile-avatar shadow-lg"
-            />
-            <div>
-              <h2 class="text-2xl font-serif font-bold text-on-surface">{{ name || 'Estudante' }}</h2>
-              <p class="text-secondary">{{ email }}</p>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="profile-field">
-              <label class="text-xs font-bold uppercase tracking-wider text-secondary">Nome Completo</label>
-              <div class="p-3 bg-surface-container-low rounded-lg mt-1 border border-outline-variant/30 text-on-surface">
-                {{ name || 'Não informado' }}
-              </div>
-            </div>
-            <div class="profile-field">
-              <label class="text-xs font-bold uppercase tracking-wider text-secondary">E-mail</label>
-              <div class="p-3 bg-surface-container-low rounded-lg mt-1 border border-outline-variant/30 text-on-surface">
-                {{ email }}
-              </div>
-            </div>
-          </div>
-          
-          <div class="pt-4 border-t border-outline-variant/20 flex justify-end">
-            <VButton variant="primary" @click="startEditing">Editar Perfil</VButton>
-          </div>
-        </div>
-
-        <!-- Modo Edição -->
-        <div v-else class="space-y-6">
-          <div class="flex flex-col items-center sm:flex-row gap-6 mb-8">
-            <div class="relative group cursor-pointer" @click="triggerFileInput">
+        <div v-if="!isEditing" class="space-y-5">
+          <div class="flex items-center gap-5">
+            <div class="relative shrink-0">
               <Avatar 
                 :image="avatar || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'" 
                 size="xlarge" 
                 shape="circle" 
-                class="profile-avatar shadow-lg transition duration-200 group-hover:brightness-50"
+                class="profile-avatar shadow-sm"
               />
-              <div class="absolute inset-0 flex flex-col items-center justify-center rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition duration-200 text-white">
-                <i class="pi pi-camera text-2xl"></i>
-                <span class="text-[10px] font-bold mt-1 uppercase tracking-wider">Alterar</span>
+              <div class="absolute -inset-1 rounded-full bg-primary-container/20 -z-10"></div>
+            </div>
+            <div class="min-w-0">
+              <h2 class="text-xl lg:text-2xl font-serif font-bold text-on-surface truncate">{{ name || 'Estudante' }}</h2>
+              <p class="text-on-surface-variant font-sans text-sm">{{ email || 'Nenhum e-mail cadastrado' }}</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="profile-field">
+              <label class="text-[10px] font-bold uppercase tracking-widest text-outline font-sans">Nome Completo</label>
+              <div class="mt-1 px-3.5 py-2.5 bg-surface-container-low rounded-lg border border-outline-variant/20 text-on-surface font-sans text-sm">
+                {{ name || 'Não informado' }}
               </div>
             </div>
-            <div>
-              <h2 class="text-xl font-serif font-bold text-on-surface">Foto do Perfil</h2>
-              <p class="text-xs text-secondary mt-1">Selecione uma foto. Ela será comprimida e otimizada automaticamente.</p>
-              <div class="flex gap-2 mt-3">
-                <VButton variant="secondary" size="small" class="text-xs" @click="triggerFileInput">
-                  Escolher Imagem
-                </VButton>
-                <VButton 
-                  v-if="avatar" 
-                  variant="error" 
-                  size="small" 
-                  class="text-xs" 
-                  @click="avatar = ''"
-                >
-                  Remover Foto
-                </VButton>
+            <div class="profile-field">
+              <label class="text-[10px] font-bold uppercase tracking-widest text-outline font-sans">E-mail</label>
+              <div class="mt-1 px-3.5 py-2.5 bg-surface-container-low rounded-lg border border-outline-variant/20 text-on-surface font-sans text-sm">
+                {{ email || 'Não informado' }}
+              </div>
+            </div>
+          </div>
+
+          <div class="pt-4 border-t border-outline-variant/15 flex justify-end">
+            <VButton variant="primary" @click="startEditing">
+              <i class="pi pi-pencil mr-2 text-sm" />
+              Editar Perfil
+            </VButton>
+          </div>
+        </div>
+
+        <!-- Modo Edição -->
+        <div v-else class="space-y-5">
+          <div class="flex flex-col sm:flex-row items-start gap-5">
+            <div class="relative shrink-0 group cursor-pointer self-center sm:self-auto" @click="triggerFileInput">
+              <Avatar 
+                :image="avatar || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'" 
+                size="xlarge" 
+                shape="circle" 
+                class="profile-avatar shadow-sm transition duration-200 group-hover:brightness-50"
+              />
+              <div class="absolute -inset-1 rounded-full bg-primary-container/20 -z-10"></div>
+              <div class="absolute inset-0 flex flex-col items-center justify-center rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition duration-200 text-white">
+                <i class="pi pi-camera text-2xl"></i>
+                <span class="text-[10px] font-bold mt-1 uppercase tracking-wider font-sans">Alterar</span>
+              </div>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <h3 class="text-base font-serif font-bold text-on-surface">Foto do Perfil</h3>
+                  <p class="text-xs text-on-surface-variant font-sans mt-0.5 leading-relaxed">
+                    Selecione uma foto. Ela será comprimida e otimizada automaticamente.
+                  </p>
+                </div>
+                <div class="flex gap-2 shrink-0">
+                  <VButton variant="secondary" size="small" class="text-xs" @click="triggerFileInput">
+                    <i class="pi pi-upload mr-1.5 text-xs" />
+                    Escolher
+                  </VButton>
+                  <VButton 
+                    v-if="avatar" 
+                    variant="error" 
+                    size="small" 
+                    class="text-xs" 
+                    @click="avatar = ''"
+                  >
+                    <i class="pi pi-trash mr-1.5 text-xs" />
+                    Remover
+                  </VButton>
+                </div>
               </div>
               <input 
                 type="file" 
@@ -258,7 +279,7 @@ const saveProfile = async () => {
             </div>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <VInput 
               v-model="name" 
               label="Nome Completo" 
@@ -275,7 +296,7 @@ const saveProfile = async () => {
             />
           </div>
 
-          <div class="pt-4 border-t border-outline-variant/20 flex justify-end gap-3">
+          <div class="pt-4 border-t border-outline-variant/15 flex justify-end gap-3">
             <VButton 
               variant="secondary" 
               @click="cancelEditing" 
@@ -298,19 +319,42 @@ const saveProfile = async () => {
 </template>
 
 <style scoped>
+.profile-view {
+  position: relative;
+  overflow-x: hidden;
+}
+
+.profile-bg-decor {
+  position: absolute;
+  top: -6rem;
+  right: -6rem;
+  width: 20rem;
+  height: 20rem;
+  background: radial-gradient(circle at center, rgba(212, 175, 55, 0.07) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+}
+
 .view-header {
-  margin-bottom: 2rem;
+  position: relative;
+  z-index: 1;
 }
 
 .profile-avatar {
-  width: 100px;
-  height: 100px;
-  border: 4px solid var(--surface-container-lowest);
+  width: 80px;
+  height: 80px;
+  border: 3px solid var(--color-surface-container-lowest);
   object-fit: cover;
 }
 
-.relative.group {
-  width: 100px;
-  height: 100px;
+.relative.shrink-0.group {
+  width: 80px;
+  height: 80px;
+}
+
+.relative.shrink-0 {
+  width: 80px;
+  height: 80px;
 }
 </style>

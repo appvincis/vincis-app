@@ -141,9 +141,18 @@ const toggleMode = () => {
 }
 
 
-const handleGoogleLogin = () => {
-  message.value = 'A autenticação com o Google estará disponível em breve.'
-  isError.value = false
+const handleGoogleLogin = async () => {
+  const { supabase } = await import('../lib/supabase')
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: `${window.location.origin}/auth/callback`,
+    }
+  })
+  if (error) {
+    isError.value = true
+    message.value = 'Erro ao iniciar login com o Google. Tente novamente.'
+  }
 }
 
 const submitForm = async () => {

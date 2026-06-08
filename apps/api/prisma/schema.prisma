@@ -155,7 +155,7 @@ model FocusSession {
   studyPlanId     Int
   userId          Int
   createdAt       DateTime   @default(now())
-  updatedAt       DateTime
+  updatedAt       DateTime   @updatedAt
   Discipline      Discipline @relation(fields: [disciplineId], references: [id], onDelete: Cascade)
   StudyPlan       StudyPlan  @relation(fields: [studyPlanId], references: [id], onDelete: Cascade)
   User            User       @relation(fields: [userId], references: [id], onDelete: Cascade)

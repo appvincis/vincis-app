@@ -4,6 +4,7 @@ import { VCard, VButton, VBadge, VSelect, VCardStat, VDiagnosticCard, VActivityI
 import { useStudyPlanStore } from '../stores/study-plan'
 import { useAuthMeQuery, useStudyPlansQuery, useSelectStudyPlanMutation } from '../hooks/useStudyPlans'
 import { useDisciplinesQuery } from '../hooks/useDisciplines'
+import { useFocusSessionsQuery, type FocusSession } from '../hooks/useFocusSessions'
 import { api } from '../lib/axios'
 
 const studyPlanStore = useStudyPlanStore()
@@ -81,6 +82,55 @@ const firstName = computed(() => {
   const name = user.value?.name || 'Estudante'
   return name.split(' ')[0]
 })
+
+// ─── Atividade Recente (Foco) ─────────────────────────────────────────────────
+const { data: focusSessions, isLoading: isLoadingSessions } = useFocusSessionsQuery()
+
+const recentSessions = computed(() => {
+  if (!focusSessions.value) return []
+  return [...focusSessions.value]
+    .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
+    .slice(0, 5)
+})
+
+function formatDuration(seconds: number): string {
+  if (!seconds) return '0 min'
+  const mins = Math.round(seconds / 60)
+  if (mins < 60) return `${mins} min`
+  const h = Math.floor(mins / 60)
+  const m = mins % 60
+  return m > 0 ? `${h}h ${m}m` : `${h}h`
+}
+
+function sessionStatus(session: FocusSession): 'Completo' | 'Em Andamento' | 'Pausado' {
+  if (session.isCompleted) return 'Completo'
+  return 'Em Andamento'
+}
+
+const disciplineIcons: Record<string, string> = {
+  'matemática': 'pi-calculator',
+  'português': 'pi-book',
+  'redação': 'pi-pencil',
+  'história': 'pi-globe',
+  'geografia': 'pi-map',
+  'física': 'pi-atom',
+  'química': 'pi-flask',
+  'biologia': 'pi-dna',
+  'inglês': 'pi-language',
+  'informática': 'pi-desktop',
+  'direito': 'pi-scale',
+  'administração': 'pi-chart-bar',
+  'contabilidade': 'pi-calculator',
+}
+
+function getIconForDiscipline(name?: string): string {
+  if (!name) return 'pi-clock'
+  const lower = name.toLowerCase()
+  for (const [key, icon] of Object.entries(disciplineIcons)) {
+    if (lower.includes(key)) return icon
+  }
+  return 'pi-clock'
+}
 </script>
 
 <template>
@@ -158,24 +208,43 @@ const firstName = computed(() => {
       <section class="space-y-6">
         <div class="flex items-center justify-between border-b border-outline-variant/10 pb-4">
           <h3 class="text-2xl font-headline font-bold">Atividade Recente</h3>
-          <router-link to="/private/disciplinas" class="text-sm font-label font-bold text-secondary hover:text-primary transition-colors">
-            Ver disciplinas
+          <router-link to="/private/focus" class="text-sm font-label font-bold text-secondary hover:text-primary transition-colors">
+            Ir para o Foco
           </router-link>
         </div>
-        <div class="grid grid-cols-1 gap-4">
-          <VActivityItem 
-            title="Sistemas Operacionais"
-            moduleName="Gerenciamento de Memória"
-            timeSpent="45 min"
-            status="Completo"
-            icon="pi-code"
-          />
-          <VActivityItem 
-            title="Matemática Discreta"
-            moduleName="Teoria dos Grafos"
-            timeSpent="2h 10min"
-            status="Em Andamento"
-            icon="pi-share-alt"
+
+        <div v-if="isLoadingSessions" class="flex justify-center py-12">
+          <VSpinner />
+        </div>
+
+        <div v-else-if="recentSessions.length === 0" class="flex flex-col items-center justify-center py-16 gap-6">
+          <div class="w-24 h-24 rounded-full bg-primary-container/20 flex items-center justify-center">
+            <i class="pi pi-hourglass text-5xl text-primary/60"></i>
+          </div>
+          <div class="text-center max-w-sm">
+            <h4 class="text-lg font-headline font-bold text-on-surface">Nenhuma sessão ainda</h4>
+            <p class="text-sm text-on-surface-variant font-sans mt-2 leading-relaxed">
+              Seu histórico de sessões de foco aparecerá aqui. 
+              Inicie uma sessão para acompanhar seu progresso e manter a consistência nos estudos.
+            </p>
+          </div>
+          <router-link to="/private/focus">
+            <VButton variant="primary">
+              <i class="pi pi-play mr-2 text-sm" />
+              Iniciar Sessão de Foco
+            </VButton>
+          </router-link>
+        </div>
+
+        <div v-else class="grid grid-cols-1 gap-4">
+          <VActivityItem
+            v-for="session in recentSessions"
+            :key="session.id"
+            :title="session.discipline?.name || 'Disciplina Deletada'"
+            :moduleName="session.cyclesCompleted + ' de ' + session.cyclesTarget + ' ciclos'"
+            :timeSpent="formatDuration(session.duration)"
+            :status="sessionStatus(session)"
+            :icon="getIconForDiscipline(session.discipline?.name)"
           />
         </div>
       </section>

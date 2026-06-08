@@ -17,7 +17,7 @@ export const focusSessionService = {
         studyPlanId: number,
         userId: number
     ) {
-        return prisma.focusSession.create({
+        const session = await prisma.focusSession.create({
             data: {
                 duration: data.duration,
                 focusTime: data.focusTime,
@@ -39,10 +39,14 @@ export const focusSessionService = {
                 },
             },
         });
+        return {
+            ...session,
+            discipline: session.Discipline,
+        };
     },
 
     async getSessions(studyPlanId: number) {
-        return prisma.focusSession.findMany({
+        const sessions = await prisma.focusSession.findMany({
             where: { studyPlanId },
             include: {
                 Discipline: {
@@ -51,10 +55,14 @@ export const focusSessionService = {
             },
             orderBy: { createdAt: "desc" },
         });
+        return sessions.map((session) => ({
+            ...session,
+            discipline: session.Discipline,
+        }));
     },
 
     async getSessionsByDiscipline(disciplineId: number, studyPlanId: number) {
-        return prisma.focusSession.findMany({
+        const sessions = await prisma.focusSession.findMany({
             where: { disciplineId, studyPlanId },
             include: {
                 Discipline: {
@@ -63,5 +71,9 @@ export const focusSessionService = {
             },
             orderBy: { createdAt: "desc" },
         });
+        return sessions.map((session) => ({
+            ...session,
+            discipline: session.Discipline,
+        }));
     },
 };
