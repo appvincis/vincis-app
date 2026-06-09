@@ -380,10 +380,91 @@ export async function bulkStatusUpdateDisciplines(req: Request, res: Response) {
             });
         });
 
-        return res.status(200).json({ message: "Status das disciplinas atualizado com sucesso." });
+        return res.status(200).json({ message: "Status das disciplinas updated com sucesso." });
 
     } catch (err: any) {
         console.error("Erro na atualização de status em lote:", err);
         return res.status(500).json({ message: err.message || "Erro interno durante a atualização de status." });
+    }
+}
+
+export async function exportDisciplines(req: Request, res: Response) {
+    try {
+        const injectedReq = req as StudyPlanInjectedRequest;
+        const userId = injectedReq.dbUser!.id;
+        const { sourcePlanId, targetPlanId, disciplineIds } = req.body;
+
+        if (typeof sourcePlanId !== 'number' || typeof targetPlanId !== 'number' || !Array.isArray(disciplineIds) || disciplineIds.length === 0) {
+            return res.status(400).json({ message: "Formato inválido. 'sourcePlanId' (number), 'targetPlanId' (number) e 'disciplineIds' (array) são obrigatórios." });
+        }
+
+        const validIds = disciplineIds.map(Number).filter(id => !isNaN(id));
+        if (validIds.length === 0) {
+            return res.status(400).json({ message: "Nenhum ID de disciplina válido fornecido." });
+        }
+
+        // Verificar a propriedade de ambos os planos de estudo
+        const sourcePlan = await prisma.studyPlan.findFirst({ where: { id: sourcePlanId, userId } });
+        const targetPlan = await prisma.studyPlan.findFirst({ where: { id: targetPlanId, userId } });
+
+        if (!sourcePlan || !targetPlan) {
+            return res.status(403).json({ message: "Acesso negado a um ou ambos os planos de estudo selecionados." });
+        }
+
+        // Buscar disciplinas de origem com seus tópicos
+        const disciplines = await prisma.discipline.findMany({
+            where: {
+                id: { in: validIds },
+                studyPlanId: sourcePlanId
+            },
+            include: {
+                topics: true
+            }
+        });
+
+        if (disciplines.length === 0) {
+            return res.status(404).json({ message: "Nenhuma disciplina correspondente encontrada no plano de origem." });
+        }
+
+        let disciplinesCreated = 0;
+        let topicsCreated = 0;
+
+        await prisma.$transaction(async (tx) => {
+            for (const disc of disciplines) {
+                const newDisc = await tx.discipline.create({
+                    data: {
+                        name: disc.name,
+                        description: disc.description,
+                        color: disc.color,
+                        weight: disc.weight,
+                        isActive: disc.isActive,
+                        studyPlanId: targetPlanId
+                    }
+                });
+                disciplinesCreated++;
+
+                if (disc.topics && disc.topics.length > 0) {
+                    await tx.topic.createMany({
+                        data: disc.topics.map(t => ({
+                            name: t.name,
+                            description: t.description,
+                            isCompleted: false, // O progresso zera no novo plano
+                            disciplineId: newDisc.id
+                        }))
+                    });
+                    topicsCreated += disc.topics.length;
+                }
+            }
+        });
+
+        return res.status(200).json({
+            message: "Disciplinas exportadas com sucesso.",
+            disciplinesCreated,
+            topicsCreated
+        });
+
+    } catch (err: any) {
+        console.error("Erro na exportação de disciplinas:", err);
+        return res.status(500).json({ message: err.message || "Erro interno durante a exportação de disciplinas." });
     }
 }

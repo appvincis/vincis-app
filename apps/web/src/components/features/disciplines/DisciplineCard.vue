@@ -10,6 +10,7 @@ const props = defineProps<{
 defineEmits<{
     (e: 'click'): void;
     (e: 'delete'): void;
+    (e: 'clone'): void;
     (e: 'select', value: boolean): void;
 }>()
 
@@ -39,14 +40,23 @@ const progress = computed(() =>
             />
         </div>
 
-        <!-- Delete button -->
-        <button
-            class="absolute top-3 right-3 w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-muted opacity-0 group-hover:opacity-100 hover:bg-error/10 hover:text-error transition-all duration-150 cursor-pointer"
-            @click.stop="$emit('delete')"
-            title="Remover disciplina"
-        >
-            <i class="pi pi-trash text-[11px]"></i>
-        </button>
+        <!-- Top right actions -->
+        <div class="absolute top-3 right-3 flex gap-1 z-10" @click.stop>
+            <button
+                class="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-muted opacity-0 group-hover:opacity-100 hover:bg-primary-container/20 hover:text-primary transition-all duration-150 cursor-pointer"
+                @click="$emit('clone')"
+                title="Copiar para outro plano"
+            >
+                <i class="pi pi-clone text-[11px]"></i>
+            </button>
+            <button
+                class="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-muted opacity-0 group-hover:opacity-100 hover:bg-error/10 hover:text-error transition-all duration-150 cursor-pointer"
+                @click="$emit('delete')"
+                title="Remover disciplina"
+            >
+                <i class="pi pi-trash text-[11px]"></i>
+            </button>
+        </div>
 
         <!-- Top section: tag + name + topics count -->
         <div class="pl-4 mt-1">

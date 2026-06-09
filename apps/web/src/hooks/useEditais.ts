@@ -9,6 +9,10 @@ export interface Edital {
     fileSize: number;
     createdAt: string;
     parsedContent?: string;
+    extractionStatus: string;
+    extractionError?: string | null;
+    disciplinesCreated: number;
+    topicsCreated: number;
 }
 
 export const useEditaisQuery = () => {

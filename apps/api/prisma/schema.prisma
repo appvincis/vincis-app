@@ -117,6 +117,11 @@ model Edital {
   fileSize    Int // In bytes
   parsedContent String? // Conteúdo de texto extraído do PDF
   
+  extractionStatus   String   @default("PENDING") // PENDING, PROCESSING, SUCCESS, FAILED
+  extractionError    String?
+  disciplinesCreated Int      @default(0)
+  topicsCreated      Int      @default(0)
+  
   userId      Int
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   aiSessions  AiSession[]

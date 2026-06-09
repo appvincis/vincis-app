@@ -66,6 +66,11 @@ const sourcePlanDisciplines = ref<any[]>([])
 const isLoadingSourcePlan = ref(false)
 const selectedCloneIds = ref<Set<number>>(new Set())
 
+// Exporting modal state
+const showExportModal = ref(false)
+const selectedTargetPlanId = ref<number | null>(null)
+const exportingDisciplineId = ref<number | null>(null)
+
 // Undo action state
 const lastAction = ref<{
     type: 'delete' | 'archive';
@@ -96,16 +101,18 @@ const errorMsg = computed(() => disciplinesError.value ? 'Erro ao carregar disci
 
 // ─── Selection Handlers ───────────────────────────────────────────────────────
 function toggleSelection(id: number, checked: boolean) {
+    const next = new Set(selectedIds.value)
     if (checked) {
-        selectedIds.value.add(id)
+        next.add(id)
     } else {
-        selectedIds.value.delete(id)
+        next.delete(id)
     }
+    selectedIds.value = next
 }
 
 function selectAll() {
     if (selectedIds.value.size === filteredDisciplines.value.length) {
-        selectedIds.value.clear()
+        selectedIds.value = new Set()
     } else {
         selectedIds.value = new Set(filteredDisciplines.value.map(d => d.id))
     }
@@ -194,7 +201,7 @@ async function handleBulkDelete() {
         }
         
         await bulkDelete.mutateAsync(Array.from(selectedIds.value))
-        selectedIds.value.clear()
+        selectedIds.value = new Set()
         queryClient.invalidateQueries({ queryKey: ['disciplines'] })
         triggerUndoToast()
     } catch (e: any) {
@@ -209,7 +216,7 @@ async function handleBulkWeightUpdate() {
             ids: Array.from(selectedIds.value),
             weight: bulkWeightValue.value
         })
-        selectedIds.value.clear()
+        selectedIds.value = new Set()
         showBulkWeightModal.value = false
         queryClient.invalidateQueries({ queryKey: ['disciplines'] })
     } catch (e: any) {
@@ -231,7 +238,7 @@ async function handleBulkArchiveToggle(isActive: boolean) {
             ids: affectedIds,
             isActive
         })
-        selectedIds.value.clear()
+        selectedIds.value = new Set()
         queryClient.invalidateQueries({ queryKey: ['disciplines'] })
         triggerUndoToast()
     } catch (e) {
@@ -336,27 +343,18 @@ async function handleImportFile(e: Event) {
 watch(selectedSourcePlanId, async (newVal) => {
     if (!newVal) {
         sourcePlanDisciplines.value = []
-        selectedCloneIds.value.clear()
+        selectedCloneIds.value = new Set()
         return
     }
     isLoadingSourcePlan.value = true
     try {
         const res = await axiosApi.get<any[]>('/disciplines', {
+            params: { study_plan_id: newVal },
             headers: { 'x-study-plan-id': newVal }
         })
         
-        const discsWithTopics = []
-        for (const disc of res.data) {
-            const topicsRes = await axiosApi.get(`/topics/discipline/${disc.id}`, {
-                headers: { 'x-study-plan-id': newVal }
-            })
-            discsWithTopics.push({
-                ...disc,
-                topics: topicsRes.data.map((t: any) => ({ name: t.name, description: t.description }))
-            })
-        }
-        sourcePlanDisciplines.value = discsWithTopics
-        selectedCloneIds.value = new Set(discsWithTopics.map(d => d.id))
+        sourcePlanDisciplines.value = res.data
+        selectedCloneIds.value = new Set(res.data.map(d => d.id))
     } catch (e) {
         alert('Erro ao buscar disciplinas do plano selecionado.')
     } finally {
@@ -365,33 +363,30 @@ watch(selectedSourcePlanId, async (newVal) => {
 })
 
 function toggleCloneSelection(id: number) {
-    if (selectedCloneIds.value.has(id)) {
-        selectedCloneIds.value.delete(id)
+    const next = new Set(selectedCloneIds.value)
+    if (next.has(id)) {
+        next.delete(id)
     } else {
-        selectedCloneIds.value.add(id)
+        next.add(id)
     }
+    selectedCloneIds.value = next
 }
 
 function toggleAllCloneSelection() {
     if (selectedCloneIds.value.size === sourcePlanDisciplines.value.length) {
-        selectedCloneIds.value.clear()
+        selectedCloneIds.value = new Set()
     } else {
         selectedCloneIds.value = new Set(sourcePlanDisciplines.value.map(d => d.id))
     }
 }
 
 async function handleClone() {
-    if (selectedCloneIds.value.size === 0) return
-    const disciplinesToClone = sourcePlanDisciplines.value.filter(d => selectedCloneIds.value.has(d.id))
+    if (selectedCloneIds.value.size === 0 || !selectedSourcePlanId.value) return
     try {
-        await bulkImport.mutateAsync({
-            disciplines: disciplinesToClone.map(d => ({
-                name: d.name,
-                description: d.description,
-                color: d.color,
-                weight: d.weight,
-                topics: d.topics
-            }))
+        await axiosApi.post('/disciplines/export', {
+            sourcePlanId: selectedSourcePlanId.value,
+            targetPlanId: studyPlanStore.activePlanId,
+            disciplineIds: Array.from(selectedCloneIds.value)
         })
         showCloneModal.value = false
         selectedSourcePlanId.value = null
@@ -400,6 +395,46 @@ async function handleClone() {
     } catch (e) {
         alert('Erro ao clonar disciplinas.')
     }
+}
+
+function handleHeaderClone() {
+    if (selectedIds.value.size > 0) {
+        showExportModal.value = true
+    } else {
+        showCloneModal.value = true
+    }
+}
+
+async function handleExportToPlan() {
+    const ids = exportingDisciplineId.value 
+        ? [exportingDisciplineId.value] 
+        : Array.from(selectedIds.value)
+
+    if (ids.length === 0 || !selectedTargetPlanId.value) return
+    try {
+        await axiosApi.post('/disciplines/export', {
+            sourcePlanId: studyPlanStore.activePlanId,
+            targetPlanId: selectedTargetPlanId.value,
+            disciplineIds: ids
+        })
+        closeExportModal()
+        selectedIds.value = new Set()
+        queryClient.invalidateQueries({ queryKey: ['disciplines'] })
+        alert('Disciplinas clonadas com sucesso.')
+    } catch (e) {
+        alert('Erro ao clonar disciplinas.')
+    }
+}
+
+function handleSingleCloneInit(id: number) {
+    exportingDisciplineId.value = id
+    showExportModal.value = true
+}
+
+function closeExportModal() {
+    showExportModal.value = false
+    selectedTargetPlanId.value = null
+    exportingDisciplineId.value = null
 }
 
 // ─── Panel ────────────────────────────────────────────────────────────────────
@@ -425,10 +460,11 @@ function handleDisciplineUpdate() {
             v-model:viewMode="viewMode"
             v-model:displayFormat="displayFormat"
             :has-other-plans="otherPlans.length > 0"
+            :selected-count="selectedIds.size"
             @create-discipline="showCreateForm = !showCreateForm"
             @export-disciplines="handleExport"
             @import-disciplines="triggerImportFile"
-            @clone-disciplines="showCloneModal = true"
+            @clone-disciplines="handleHeaderClone"
         />
 
         <input 
@@ -480,6 +516,21 @@ function handleDisciplineUpdate() {
 
         <!-- Layout Rendering -->
         <div v-else>
+            <!-- Select all control (common to Grid and List views) -->
+            <div 
+                v-if="filteredDisciplines.length > 0"
+                class="flex items-center gap-3 px-4 py-2 border border-outline-variant/20 rounded-xl bg-surface-container-low text-xs font-bold text-on-surface-muted uppercase tracking-wider mb-6 max-w-sm cursor-pointer select-none"
+                @click="selectAll"
+            >
+                <input 
+                    type="checkbox" 
+                    :checked="selectedIds.size === filteredDisciplines.length && filteredDisciplines.length > 0" 
+                    @change.stop="selectAll"
+                    class="w-4 h-4 rounded border-outline/30 text-primary focus:ring-primary cursor-pointer"
+                />
+                <span>Selecionar Todas ({{ filteredDisciplines.length }})</span>
+            </div>
+
             <!-- Bento Grid View -->
             <div v-if="displayFormat === 'GRID'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 animate-fade-in">
                 <DisciplineCard
@@ -490,6 +541,7 @@ function handleDisciplineUpdate() {
                     :is-selected="selectedIds.has(disc.id)"
                     @click="openPanel(disc)"
                     @delete="deleteDiscipline(disc.id)"
+                    @clone="handleSingleCloneInit(disc.id)"
                     @select="toggleSelection(disc.id, $event)"
                 />
 
@@ -510,16 +562,6 @@ function handleDisciplineUpdate() {
 
             <!-- List View -->
             <div v-else class="space-y-3 animate-fade-in max-w-4xl">
-                <!-- Select all control -->
-                <div class="flex items-center gap-3 px-4 py-2 border-b border-outline-variant/20 text-xs font-bold text-on-surface-muted uppercase tracking-wider">
-                    <input 
-                        type="checkbox" 
-                        :checked="selectedIds.size === filteredDisciplines.length" 
-                        @change="selectAll"
-                        class="w-4 h-4 rounded border-outline/30 text-primary focus:ring-primary cursor-pointer"
-                    />
-                    <span>Selecionar Todas ({{ filteredDisciplines.length }})</span>
-                </div>
 
                 <div 
                     v-for="disc in filteredDisciplines" 
@@ -565,6 +607,14 @@ function handleDisciplineUpdate() {
                         <!-- Actions -->
                         <div class="flex gap-1" @click.stop>
                             <button 
+                                v-if="otherPlans.length > 0"
+                                class="w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-muted hover:bg-primary-container/20 hover:text-primary transition-colors cursor-pointer"
+                                @click="handleSingleCloneInit(disc.id)"
+                                title="Copiar para outro plano"
+                            >
+                                <i class="pi pi-clone text-xs"></i>
+                            </button>
+                            <button 
                                 class="w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-muted hover:bg-primary-container/20 hover:text-primary transition-colors cursor-pointer"
                                 @click="openPanel(disc)"
                                 title="Ver Tópicos / Detalhes"
@@ -587,30 +637,40 @@ function handleDisciplineUpdate() {
         <!-- Floating Bulk Action Bar -->
         <div 
             v-if="selectedIds.size > 0"
-            class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-surface-container-high/90 backdrop-blur-md px-6 py-4 rounded-2xl border border-outline-variant/30 shadow-2xl flex items-center gap-6 z-50 animate-fade-in"
+            class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-surface-container-high/95 backdrop-blur-md px-4 py-2.5 rounded-xl border border-outline-variant/30 shadow-2xl flex items-center gap-4 z-50 animate-fade-in"
         >
-            <span class="text-sm font-label font-bold text-on-surface">
+            <span class="text-xs font-label font-bold text-on-surface">
                 {{ selectedIds.size }} selecionada{{ selectedIds.size !== 1 ? 's' : '' }}
             </span>
-            <div class="h-5 w-px bg-outline-variant/30" />
-            <div class="flex gap-2">
-                <VButton v-if="viewMode === 'ACTIVE'" variant="secondary" @click="showBulkWeightModal = true">
-                    <i class="pi pi-sliders-h mr-2"></i>
+            <div class="h-4 w-px bg-outline-variant/30" />
+            <div class="flex gap-1.5">
+                <VButton 
+                    v-if="otherPlans.length > 0"
+                    variant="secondary" 
+                    size="small"
+                    @click="showExportModal = true"
+                >
+                    <i class="pi pi-clone text-xs mr-1.5"></i>
+                    Clonar para outro plano
+                </VButton>
+                <VButton v-if="viewMode === 'ACTIVE'" variant="secondary" size="small" @click="showBulkWeightModal = true">
+                    <i class="pi pi-sliders-h text-xs mr-1.5"></i>
                     Alterar Peso
                 </VButton>
                 <!-- Archive/Restore Action -->
                 <VButton 
                     variant="secondary" 
+                    size="small"
                     @click="handleBulkArchiveToggle(viewMode !== 'ACTIVE')"
                 >
-                    <i class="pi" :class="viewMode === 'ACTIVE' ? 'pi-folder mr-2' : 'pi-folder-open mr-2'"></i>
+                    <i class="pi text-xs mr-1.5" :class="viewMode === 'ACTIVE' ? 'pi-folder' : 'pi-folder-open'"></i>
                     {{ viewMode === 'ACTIVE' ? 'Arquivar' : 'Restaurar' }}
                 </VButton>
-                <VButton variant="error" @click="handleBulkDelete">
-                    <i class="pi pi-trash mr-2"></i>
+                <VButton variant="error" size="small" @click="handleBulkDelete">
+                    <i class="pi pi-trash text-xs mr-1.5"></i>
                     Excluir
                 </VButton>
-                <VButton variant="secondary" @click="selectedIds.clear()">
+                <VButton variant="secondary" size="small" @click="selectedIds = new Set()">
                     Cancelar
                 </VButton>
             </div>
@@ -721,6 +781,64 @@ function handleDisciplineUpdate() {
                         @click="handleClone"
                     >
                         {{ bulkImport.isPending.value ? 'Clonando...' : 'Clonar Disciplinas' }}
+                    </VButton>
+                </div>
+            </template>
+        </VModal>
+
+        <!-- Modal Exportar para Outro Plano -->
+        <VModal v-model:visible="showExportModal" header="Clonar Disciplinas para Outro Plano" :style="{ width: '500px' }" @close="closeExportModal">
+            <div class="space-y-5 text-left my-4">
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-xs font-bold uppercase text-on-surface-muted">Selecione o Plano de Destino</label>
+                    <select 
+                        v-model="selectedTargetPlanId"
+                        class="w-full p-2.5 rounded-lg border border-outline-variant/60 bg-surface-container-low text-on-surface text-sm outline-none focus:border-primary"
+                    >
+                        <option :value="null">Selecione um plano...</option>
+                        <option v-for="plan in otherPlans" :key="plan.id" :value="plan.id">
+                            {{ plan.name }}
+                        </option>
+                    </select>
+                </div>
+
+                <div class="space-y-2">
+                    <label class="text-xs font-bold uppercase text-on-surface-muted">
+                        {{ exportingDisciplineId ? 'Disciplina a ser clonada' : 'Disciplinas a serem clonadas (' + selectedIds.size + ')' }}
+                    </label>
+                    <div class="max-h-60 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                        <template v-if="exportingDisciplineId">
+                            <div class="flex items-center gap-3 p-3 rounded-lg bg-surface-container-low border border-outline-variant/20">
+                                <div class="w-3.5 h-3.5 rounded-full flex-shrink-0" :style="{ background: disciplines.find(d => d.id === exportingDisciplineId)?.color || '#3b82f6' }" />
+                                <span class="text-sm font-semibold text-on-surface flex-1">
+                                    {{ disciplines.find(d => d.id === exportingDisciplineId)?.name || '' }}
+                                </span>
+                            </div>
+                        </template>
+                        <template v-else>
+                            <div 
+                                v-for="id in selectedIds" 
+                                :key="id"
+                                class="flex items-center gap-3 p-3 rounded-lg bg-surface-container-low border border-outline-variant/20"
+                            >
+                                <div class="w-3.5 h-3.5 rounded-full flex-shrink-0" :style="{ background: disciplines.find(d => d.id === id)?.color || '#3b82f6' }" />
+                                <span class="text-sm font-semibold text-on-surface flex-1">
+                                    {{ disciplines.find(d => d.id === id)?.name || '' }}
+                                </span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+            <template #footer>
+                <div class="flex justify-end gap-2 mt-4">
+                    <VButton variant="secondary" @click="closeExportModal">Cancelar</VButton>
+                    <VButton 
+                        variant="primary" 
+                        :disabled="!selectedTargetPlanId || (exportingDisciplineId === null && selectedIds.size === 0)" 
+                        @click="handleExportToPlan"
+                    >
+                        Clonar
                     </VButton>
                 </div>
             </template>

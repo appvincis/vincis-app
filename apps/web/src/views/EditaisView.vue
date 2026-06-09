@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { VCard, VButton, VSpinner, VModal } from '../components/ui'
 import {
     useEditaisQuery,
@@ -106,17 +106,9 @@ const startExtractionProcess = async () => {
     job.intervalId = intervalId
 
     try {
-        const result = await extractEdital.mutateAsync(id)
-
-        const successJob = activeExtractions.value.find(j => j.id === id)
-        if (successJob) {
-            if (successJob.intervalId) clearInterval(successJob.intervalId)
-            successJob.progress = 100
-            successJob.status = 'success'
-            successJob.disciplinesCreated = result.disciplinesCreated
-            successJob.topicsCreated = result.topicsCreated
-            successJob.tokensSpent = result.tokensSpent
-        }
+        await extractEdital.mutateAsync(id)
+        // A extração foi iniciada no backend. O status do job será atualizado
+        // pelo watcher que escuta as atualizações de editais via polling.
     } catch (e: any) {
         const errorMsg = e.response?.data?.error || e.message || 'Erro ao processar extração com IA.'
 
@@ -128,6 +120,96 @@ const startExtractionProcess = async () => {
         }
     }
 }
+
+// ─── Polling & Sincronização do Estado com o Banco de Dados ────────────────────
+let pollingIntervalId: any = null
+
+const startPollingIfNeeded = () => {
+    const hasProcessing = editais.value?.some(e => e.extractionStatus === 'PROCESSING')
+    if (hasProcessing) {
+        if (!pollingIntervalId) {
+            pollingIntervalId = setInterval(() => {
+                refetch()
+            }, 4000) // Consulta a cada 4 segundos
+        }
+    } else {
+        if (pollingIntervalId) {
+            clearInterval(pollingIntervalId)
+            pollingIntervalId = null
+        }
+    }
+}
+
+watch(editais, (newEditais) => {
+    if (!newEditais) return
+
+    newEditais.forEach(edital => {
+        const jobIndex = activeExtractions.value.findIndex(j => j.id === edital.id)
+
+        if (edital.extractionStatus === 'PROCESSING') {
+            if (jobIndex === -1) {
+                // Nova extração detectada em progresso (ex: após refresh)
+                const job: ExtractionJob = {
+                    id: edital.id,
+                    title: edital.title,
+                    progress: 10,
+                    status: 'running'
+                }
+
+                // Inicia simulação de progresso local
+                const intervalId = setInterval(() => {
+                    const currentJob = activeExtractions.value.find(j => j.id === edital.id)
+                    if (currentJob && currentJob.status === 'running') {
+                        if (currentJob.progress < 90) {
+                            currentJob.progress += Math.random() * 4 + 1
+                            if (currentJob.progress > 90) {
+                                currentJob.progress = 90
+                            }
+                        }
+                    } else {
+                        clearInterval(intervalId)
+                    }
+                }, 500)
+
+                job.intervalId = intervalId
+                activeExtractions.value.push(job)
+            }
+        } else if (edital.extractionStatus === 'SUCCESS') {
+            if (jobIndex !== -1) {
+                const job = activeExtractions.value[jobIndex]
+                if (job && job.status === 'running') {
+                    if (job.intervalId) clearInterval(job.intervalId)
+                    job.progress = 100
+                    job.status = 'success'
+                    job.disciplinesCreated = edital.disciplinesCreated
+                    job.topicsCreated = edital.topicsCreated
+                }
+            }
+        } else if (edital.extractionStatus === 'FAILED') {
+            if (jobIndex !== -1) {
+                const job = activeExtractions.value[jobIndex]
+                if (job && job.status === 'running') {
+                    if (job.intervalId) clearInterval(job.intervalId)
+                    job.status = 'error'
+                    job.errorMsg = edital.extractionError || 'Erro ao extrair disciplinas com IA.'
+                }
+            }
+        }
+    })
+
+    startPollingIfNeeded()
+}, { deep: true, immediate: true })
+
+onUnmounted(() => {
+    if (pollingIntervalId) {
+        clearInterval(pollingIntervalId)
+    }
+    activeExtractions.value.forEach(job => {
+        if (job && job.intervalId) {
+            clearInterval(job.intervalId)
+        }
+    })
+})
 
 const removeJob = (id: number) => {
     const index = activeExtractions.value.findIndex(j => j.id === id)
@@ -154,7 +236,10 @@ const goToDisciplines = () => {
 }
 
 const isJobRunning = (id: number) => {
-    return activeExtractions.value.some(j => j.id === id && j.status === 'running')
+    const job = activeExtractions.value.find(j => j.id === id)
+    if (job) return job.status === 'running'
+    const edital = editais.value?.find(e => e.id === id)
+    return edital?.extractionStatus === 'PROCESSING'
 }
 
 // ─── Modal Upload ─────────────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ const props = defineProps<{
     viewMode: 'ACTIVE' | 'ARCHIVED';
     displayFormat: 'GRID' | 'LIST';
     hasOtherPlans: boolean;
+    selectedCount: number;
 }>()
 
 const studyPlanStore = useStudyPlanStore()
@@ -34,39 +35,43 @@ defineEmits<{
                     Gerencie seu percurso acadêmico. Acompanhe o progresso das matérias e organize seus tópicos de estudo.
                 </p>
             </div>
-            <div class="flex flex-wrap gap-2">
+            <div class="flex flex-wrap gap-1.5">
                 <VButton
                     v-if="hasOtherPlans"
                     @click="$emit('clone-disciplines')"
                     variant="secondary"
+                    size="small"
                     :disabled="!studyPlanStore.hasActivePlan"
                 >
-                    <i class="pi pi-copy" style="font-size:1rem;vertical-align:-2px;margin-right:6px"></i>
-                    Clonar
+                    <i class="pi pi-clone text-xs mr-1.5"></i>
+                    {{ selectedCount > 0 ? 'Clonar Selecionadas' : 'Clonar de outro plano' }}
                 </VButton>
                 <VButton
                     @click="$emit('export-disciplines')"
                     variant="secondary"
+                    size="small"
                     :disabled="!studyPlanStore.hasActivePlan"
                 >
-                    <i class="pi pi-download" style="font-size:1rem;vertical-align:-2px;margin-right:6px"></i>
+                    <i class="pi pi-download text-xs mr-1.5"></i>
                     Exportar
                 </VButton>
                 <VButton
                     @click="$emit('import-disciplines')"
                     variant="secondary"
+                    size="small"
                     :disabled="!studyPlanStore.hasActivePlan"
                 >
-                    <i class="pi pi-upload" style="font-size:1rem;vertical-align:-2px;margin-right:6px"></i>
+                    <i class="pi pi-upload text-xs mr-1.5"></i>
                     Importar
                 </VButton>
                 <VButton
                     @click="$emit('create-discipline')"
                     variant="primary"
+                    size="small"
                     :disabled="!studyPlanStore.hasActivePlan"
                     :title="!studyPlanStore.hasActivePlan ? 'Selecione um plano de estudo primeiro' : ''"
                 >
-                    <i class="pi pi-plus" style="font-size:1rem;vertical-align:-2px;margin-right:6px"></i>
+                    <i class="pi pi-plus text-xs mr-1.5"></i>
                     Nova Disciplina
                 </VButton>
             </div>

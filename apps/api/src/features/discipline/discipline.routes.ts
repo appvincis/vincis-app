@@ -9,7 +9,8 @@ import {
     bulkCreateDisciplines,
     bulkDeleteDisciplines,
     bulkWeightUpdateDisciplines,
-    bulkStatusUpdateDisciplines
+    bulkStatusUpdateDisciplines,
+    exportDisciplines
 } from './discipline.controller.js';
 import { requireAuth } from "../auth/auth.middleware.js";
 import { injectStudyPlan, requireStudyPlan } from "../study-plan/study-plan.middleware.js";
@@ -26,6 +27,7 @@ disciplineRouter.post('/bulk', bulkCreateDisciplines);
 disciplineRouter.post('/bulk-delete', bulkDeleteDisciplines);
 disciplineRouter.post('/bulk-weight', bulkWeightUpdateDisciplines);
 disciplineRouter.post('/bulk-status', bulkStatusUpdateDisciplines);
+disciplineRouter.post('/export', exportDisciplines);
 disciplineRouter.post('/:id/generate-topics', generateTopicsForDiscipline);
 disciplineRouter.get('/:id', getDisciplineById);
 disciplineRouter.delete('/:id', deleteDiscipline);

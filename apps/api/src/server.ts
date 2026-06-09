@@ -14,7 +14,6 @@ import { errorLogRouter } from './features/error-log/error-log.routes.js'
 import { editalRouter } from './features/edital/edital.routes.js'
 import { paymentRouter } from './features/payment/payment.routes.js'
 import { focusSessionRouter } from './features/focus-session/focus-session.routes.js'
-import { aiRouter } from './features/ai/ai.routes.js'
 
 const PORT = Number(process.env.PORT) || 4000
 const app = express()
