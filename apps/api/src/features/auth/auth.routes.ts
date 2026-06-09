@@ -24,6 +24,7 @@ authRouter.get('/me', requireAuth, (req: AuthenticatedRequest, res) => {
             name: req.dbUser?.name,
             avatar: req.dbUser?.avatar,
             email: req.dbUser?.email || req.user?.email,
+            plan: req.dbUser?.plan,
         }
     })
 })

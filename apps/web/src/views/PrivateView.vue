@@ -31,6 +31,25 @@ const recommendationText = computed(() => {
 
 const selectStudyPlanMutation = useSelectStudyPlanMutation()
 
+// --- IA Diagnostic State ---
+const isGeneratingDiagnostic = ref(false)
+const diagnosticData = ref<any>(null)
+
+const isPremiumUser = computed(() => user.value?.plan === 'PREMIUM')
+
+async function handleGenerateDiagnostic() {
+  if (!isPremiumUser.value) return
+  isGeneratingDiagnostic.value = true
+  try {
+    const res = await api.get('/ai/diagnostic')
+    diagnosticData.value = res.data
+  } catch (error) {
+    console.error('Failed to generate diagnostic:', error)
+  } finally {
+    isGeneratingDiagnostic.value = false
+  }
+}
+
 const isLoading = computed(() => isLoadingUser.value || isLoadingPlans.value || isLoadingDisciplines.value)
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -198,7 +217,7 @@ function getIconForDiscipline(name?: string): string {
         <router-link to="/private/focus"
           class="bg-on-surface text-surface rounded-lg text-sm font-label font-bold active:scale-95 transition-all shadow-sm"
           style="padding: 10px 24px; min-height: 44px; display: flex; align-items: center; justify-content: center;">
-          Nova Sessão
+          Modo Foco
         </router-link>
       </div>
     </section>
@@ -213,9 +232,13 @@ function getIconForDiscipline(name?: string): string {
       <!-- Bento Grid Layout -->
       <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
         <!-- IA Diagnostic Card (Main) -->
-        <VDiagnosticCard class="md:col-span-8 h-fit" :isEmpty="isAiInsightsEmpty"
-          :highlightDiscipline="highlightDiscipline" retentionRate="92%" :fatigueDiscipline="fatigueDiscipline"
-          :recommendationText="recommendationText" actionLink="/private/disciplinas" />
+        <VDiagnosticCard class="md:col-span-8 h-fit" :isEmpty="isAiInsightsEmpty" :isPremium="isPremiumUser"
+          :isLoading="isGeneratingDiagnostic" :hasData="!!diagnosticData && !diagnosticData.isEmpty"
+          :highlightDiscipline="diagnosticData?.highlightDiscipline || '...'"
+          :retentionRate="diagnosticData?.retentionRate || '...'"
+          :fatigueDiscipline="diagnosticData?.fatigueDiscipline || '...'"
+          :recommendationText="diagnosticData?.recommendationText || ''" @generate="handleGenerateDiagnostic"
+          actionLink="/private/disciplinas" />
 
         <!-- Quick Stats -->
         <div class="md:col-span-4 space-y-6">
