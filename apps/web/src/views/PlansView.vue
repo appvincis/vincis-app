@@ -3,7 +3,7 @@ import { computed, ref } from 'vue';
 import { VButton } from '@/components/ui';
 import DsModal from '@/components/ui/DsModal.vue';
 import { usePlan, useUpdatePlanMutation, type PlanType } from '@/hooks/usePlan';
-import { useGeneratePixMutation, useSimulatePaymentMutation } from '@/hooks/usePayment';
+import { useGeneratePixMutation } from '@/hooks/usePayment';
 import { useAuthStore } from '@/stores/auth';
 import { useQueryClient } from '@tanstack/vue-query';
 
@@ -12,18 +12,6 @@ const authStore = useAuthStore()
 const queryClient = useQueryClient()
 const { mutate: updatePlan, isPending: isUpdating } = useUpdatePlanMutation()
 const { mutateAsync: generatePix, isPending: isGeneratingPix } = useGeneratePixMutation()
-const { mutateAsync: simulatePayment, isPending: isSimulating } = useSimulatePaymentMutation()
-
-async function handleSimulatePayment() {
-    try {
-        if (!authStore.user?.id) return
-        await simulatePayment(authStore.user.id)
-        queryClient.invalidateQueries({ queryKey: ['user-plan'] })
-    } catch (error) {
-        console.error('Erro ao simular pagamento:', error)
-        alert('Erro ao simular pagamento. Verifique se o servidor backend está rodando.')
-    }
-}
 
 const currentPlan = computed(() => plan.value.type)
 
@@ -159,17 +147,6 @@ async function handleChangePlan(planType: PlanType) {
                     variant="primary" class="w-full">
                     <i v-if="currentPlan === 'PREMIUM'" class="pi pi-check mr-2 text-sm"></i>
                     {{ currentPlan === "PREMIUM" ? "Plano Atual" : "Assinar Premium" }}
-                </VButton>
-
-                <VButton 
-                    v-if="currentPlan !== 'PREMIUM'" 
-                    @click="handleSimulatePayment" 
-                    :disabled="isSimulating"
-                    variant="secondary" 
-                    class="w-full mt-3"
-                >
-                    <i class="pi pi-bolt mr-2 text-sm"></i>
-                    {{ isSimulating ? 'Ativando...' : 'Ativar Premium (Dev Mode)' }}
                 </VButton>
             </div>
 
