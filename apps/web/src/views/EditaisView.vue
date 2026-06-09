@@ -404,6 +404,19 @@ const formatDate = (dateString: string) => {
             </div>
         </div>
 
+        <!-- Status Badge -->
+        <div class="mb-4 flex flex-wrap gap-2 text-left">
+            <span v-if="edital.extractionStatus === 'SUCCESS'" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-success/10 text-success border border-success/20">
+                <i class="pi pi-check text-[8px]"></i> Grade Extraída ({{ edital.disciplinesCreated }} disc. / {{ edital.topicsCreated }} tóp.)
+            </span>
+            <span v-else-if="edital.extractionStatus === 'PROCESSING' || isJobRunning(edital.id)" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 animate-pulse">
+                <i class="pi pi-spin pi-spinner text-[8px]"></i> Processando IA...
+            </span>
+            <span v-else-if="edital.extractionStatus === 'FAILED'" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-error/10 text-error border border-error/20" :title="edital.extractionError || ''">
+                <i class="pi pi-exclamation-triangle text-[8px]"></i> Falha na Extração
+            </span>
+        </div>
+
         <div class="mt-auto pt-4 flex flex-col gap-3 border-t border-outline-variant/10">
             <div class="flex justify-between items-center text-xs font-medium text-on-surface-muted">
                 <span class="flex items-center gap-1.5"><i class="pi pi-calendar text-[10px]"></i> {{ formatDate(edital.createdAt) }}</span>
@@ -428,7 +441,21 @@ const formatDate = (dateString: string) => {
                     </button>
                 </div>
                 
-                <VButton class="w-full text-white bg-primary hover:bg-primary-dark py-2 flex items-center justify-center"
+                <div v-if="edital.extractionStatus === 'SUCCESS'" class="flex gap-2 w-full">
+                    <VButton class="flex-1 text-white bg-success hover:bg-success-dark py-2 flex items-center justify-center"
+                        @click="goToDisciplines">
+                        <i class="pi pi-arrow-right mr-2 text-xs"></i>
+                        Ver Disciplinas
+                    </VButton>
+                    <VButton class="flex-1 text-on-surface border border-outline-variant/30 bg-surface-container-low hover:bg-surface-container-high py-2 flex items-center justify-center"
+                        :disabled="isJobRunning(edital.id)"
+                        @click="handleExtract(edital.id)">
+                        <i v-if="isJobRunning(edital.id)" class="pi pi-spin pi-spinner mr-1 text-xs"></i>
+                        <i v-else class="pi pi-refresh mr-1 text-xs"></i>
+                        Reextrair
+                    </VButton>
+                </div>
+                <VButton v-else class="w-full text-white bg-primary hover:bg-primary-dark py-2 flex items-center justify-center"
                     :disabled="isJobRunning(edital.id)"
                     @click="handleExtract(edital.id)">
                     <i v-if="isJobRunning(edital.id)" class="pi pi-spin pi-spinner mr-2 text-xs"></i>
