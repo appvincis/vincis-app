@@ -93,6 +93,53 @@ const recentSessions = computed(() => {
     .slice(0, 5)
 })
 
+// ─── Quick Stats ──────────────────────────────────────────────────────────────
+const successRate = computed(() => {
+  if (!focusSessions.value || focusSessions.value.length === 0) return 0
+  const totalTarget = focusSessions.value.reduce((acc, s) => acc + s.cyclesTarget, 0)
+  const totalCompleted = focusSessions.value.reduce((acc, s) => acc + s.cyclesCompleted, 0)
+  return totalTarget > 0 ? Math.round((totalCompleted / totalTarget) * 100) : 0
+})
+
+const mediumFocusPoints = computed(() => {
+  if (!focusSessions.value || focusSessions.value.length === 0) return 0
+  const totalFocusSeconds = focusSessions.value.reduce((acc, s) => acc + s.focusTime, 0)
+  return Math.round((totalFocusSeconds / focusSessions.value.length) / 60)
+})
+
+const weeklyGoalHours = computed(() => {
+  try {
+    const raw = localStorage.getItem('vincis_planner_settings_v2')
+    if (raw) {
+      const settings = JSON.parse(raw)
+      if (settings.studyDays && settings.hoursPerDay) {
+        return settings.studyDays.length * settings.hoursPerDay
+      }
+    }
+  } catch (e) {
+    // Ignore error
+  }
+  return 24 // Fallback
+})
+
+const totalWeekStudyHours = computed(() => {
+  if (!focusSessions.value) return 0
+  const now = new Date()
+  const day = now.getDay()
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1) // Adjust when day is Sunday
+  const startOfWeek = new Date(now)
+  startOfWeek.setDate(diff)
+  startOfWeek.setHours(0, 0, 0, 0)
+
+  const thisWeekSessions = focusSessions.value.filter(s => new Date(s.startedAt) >= startOfWeek)
+  const totalSeconds = thisWeekSessions.reduce((acc, s) => acc + s.focusTime, 0)
+  return Math.round(totalSeconds / 3600)
+})
+
+const weeklyProgressPercent = computed(() => {
+  return Math.min(100, Math.round((totalWeekStudyHours.value / weeklyGoalHours.value) * 100))
+})
+
 function formatDuration(seconds: number): string {
   if (!seconds) return '0 min'
   const mins = Math.round(seconds / 60)
@@ -139,13 +186,18 @@ function getIconForDiscipline(name?: string): string {
     <section class="flex flex-col md:flex-row md:items-end justify-between gap-6">
       <div class="space-y-1">
         <p class="font-label text-xs uppercase tracking-[0.2em] text-primary font-bold">Resumo Acadêmico</p>
-        <h2 class="text-4xl md:text-5xl font-headline font-bold text-on-surface tracking-tight">Bom dia, {{ firstName }}.</h2>
+        <h2 class="text-4xl md:text-5xl font-headline font-bold text-on-surface tracking-tight">Bom dia, {{ firstName
+        }}.</h2>
       </div>
       <div class="flex gap-3">
-        <button class="bg-surface-container-low rounded-lg text-sm font-label font-bold soft-brutalist-border hover:bg-surface-container-highest transition-colors active:scale-95" style="padding: 10px 24px; min-height: 44px; display: flex; align-items: center; justify-content: center;">
+        <button
+          class="bg-surface-container-low rounded-lg text-sm font-label font-bold soft-brutalist-border hover:bg-surface-container-highest transition-colors active:scale-95"
+          style="padding: 10px 24px; min-height: 44px; display: flex; align-items: center; justify-content: center;">
           Exportar Relatório
         </button>
-        <router-link to="/private/focus" class="bg-on-surface text-surface rounded-lg text-sm font-label font-bold active:scale-95 transition-all shadow-sm" style="padding: 10px 24px; min-height: 44px; display: flex; align-items: center; justify-content: center;">
+        <router-link to="/private/focus"
+          class="bg-on-surface text-surface rounded-lg text-sm font-label font-bold active:scale-95 transition-all shadow-sm"
+          style="padding: 10px 24px; min-height: 44px; display: flex; align-items: center; justify-content: center;">
           Nova Sessão
         </router-link>
       </div>
@@ -161,46 +213,19 @@ function getIconForDiscipline(name?: string): string {
       <!-- Bento Grid Layout -->
       <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
         <!-- IA Diagnostic Card (Main) -->
-        <VDiagnosticCard 
-          class="md:col-span-8 h-fit"
-          :isEmpty="isAiInsightsEmpty"
-          :highlightDiscipline="highlightDiscipline"
-          retentionRate="92%"
-          :fatigueDiscipline="fatigueDiscipline"
-          :recommendationText="recommendationText"
-          actionLink="/private/disciplinas"
-        />
+        <VDiagnosticCard class="md:col-span-8 h-fit" :isEmpty="isAiInsightsEmpty"
+          :highlightDiscipline="highlightDiscipline" retentionRate="92%" :fatigueDiscipline="fatigueDiscipline"
+          :recommendationText="recommendationText" actionLink="/private/disciplinas" />
 
         <!-- Quick Stats -->
         <div class="md:col-span-4 space-y-6">
-          <VCardStat 
-            title="Taxa de Sucesso" 
-            value="88%" 
-            icon="pi-bolt"
-            iconBgClass="bg-primary/10"
-            iconColorClass="text-primary"
-            badgeText="+4%"
-            badgeColorClass="text-green-600"
-            badgeBgClass="bg-green-50"
-          />
-          <VCardStat 
-            title="Foco Médio" 
-            value="72" 
-            suffix="pts"
-            icon="pi-bullseye"
-            iconBgClass="bg-secondary/10"
-            iconColorClass="text-secondary"
-          />
-          <VCardStat 
-            title="Meta Semanal" 
-            value="18" 
-            suffix="/ 24h"
-            icon="pi-clock"
-            iconBgClass="bg-primary/10"
-            iconColorClass="text-primary"
-            showProgress
-            :progressPercent="75"
-          />
+          <VCardStat title="Taxa de Sucesso" :value="`${successRate}%`" icon="pi-bolt" iconBgClass="bg-primary/10"
+            iconColorClass="text-primary" badgeText="+4%" badgeColorClass="text-green-600" badgeBgClass="bg-green-50" />
+          <VCardStat title="Foco Médio" :value="mediumFocusPoints.toString()" suffix="pts" icon="pi-bullseye"
+            iconBgClass="bg-secondary/10" iconColorClass="text-secondary" />
+          <VCardStat title="Meta Semanal" :value="totalWeekStudyHours.toString()" :suffix="`/ ${weeklyGoalHours}h`"
+            icon="pi-clock" iconBgClass="bg-primary/10" iconColorClass="text-primary" showProgress
+            :progressPercent="weeklyProgressPercent" />
         </div>
       </div>
 
@@ -208,7 +233,8 @@ function getIconForDiscipline(name?: string): string {
       <section class="space-y-6">
         <div class="flex items-center justify-between border-b border-outline-variant/10 pb-4">
           <h3 class="text-2xl font-headline font-bold">Atividade Recente</h3>
-          <router-link to="/private/focus" class="text-sm font-label font-bold text-secondary hover:text-primary transition-colors">
+          <router-link to="/private/focus"
+            class="text-sm font-label font-bold text-secondary hover:text-primary transition-colors">
             Ir para o Foco
           </router-link>
         </div>
@@ -224,7 +250,7 @@ function getIconForDiscipline(name?: string): string {
           <div class="text-center max-w-sm">
             <h4 class="text-lg font-headline font-bold text-on-surface">Nenhuma sessão ainda</h4>
             <p class="text-sm text-on-surface-variant font-sans mt-2 leading-relaxed">
-              Seu histórico de sessões de foco aparecerá aqui. 
+              Seu histórico de sessões de foco aparecerá aqui.
               Inicie uma sessão para acompanhar seu progresso e manter a consistência nos estudos.
             </p>
           </div>
@@ -237,15 +263,11 @@ function getIconForDiscipline(name?: string): string {
         </div>
 
         <div v-else class="grid grid-cols-1 gap-4">
-          <VActivityItem
-            v-for="session in recentSessions"
-            :key="session.id"
+          <VActivityItem v-for="session in recentSessions" :key="session.id"
             :title="session.discipline?.name || 'Disciplina Deletada'"
             :moduleName="session.cyclesCompleted + ' de ' + session.cyclesTarget + ' ciclos'"
-            :timeSpent="formatDuration(session.duration)"
-            :status="sessionStatus(session)"
-            :icon="getIconForDiscipline(session.discipline?.name)"
-          />
+            :timeSpent="formatDuration(session.duration)" :status="sessionStatus(session)"
+            :icon="getIconForDiscipline(session.discipline?.name)" />
         </div>
       </section>
     </div>
