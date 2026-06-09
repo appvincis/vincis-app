@@ -23,8 +23,10 @@ export function useSimulatePaymentMutation() {
       const response = await api.post('/payments/webhook', {
         event: 'billing.paid',
         data: {
-          status: 'PAID',
-          metadata: { userId }
+          billing: {
+            status: 'PAID',
+            metadata: { userId }
+          }
         }
       })
       return response.data

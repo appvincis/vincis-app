@@ -41,7 +41,7 @@ aiRouter.get('/sessions/:id', async (req: Request, res: Response) => {
     const userId = (req as AuthenticatedRequest).dbUser!.id
     const { id } = req.params
     const session = await prisma.aiSession.findFirst({
-      where: { id, userId },
+      where: { id: id as string, userId },
       include: {
         messages: {
           orderBy: { createdAt: 'asc' },
@@ -69,7 +69,7 @@ aiRouter.delete('/sessions/:id', async (req: Request, res: Response) => {
 
     // Check if session exists and belongs to user
     const session = await prisma.aiSession.findFirst({
-      where: { id, userId }
+      where: { id: id as string, userId }
     })
 
     if (!session) {
@@ -77,7 +77,7 @@ aiRouter.delete('/sessions/:id', async (req: Request, res: Response) => {
     }
 
     await prisma.aiSession.delete({
-      where: { id }
+      where: { id: id as string }
     })
 
     res.json({ success: true })
@@ -147,7 +147,7 @@ aiRouter.post('/chat', async (req: Request, res: Response) => {
         5. FORMATAÇÃO: Use Bullet Points e NEGRITO nas palavras-chave.
     `
 
-    let model
+    let model: any
     if (provider === 'gemini') {
       model = google('gemini-2.5-flash')
     } else {
@@ -201,7 +201,7 @@ aiRouter.post('/chat', async (req: Request, res: Response) => {
       system: finalSystemPrompt,
       messages: await convertToModelMessages(messages),
       temperature: 0.5,
-      maxTokens: 500,
+      maxOutputTokens: 500,
       async onFinish({ text, usage }) {
         // Save the assistant's response when the stream finishes
         const tokens = usage?.totalTokens || null;
@@ -224,7 +224,7 @@ aiRouter.post('/chat', async (req: Request, res: Response) => {
 
     // Send sessionId in headers so the client knows it (for new sessions)
     res.setHeader('x-session-id', sessionId)
-    result.pipeUIMessageStreamToResponse(res, { sendUsage: true })
+    result.pipeUIMessageStreamToResponse(res)
   } catch (error) {
     console.error('Error generating AI response:', error)
     res.status(500).json({ error: 'Failed to generate response' })

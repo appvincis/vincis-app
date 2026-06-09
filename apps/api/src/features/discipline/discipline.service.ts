@@ -30,7 +30,7 @@ export const disciplineService = {
         });
     },
 
-    async updateDiscipline(id: number, studyPlanId: number, data: { name?: string, color?: string, weight?: number }) {
+    async updateDiscipline(id: number, studyPlanId: number, data: { name?: string, color?: string, weight?: number, isActive?: boolean }) {
         const discipline = await prisma.discipline.findFirst({ where: { id, studyPlanId } });
         if (!discipline) throw new Error("Disciplina não encontrada ou não pertence ao plano ativo.");
 

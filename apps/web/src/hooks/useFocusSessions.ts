@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { api } from '../lib/axios'
 import { useStudyPlanStore } from '../stores/study-plan'
-import { computed } from 'vue'
+import { computed, unref, type Ref } from 'vue'
+
+type MaybeRef<T> = T | Ref<T>
 
 export interface FocusSession {
     id: number
@@ -57,5 +59,18 @@ export const useCreateFocusSessionMutation = () => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['focus-sessions'] })
         }
+    })
+}
+
+export const useDisciplineFocusSessionsQuery = (disciplineId: MaybeRef<number | undefined>) => {
+    return useQuery({
+        queryKey: computed(() => ['focus-sessions', 'discipline', unref(disciplineId)]),
+        queryFn: async () => {
+            const id = unref(disciplineId)
+            if (!id) return []
+            const { data } = await api.get<FocusSession[]>(`/focus-sessions/discipline/${id}`)
+            return data
+        },
+        enabled: computed(() => !!unref(disciplineId))
     })
 }

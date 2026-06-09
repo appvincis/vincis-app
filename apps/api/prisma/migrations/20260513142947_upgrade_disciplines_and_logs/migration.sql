@@ -1,0 +1,28 @@
+-- AlterTable
+ALTER TABLE "Discipline" ADD COLUMN     "active" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "priority" INTEGER NOT NULL DEFAULT 1,
+ADD COLUMN     "proficiency" DOUBLE PRECISION NOT NULL DEFAULT 0.0;
+
+-- CreateTable
+CREATE TABLE "StudyLog" (
+    "id" SERIAL NOT NULL,
+    "topicId" INTEGER NOT NULL,
+    "studyDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "durationMin" INTEGER NOT NULL,
+    "performance" DOUBLE PRECISION NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "StudyLog_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ErrorLog" (
+    "id" SERIAL NOT NULL,
+    "topicId" INTEGER NOT NULL,
+    "errorDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "description" TEXT,
+    "severity" INTEGER NOT NULL DEFAULT 1,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ErrorLog_pkey" PRIMARY KEY ("id")
+);

@@ -11,6 +11,7 @@ export interface Discipline {
     description?: string
     color: string
     weight: number
+    isActive: boolean
     topics?: { isCompleted: boolean }[]
 }
 
@@ -120,6 +121,72 @@ export const useDeleteTopicMutation = () => {
         },
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: ['topics', variables.disciplineId] })
+        }
+    })
+}
+
+export const useBulkCreateDisciplinesMutation = () => {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async (payload: { disciplines: any[] }) => {
+            const { data } = await api.post<{ message: string, disciplinesCreated: number, topicsCreated: number }>('/disciplines/bulk', payload)
+            return data
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['disciplines'] })
+        }
+    })
+}
+
+export const useBulkDeleteDisciplinesMutation = () => {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async (ids: number[]) => {
+            const { data } = await api.post<{ message: string }>('/disciplines/bulk-delete', { ids })
+            return data
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['disciplines'] })
+        }
+    })
+}
+
+export const useBulkWeightUpdateDisciplinesMutation = () => {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async (payload: { ids: number[], weight: number }) => {
+            const { data } = await api.post<{ message: string }>('/disciplines/bulk-weight', payload)
+            return data
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['disciplines'] })
+        }
+    })
+}
+
+export const useBulkStatusUpdateDisciplinesMutation = () => {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async (payload: { ids: number[], isActive: boolean }) => {
+            const { data } = await api.post<{ message: string }>('/disciplines/bulk-status', payload)
+            return data
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['disciplines'] })
+        }
+    })
+}
+
+export const useGenerateTopicsForDisciplineMutation = () => {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async ({ id, syllabusText }: { id: number, syllabusText: string }) => {
+            const { data } = await api.post<{ message: string, topicsCreated: number, tokensSpent?: number }>(`/disciplines/${id}/generate-topics`, { syllabusText })
+            return data
+        },
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['topics', variables.id] })
+            queryClient.invalidateQueries({ queryKey: ['disciplines'] })
         }
     })
 }

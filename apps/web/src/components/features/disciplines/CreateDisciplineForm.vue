@@ -14,6 +14,7 @@ const newName = ref('')
 const newDescription = ref('')
 const newColor = ref(PRESET_COLORS[0]!)
 const newWeight = ref(3)
+const syllabusText = ref('')
 
 watch(() => props.showCreateForm, (val) => {
     if (!val) {
@@ -21,6 +22,7 @@ watch(() => props.showCreateForm, (val) => {
         newDescription.value = ''
         newColor.value = PRESET_COLORS[0]!
         newWeight.value = 4
+        syllabusText.value = ''
     }
 })
 
@@ -30,6 +32,7 @@ function handleCreate() {
         description: newDescription.value.trim() || undefined,
         color: newColor.value,
         weight: newWeight.value,
+        syllabusText: syllabusText.value.trim() || undefined
     })
 }
 
@@ -104,6 +107,18 @@ function handleCancel() {
                                 <span>4</span>
                                 <span>5</span>
                             </div>
+                        </div>
+
+                        <!-- Optional Syllabus for IA Extraction -->
+                        <div class="border-t border-outline-variant/20 pt-4">
+                            <label
+                                class="block text-[10px] font-label font-bold uppercase tracking-[0.15em] text-primary mb-2 flex items-center gap-1.5">
+                                <i class="pi pi-magic text-[10px]"></i>
+                                Conteúdo Programático (IA) - Opcional
+                            </label>
+                            <textarea v-model="syllabusText" placeholder="Cole aqui o conteúdo programático do edital desta disciplina para extrair os tópicos automaticamente..."
+                                rows="3"
+                                class="w-full px-4 py-3 rounded-xl border border-outline-variant/40 bg-surface-container-low text-on-surface text-sm font-sans placeholder:text-on-surface-muted/50 focus:outline-none focus:border-primary/50 transition-colors resize-none" />
                         </div>
 
                         <!-- Actions -->

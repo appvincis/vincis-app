@@ -3,10 +3,77 @@ import { AuthenticatedRequest } from '../auth/auth.middleware.js';
 import { prisma } from '../../lib/prisma.js';
 import { supabaseAdmin } from '../../lib/supabase.js';
 import crypto from 'crypto';
-import { createRequire } from 'module';
+import { PDFParse } from 'pdf-parse';
+import { generateObject, generateText } from 'ai';
+import { z } from 'zod';
+import { createOpenAI } from '@ai-sdk/openai';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 
-const require = createRequire(import.meta.url);
-const pdfParse = require('pdf-parse');
+const openai = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
+
+const google = createGoogleGenerativeAI({
+  apiKey: process.env.GEMINI_API_KEY
+});
+
+const getAiModel = () => {
+    if (process.env.GEMINI_API_KEY) {
+        return google('gemini-2.5-flash');
+    }
+    if (process.env.OPENAI_API_KEY) {
+        return openai('gpt-4o-mini');
+    }
+    throw new Error('Nenhuma chave de API (GEMINI_API_KEY ou OPENAI_API_KEY) configurada.');
+};
+
+const normalizeText = (text: string): string => {
+    return text
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+};
+
+const extractSyllabusText = (fullText: string): string => {
+    if (!fullText) return '';
+    
+    // Se o texto total for relativamente pequeno, processa tudo
+    if (fullText.length <= 250000) {
+        return fullText;
+    }
+    
+    const normalizedText = normalizeText(fullText);
+    const keywords = [
+        'conteudo programatico',
+        'conteudos programaticos',
+        'anexo de disciplinas',
+        'anexo das disciplinas',
+        'anexo ii',
+        'objeto de avaliacao',
+        'conhecimentos especificos',
+        'conhecimentos basicos',
+        'programa das disciplinas',
+        'quadro de disciplinas',
+        'conteudos das provas',
+        'lingua portuguesa'
+    ];
+    
+    let startIndex = -1;
+    for (const kw of keywords) {
+        startIndex = normalizedText.indexOf(kw);
+        if (startIndex !== -1) {
+            break;
+        }
+    }
+    
+    if (startIndex === -1) {
+        // Começa em 25% do documento como estimativa padrão
+        startIndex = Math.floor(fullText.length * 0.25);
+    }
+    
+    const windowSize = 250000;
+    return fullText.substring(startIndex, startIndex + windowSize);
+};
 
 export const uploadEdital = async (req: AuthenticatedRequest, res: Response): Promise<any> => {
     try {
@@ -49,7 +116,8 @@ export const uploadEdital = async (req: AuthenticatedRequest, res: Response): Pr
         // Extrair texto do PDF
         let parsedContent = null;
         try {
-            const pdfData = await pdfParse(file.buffer);
+            const parser = new PDFParse({ data: file.buffer });
+            const pdfData = await parser.getText();
             parsedContent = pdfData.text;
         } catch (pdfError) {
             console.error('Erro ao extrair texto do PDF:', pdfError);
@@ -94,7 +162,7 @@ export const getEditais = async (req: AuthenticatedRequest, res: Response): Prom
 export const getEditalSignedUrl = async (req: AuthenticatedRequest, res: Response): Promise<any> => {
     try {
         const userId = req.dbUser?.id;
-        const editalId = parseInt(req.params.id);
+        const editalId = parseInt(req.params.id as string);
 
         if (!userId) return res.status(401).json({ error: 'Não autorizado' });
         if (isNaN(editalId)) return res.status(400).json({ error: 'ID inválido' });
@@ -125,7 +193,7 @@ export const getEditalSignedUrl = async (req: AuthenticatedRequest, res: Respons
 export const deleteEdital = async (req: AuthenticatedRequest, res: Response): Promise<any> => {
     try {
         const userId = req.dbUser?.id;
-        const editalId = parseInt(req.params.id);
+        const editalId = parseInt(req.params.id as string);
 
         if (!userId) return res.status(401).json({ error: 'Não autorizado' });
         if (isNaN(editalId)) return res.status(400).json({ error: 'ID inválido' });
@@ -154,5 +222,179 @@ export const deleteEdital = async (req: AuthenticatedRequest, res: Response): Pr
     } catch (error) {
         console.error('Erro ao deletar edital:', error);
         return res.status(500).json({ error: 'Erro interno no servidor' });
+    }
+};
+
+export const extractEdital = async (req: AuthenticatedRequest, res: Response): Promise<any> => {
+    try {
+        const userId = req.dbUser?.id;
+        const editalId = parseInt(req.params.id as string);
+
+        if (!userId) return res.status(401).json({ error: 'Não autorizado' });
+        if (isNaN(editalId)) return res.status(400).json({ error: 'ID inválido' });
+
+        const edital = await prisma.edital.findFirst({ where: { id: editalId, userId } });
+        if (!edital) return res.status(404).json({ error: 'Edital não encontrado' });
+
+        if (req.dbUser?.plan !== 'PREMIUM') {
+            return res.status(403).json({ error: 'Recurso exclusivo do plano Premium. Por favor, assine o plano Premium para realizar a extração automática de disciplinas.' });
+        }
+        
+        const parsedContent = edital.parsedContent;
+        if (!parsedContent) {
+            return res.status(400).json({ error: 'Este edital não possui conteúdo textual extraído para processamento.' });
+        }
+
+        // Lock de concorrência: se já está rodando, impede nova chamada
+        if (edital.extractionStatus === 'PROCESSING') {
+            return res.status(409).json({ error: 'Uma extração para este edital já está em andamento.' });
+        }
+
+        // Resolvendo o plano de estudos ativo (cookie ou banco)
+        let studyPlanId = req.cookies?.study_plan_id ? Number(req.cookies.study_plan_id) : null;
+        if (!studyPlanId) {
+            const activePlan = await prisma.studyPlan.findFirst({ where: { userId, is_active: true } });
+            if (activePlan) {
+                studyPlanId = activePlan.id;
+            } else {
+                const firstPlan = await prisma.studyPlan.findFirst({ where: { userId } });
+                if (firstPlan) {
+                    studyPlanId = firstPlan.id;
+                }
+            }
+        }
+
+        if (!studyPlanId) {
+            return res.status(400).json({ error: 'Você precisa ter pelo menos um Plano de Estudo criado para realizar a extração.' });
+        }
+
+        // Atualizar status para PROCESSING e limpar erros anteriores no banco
+        await prisma.edital.update({
+            where: { id: editalId },
+            data: {
+                extractionStatus: 'PROCESSING',
+                extractionError: null
+            }
+        });
+
+        // Responder imediatamente ao cliente com 202 Accepted
+        res.status(202).json({
+            message: 'Extração iniciada em segundo plano.',
+            status: 'PROCESSING'
+        });
+
+        // Inicia processamento assíncrono em segundo plano
+        (async () => {
+            try {
+                // Pré-filtragem local do texto para otimizar tokens
+                const candidateSyllabusChunk = extractSyllabusText(parsedContent);
+
+                const model = getAiModel();
+
+                // Etapa 1: Filtrar o texto para isolar apenas o conteúdo programático (reduzindo tokens redundantes)
+                const filterResponse = await generateText({
+                    model,
+                    prompt: `Analise o texto do edital fornecido abaixo. Sua ÚNICA tarefa é identificar a seção de conteúdo programático (syllabus/disciplinas e assuntos) e retornar apenas o texto original correspondente a essa parte.\n\n` +
+                            `REGRAS DE FILTRAGEM:\n` +
+                            `1. Ignore totalmente as regras de inscrição, datas de provas, critérios de avaliação física, taxas, isenções, etc.\n` +
+                            `2. Foque somente onde as matérias (ex: Português, Direito, Matemática) e seus respectivos assuntos estão listados.\n` +
+                            `3. Retorne APENAS o texto bruto recortado dessa seção, sem introduções, resumos ou formatações extras.\n\n` +
+                            `--- TEXTO DO EDITAL ---\n` +
+                            candidateSyllabusChunk,
+                    temperature: 0.1
+                });
+
+                const filteredSyllabusText = filterResponse.text || candidateSyllabusChunk;
+                
+                // Etapa 2: Extração estruturada a partir do texto limpo do edital
+                const response = await generateObject({
+                    model,
+                    schema: z.object({
+                        disciplines: z.array(z.object({
+                            name: z.string().describe('Nome da disciplina, ex: Língua Portuguesa'),
+                            topics: z.array(z.object({
+                                name: z.string().describe('Nome curto do tópico/assunto'),
+                                description: z.string().optional().describe('Descrição curta do tópico')
+                            }))
+                        }))
+                    }),
+                    prompt: `Analise o texto recortado do edital abaixo e extraia o conteúdo programático estruturado.\n\n` +
+                            `CRITÉRIOS RIGOROSOS DE EXTRAÇÃO:\n` +
+                            `1. Separe todas as disciplinas encontradas (ex: Língua Portuguesa, Informática, Direito Constitucional, etc).\n` +
+                            `2. DENTRO DE CADA DISCIPLINA: quebre blocos longos de texto em tópicos individuais curtos e objetivos (ex: "Crase", "Acentuação").\n` +
+                            `3. Use o idioma português.\n\n` +
+                            `--- CONTEÚDO DO EDITAL ---\n` +
+                            filteredSyllabusText,
+                    temperature: 0.1,
+                });
+
+                const extracted = response.object;
+                if (!extracted.disciplines || extracted.disciplines.length === 0) {
+                    throw new Error('Nenhuma disciplina pôde ser extraída do texto do edital.');
+                }
+
+                const presetColors = [
+                    '#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f97316',
+                    '#eab308', '#22c55e', '#14b8a6', '#3b82f6', '#735c00'
+                ];
+
+                let disciplinesCreatedCount = 0;
+                let topicsCreatedCount = 0;
+
+                // Inserir no banco de dados em transação
+                await prisma.$transaction(async (tx) => {
+                    for (let i = 0; i < extracted.disciplines.length; i++) {
+                        const discData = extracted.disciplines[i];
+                        const color = presetColors[i % presetColors.length];
+
+                        const discipline = await tx.discipline.create({
+                            data: {
+                                name: discData.name,
+                                color,
+                                weight: 1.0,
+                                studyPlanId
+                            }
+                        });
+                        disciplinesCreatedCount++;
+
+                        if (discData.topics && discData.topics.length > 0) {
+                            await tx.topic.createMany({
+                                data: discData.topics.map(t => ({
+                                    name: t.name,
+                                    description: t.description || null,
+                                    disciplineId: discipline.id,
+                                    isCompleted: false
+                                }))
+                            });
+                            topicsCreatedCount += discData.topics.length;
+                        }
+                    }
+                });
+
+                // Atualizar status para sucesso com as métricas geradas
+                await prisma.edital.update({
+                    where: { id: editalId },
+                    data: {
+                        extractionStatus: 'SUCCESS',
+                        disciplinesCreated: disciplinesCreatedCount,
+                        topicsCreated: topicsCreatedCount
+                    }
+                });
+
+            } catch (bgError: any) {
+                console.error('Erro na extração de edital em segundo plano:', bgError);
+                await prisma.edital.update({
+                    where: { id: editalId },
+                    data: {
+                        extractionStatus: 'FAILED',
+                        extractionError: bgError.message || 'Erro desconhecido durante o processamento com IA.'
+                    }
+                });
+            }
+        })();
+
+    } catch (error: any) {
+        console.error('Erro ao iniciar extração de edital:', error);
+        return res.status(500).json({ error: error.message || 'Erro interno ao iniciar processamento do edital.' });
     }
 };

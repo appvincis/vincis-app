@@ -8,6 +8,11 @@ export interface Edital {
     fileUrl: string;
     fileSize: number;
     createdAt: string;
+    parsedContent?: string;
+    extractionStatus: string;
+    extractionError?: string | null;
+    disciplinesCreated: number;
+    topicsCreated: number;
 }
 
 export const useEditaisQuery = () => {
@@ -54,6 +59,19 @@ export const useEditalSignedUrlMutation = () => {
         mutationFn: async (id: number) => {
             const { data } = await api.get<{ signedUrl: string }>(`/editais/${id}/url`);
             return data.signedUrl;
+        }
+    });
+};
+
+export const useExtractEditalMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async (id: number) => {
+            const { data } = await api.post<{ message: string; disciplinesCreated: number; topicsCreated: number; tokensSpent?: number }>(`/editais/${id}/extract`);
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['disciplines'] });
         }
     });
 };

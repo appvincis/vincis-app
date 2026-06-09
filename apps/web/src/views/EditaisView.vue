@@ -1,18 +1,246 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { VCard, VButton, VSpinner, VModal } from '../components/ui'
 import {
     useEditaisQuery,
     useCreateEditalMutation,
     useDeleteEditalMutation,
     useEditalSignedUrlMutation,
+    useExtractEditalMutation,
     type Edital
 } from '../hooks/useEditais'
+import { usePlan } from '../hooks/usePlan'
+import { useRouter } from 'vue-router'
+
+const { plan } = usePlan()
+const router = useRouter()
 
 const { data: editais, isLoading, isError, refetch } = useEditaisQuery()
 const createEdital = useCreateEditalMutation()
 const deleteEdital = useDeleteEditalMutation()
 const getSignedUrl = useEditalSignedUrlMutation()
+const extractEdital = useExtractEditalMutation()
+
+const extractingId = ref<number | null>(null)
+
+interface ExtractionJob {
+    id: number;
+    title: string;
+    progress: number;
+    status: 'idle' | 'running' | 'success' | 'error';
+    errorMsg?: string;
+    tokensSpent?: number;
+    disciplinesCreated?: number;
+    topicsCreated?: number;
+    intervalId?: any;
+}
+
+const activeExtractions = ref<ExtractionJob[]>([])
+const showPremiumModal = ref(false)
+const showConfirmModal = ref(false)
+const selectedEditalId = ref<number | null>(null)
+const selectedEditalTitle = ref('')
+
+const handleExtract = (id: number) => {
+    if (!plan.value.isPremium) {
+        showPremiumModal.value = true
+        return
+    }
+    const edital = editais.value?.find(e => e.id === id)
+    if (!edital) return
+
+    selectedEditalId.value = id
+    selectedEditalTitle.value = edital.title
+    showConfirmModal.value = true
+}
+
+const startExtractionProcess = async () => {
+    const id = selectedEditalId.value
+    if (id === null) return
+
+    showConfirmModal.value = false
+
+    // Check if there is already a running job for this edital
+    const existingJob = activeExtractions.value.find(job => job.id === id)
+    if (existingJob && existingJob.status === 'running') {
+        return
+    }
+
+    // Create or update job
+    const edital = editais.value?.find(e => e.id === id)
+    const title = edital?.title || `Edital #${id}`
+
+    const job: ExtractionJob = {
+        id,
+        title,
+        progress: 10,
+        status: 'running'
+    }
+
+    const index = activeExtractions.value.findIndex(j => j.id === id)
+    if (index !== -1) {
+        const existing = activeExtractions.value[index]
+        if (existing && existing.intervalId) {
+            clearInterval(existing.intervalId)
+        }
+        activeExtractions.value[index] = job
+    } else {
+        activeExtractions.value.push(job)
+    }
+
+    // Start progress simulation
+    const intervalId = setInterval(() => {
+        const currentJob = activeExtractions.value.find(j => j.id === id)
+        if (currentJob && currentJob.status === 'running') {
+            if (currentJob.progress < 90) {
+                currentJob.progress += Math.random() * 4 + 1
+                if (currentJob.progress > 90) {
+                    currentJob.progress = 90
+                }
+            }
+        } else {
+            clearInterval(intervalId)
+        }
+    }, 500)
+
+    job.intervalId = intervalId
+
+    try {
+        await extractEdital.mutateAsync(id)
+        // A extração foi iniciada no backend. O status do job será atualizado
+        // pelo watcher que escuta as atualizações de editais via polling.
+    } catch (e: any) {
+        const errorMsg = e.response?.data?.error || e.message || 'Erro ao processar extração com IA.'
+
+        const failedJob = activeExtractions.value.find(j => j.id === id)
+        if (failedJob) {
+            if (failedJob.intervalId) clearInterval(failedJob.intervalId)
+            failedJob.status = 'error'
+            failedJob.errorMsg = errorMsg
+        }
+    }
+}
+
+// ─── Polling & Sincronização do Estado com o Banco de Dados ────────────────────
+let pollingIntervalId: any = null
+
+const startPollingIfNeeded = () => {
+    const hasProcessing = editais.value?.some(e => e.extractionStatus === 'PROCESSING')
+    if (hasProcessing) {
+        if (!pollingIntervalId) {
+            pollingIntervalId = setInterval(() => {
+                refetch()
+            }, 4000) // Consulta a cada 4 segundos
+        }
+    } else {
+        if (pollingIntervalId) {
+            clearInterval(pollingIntervalId)
+            pollingIntervalId = null
+        }
+    }
+}
+
+watch(editais, (newEditais) => {
+    if (!newEditais) return
+
+    newEditais.forEach(edital => {
+        const jobIndex = activeExtractions.value.findIndex(j => j.id === edital.id)
+
+        if (edital.extractionStatus === 'PROCESSING') {
+            if (jobIndex === -1) {
+                // Nova extração detectada em progresso (ex: após refresh)
+                const job: ExtractionJob = {
+                    id: edital.id,
+                    title: edital.title,
+                    progress: 10,
+                    status: 'running'
+                }
+
+                // Inicia simulação de progresso local
+                const intervalId = setInterval(() => {
+                    const currentJob = activeExtractions.value.find(j => j.id === edital.id)
+                    if (currentJob && currentJob.status === 'running') {
+                        if (currentJob.progress < 90) {
+                            currentJob.progress += Math.random() * 4 + 1
+                            if (currentJob.progress > 90) {
+                                currentJob.progress = 90
+                            }
+                        }
+                    } else {
+                        clearInterval(intervalId)
+                    }
+                }, 500)
+
+                job.intervalId = intervalId
+                activeExtractions.value.push(job)
+            }
+        } else if (edital.extractionStatus === 'SUCCESS') {
+            if (jobIndex !== -1) {
+                const job = activeExtractions.value[jobIndex]
+                if (job && job.status === 'running') {
+                    if (job.intervalId) clearInterval(job.intervalId)
+                    job.progress = 100
+                    job.status = 'success'
+                    job.disciplinesCreated = edital.disciplinesCreated
+                    job.topicsCreated = edital.topicsCreated
+                }
+            }
+        } else if (edital.extractionStatus === 'FAILED') {
+            if (jobIndex !== -1) {
+                const job = activeExtractions.value[jobIndex]
+                if (job && job.status === 'running') {
+                    if (job.intervalId) clearInterval(job.intervalId)
+                    job.status = 'error'
+                    job.errorMsg = edital.extractionError || 'Erro ao extrair disciplinas com IA.'
+                }
+            }
+        }
+    })
+
+    startPollingIfNeeded()
+}, { deep: true, immediate: true })
+
+onUnmounted(() => {
+    if (pollingIntervalId) {
+        clearInterval(pollingIntervalId)
+    }
+    activeExtractions.value.forEach(job => {
+        if (job && job.intervalId) {
+            clearInterval(job.intervalId)
+        }
+    })
+})
+
+const removeJob = (id: number) => {
+    const index = activeExtractions.value.findIndex(j => j.id === id)
+    if (index !== -1) {
+        const job = activeExtractions.value[index]
+        if (job) {
+            if (job.intervalId) {
+                clearInterval(job.intervalId)
+            }
+            activeExtractions.value.splice(index, 1)
+        }
+    }
+}
+
+const retryJob = (id: number) => {
+    selectedEditalId.value = id
+    const edital = editais.value?.find(e => e.id === id)
+    selectedEditalTitle.value = edital?.title || ''
+    startExtractionProcess()
+}
+
+const goToDisciplines = () => {
+    router.push('/private/disciplinas')
+}
+
+const isJobRunning = (id: number) => {
+    const job = activeExtractions.value.find(j => j.id === id)
+    if (job) return job.status === 'running'
+    const edital = editais.value?.find(e => e.id === id)
+    return edital?.extractionStatus === 'PROCESSING'
+}
 
 // ─── Modal Upload ─────────────────────────────────────────────────────────────
 const showUploadModal = ref(false)
@@ -25,6 +253,7 @@ const handleFileChange = (e: Event) => {
     const target = e.target as HTMLInputElement
     if (target.files && target.files.length > 0) {
         const file = target.files[0]
+        if (!file) return
         if (file.type !== 'application/pdf') {
             uploadError.value = 'Apenas arquivos PDF são permitidos.'
             selectedFile.value = null
@@ -175,27 +404,66 @@ const formatDate = (dateString: string) => {
             </div>
         </div>
 
+        <!-- Status Badge -->
+        <div class="mb-4 flex flex-wrap gap-2 text-left">
+            <span v-if="edital.extractionStatus === 'SUCCESS'" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-success/10 text-success border border-success/20">
+                <i class="pi pi-check text-[8px]"></i> Grade Extraída ({{ edital.disciplinesCreated }} disc. / {{ edital.topicsCreated }} tóp.)
+            </span>
+            <span v-else-if="edital.extractionStatus === 'PROCESSING' || isJobRunning(edital.id)" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 animate-pulse">
+                <i class="pi pi-spin pi-spinner text-[8px]"></i> Processando IA...
+            </span>
+            <span v-else-if="edital.extractionStatus === 'FAILED'" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-error/10 text-error border border-error/20" :title="edital.extractionError || ''">
+                <i class="pi pi-exclamation-triangle text-[8px]"></i> Falha na Extração
+            </span>
+        </div>
+
         <div class="mt-auto pt-4 flex flex-col gap-3 border-t border-outline-variant/10">
             <div class="flex justify-between items-center text-xs font-medium text-on-surface-muted">
                 <span class="flex items-center gap-1.5"><i class="pi pi-calendar text-[10px]"></i> {{ formatDate(edital.createdAt) }}</span>
                 <span class="flex items-center gap-1.5"><i class="pi pi-database text-[10px]"></i> {{ formatBytes(edital.fileSize) }}</span>
             </div>
 
-            <div class="flex gap-2 w-full mt-2">
-                <VButton class="flex-1 text-on-surface border border-outline-variant/30 bg-surface-container-low hover:bg-surface-container-high py-2"
-                    :disabled="viewingId === edital.id"
-                    @click="handleView(edital.id)">
-                    <i v-if="viewingId === edital.id" class="pi pi-spin pi-spinner mr-2 text-xs"></i>
-                    <i v-else class="pi pi-external-link mr-2 text-xs"></i>
-                    Visualizar
-                </VButton>
+            <div class="flex flex-col gap-2 w-full mt-2">
+                <div class="flex gap-2 w-full">
+                    <VButton class="flex-1 text-on-surface border border-outline-variant/30 bg-surface-container-low hover:bg-surface-container-high py-2"
+                        :disabled="viewingId === edital.id || isJobRunning(edital.id)"
+                        @click="handleView(edital.id)">
+                        <i v-if="viewingId === edital.id" class="pi pi-spin pi-spinner mr-2 text-xs"></i>
+                        <i v-else class="pi pi-external-link mr-2 text-xs"></i>
+                        Visualizar
+                    </VButton>
+                    
+                    <button class="w-10 flex-shrink-0 rounded-xl flex items-center justify-center transition-colors text-on-surface-muted hover:bg-error/10 hover:text-error"
+                        :disabled="deleteEdital.isPending.value || isJobRunning(edital.id)"
+                        @click="handleDelete(edital.id)"
+                        title="Excluir Edital">
+                        <i class="pi pi-trash"></i>
+                    </button>
+                </div>
                 
-                <button class="w-10 flex-shrink-0 rounded-xl flex items-center justify-center transition-colors text-on-surface-muted hover:bg-error/10 hover:text-error"
-                    :disabled="deleteEdital.isPending.value"
-                    @click="handleDelete(edital.id)"
-                    title="Excluir Edital">
-                    <i class="pi pi-trash"></i>
-                </button>
+                <div v-if="edital.extractionStatus === 'SUCCESS'" class="flex gap-2 w-full">
+                    <VButton class="flex-1 text-white bg-success hover:bg-success-dark py-2 flex items-center justify-center"
+                        @click="goToDisciplines">
+                        <i class="pi pi-arrow-right mr-2 text-xs"></i>
+                        Ver Disciplinas
+                    </VButton>
+                    <VButton class="flex-1 text-on-surface border border-outline-variant/30 bg-surface-container-low hover:bg-surface-container-high py-2 flex items-center justify-center"
+                        :disabled="isJobRunning(edital.id)"
+                        @click="handleExtract(edital.id)">
+                        <i v-if="isJobRunning(edital.id)" class="pi pi-spin pi-spinner mr-1 text-xs"></i>
+                        <i v-else class="pi pi-refresh mr-1 text-xs"></i>
+                        Reextrair
+                    </VButton>
+                </div>
+                <VButton v-else class="w-full text-white bg-primary hover:bg-primary-dark py-2 flex items-center justify-center"
+                    :disabled="isJobRunning(edital.id)"
+                    @click="handleExtract(edital.id)">
+                    <i v-if="isJobRunning(edital.id)" class="pi pi-spin pi-spinner mr-2 text-xs"></i>
+                    <i v-else-if="!plan.isPremium" class="pi pi-lock mr-2 text-xs"></i>
+                    <i v-else class="pi pi-bolt mr-2 text-xs"></i>
+                    Extrair Grade (IA)
+                    <span v-if="!plan.isPremium" class="ml-1.5 text-[9px] bg-white/20 px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">Premium</span>
+                </VButton>
             </div>
         </div>
       </VCard>
@@ -274,6 +542,191 @@ const formatDate = (dateString: string) => {
             </div>
         </template>
     </VModal>
+
+    <!-- Modal de Confirmação e Aviso da Extração IA -->
+    <VModal v-model:visible="showConfirmModal" header="Extração de Disciplinas com IA" :style="{ width: '450px' }" id="modal-confirm-extract" @close="showConfirmModal = false">
+        <div class="modal-body text-left space-y-4">
+            <div class="flex items-center gap-3 text-primary mb-2">
+                <i class="pi pi-bolt text-2xl"></i>
+                <h3 class="font-bold text-lg text-on-surface">Iniciar Processamento?</h3>
+            </div>
+            
+            <p class="text-sm text-on-surface leading-relaxed">
+                Você está prestes a iniciar a extração automática das disciplinas e assuntos contidos no edital <strong>{{ selectedEditalTitle }}</strong>.
+            </p>
+
+            <div class="p-4 rounded-2xl bg-warning/10 border border-warning/30 text-xs text-warning space-y-2 leading-relaxed">
+                <div class="flex gap-2 font-bold text-sm">
+                    <i class="pi pi-exclamation-triangle mt-0.5 text-warning"></i>
+                    <span>AVISO IMPORTANTE</span>
+                </div>
+                <p>
+                    Dependendo do tamanho e formatação do edital, esse processo é pesado e <strong>pode demorar de 30 segundos a alguns minutos</strong>.
+                </p>
+                <p class="font-semibold text-on-surface">
+                    A extração é baseada em inteligência artificial. Após a conclusão, o próprio usuário deve revisar o plano de estudos gerado, pois podem ocorrer falhas de mapeamento ou tópicos duplicados/omitidos.
+                </p>
+            </div>
+            
+            <p class="text-xs text-on-surface-muted">
+                A extração será executada em segundo plano. Você poderá continuar usando a plataforma normalmente.
+            </p>
+        </div>
+
+        <template #footer>
+            <div class="modal-footer mt-4">
+                <VButton variant="ghost" @click="showConfirmModal = false">
+                    Cancelar
+                </VButton>
+                <VButton @click="startExtractionProcess" class="bg-primary text-white hover:bg-primary-dark">
+                    Iniciar Extração
+                </VButton>
+            </div>
+        </template>
+    </VModal>
+
+    <!-- Modal do Upgrade Premium -->
+    <VModal v-model:visible="showPremiumModal" header="Recurso Premium" :style="{ width: '420px' }" id="modal-premium-upgrade" @close="showPremiumModal = false">
+        <div class="modal-body text-center py-4 space-y-4">
+            <div class="w-16 h-16 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto">
+                <i class="pi pi-lock text-3xl"></i>
+            </div>
+            <div class="space-y-1">
+                <h3 class="font-bold text-lg text-on-surface">Recurso Exclusivo do Plano Premium</h3>
+                <p class="text-sm text-on-surface-muted leading-relaxed px-2">
+                    A extração automática de disciplinas e assuntos a partir de editais em PDF está disponível apenas para usuários do plano Premium.
+                </p>
+            </div>
+            
+            <div class="p-3.5 rounded-2xl bg-surface-container-low border border-outline-variant/30 text-xs text-on-surface-muted leading-relaxed text-left space-y-1.5">
+                <p class="font-bold text-on-surface flex items-center gap-1.5"><i class="pi pi-bolt text-primary"></i> Benefícios da Conta Premium:</p>
+                <ul class="list-disc pl-4 space-y-1">
+                    <li>Extração completa de Editais complexos</li>
+                    <li>Sessão de Insights IA e Tutor de IA completo</li>
+                    <li>Geração de tópicos inteligente no painel de disciplinas</li>
+                </ul>
+            </div>
+        </div>
+
+        <template #footer>
+            <div class="modal-footer justify-center w-full mt-2">
+                <VButton variant="ghost" @click="showPremiumModal = false" class="flex-1">
+                    Voltar
+                </VButton>
+                <VButton @click="router.push('/private/plans')" class="bg-primary text-white hover:bg-primary-dark flex-1">
+                    Assinar Premium
+                </VButton>
+            </div>
+        </template>
+    </VModal>
+
+    <!-- Container de extrações em segundo plano (Floating bottom-right) -->
+    <div v-if="activeExtractions.length > 0" class="fixed bottom-6 right-6 z-50 flex flex-col gap-4 max-w-sm w-full px-4 sm:px-0 animate-fade-in">
+        <div v-for="job in activeExtractions" :key="job.id"
+            class="bg-surface-container-high/95 backdrop-blur-md border border-outline-variant/30 rounded-2xl p-5 shadow-2xl transition-all duration-300 relative overflow-hidden"
+            :style="{
+                borderColor: job.status === 'running' ? 'var(--color-primary)' : (job.status === 'success' ? 'var(--color-success)' : 'var(--color-error)')
+            }">
+            
+            <!-- Close Button (only shown when not running) -->
+            <button v-if="job.status !== 'running'" @click="removeJob(job.id)"
+                class="absolute top-4 right-4 text-on-surface-muted hover:text-on-surface transition-colors cursor-pointer border-0 bg-transparent p-0">
+                <i class="pi pi-times"></i>
+            </button>
+
+            <!-- Card Header -->
+            <div class="flex items-start gap-3 pr-6">
+                <div class="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                    :class="{
+                        'bg-primary/10 text-primary': job.status === 'running',
+                        'bg-success/10 text-success': job.status === 'success',
+                        'bg-error/10 text-error': job.status === 'error'
+                    }">
+                    <i v-if="job.status === 'running'" class="pi pi-spin pi-spinner text-sm"></i>
+                    <i v-else-if="job.status === 'success'" class="pi pi-check-circle text-sm"></i>
+                    <i v-else-if="job.status === 'error'" class="pi pi-exclamation-triangle text-sm"></i>
+                </div>
+                <div class="flex-1 min-w-0 text-left">
+                    <h4 class="font-bold text-xs text-on-surface truncate">{{ job.title }}</h4>
+                    <p class="text-[10px] text-on-surface-muted mt-0.5">
+                        <span v-if="job.status === 'running'">Extraindo disciplinas com IA...</span>
+                        <span v-else-if="job.status === 'success'">Processo concluído com sucesso!</span>
+                        <span v-else-if="job.status === 'error'">Falha no processamento.</span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Progress Bar & Stats -->
+            <div class="mt-3.5 space-y-1.5">
+                <div class="w-full h-1.5 bg-surface-container-low rounded-full overflow-hidden">
+                    <div class="h-full transition-all duration-300 rounded-full"
+                        :class="{
+                            'bg-primary': job.status === 'running',
+                            'bg-success': job.status === 'success',
+                            'bg-error': job.status === 'error'
+                        }"
+                        :style="{ width: `${job.progress}%` }">
+                    </div>
+                </div>
+                
+                <div class="flex justify-between items-center text-[9px] font-medium text-on-surface-muted">
+                    <span>{{ Math.round(job.progress) }}% completo</span>
+                    <span v-if="job.status === 'success' && job.tokensSpent" class="bg-primary/5 text-primary px-1.5 py-0.5 rounded font-mono">
+                        {{ job.tokensSpent }} tokens
+                    </span>
+                </div>
+            </div>
+
+            <!-- Warnings / Feedback -->
+            <div v-if="job.status === 'running'" class="mt-3 p-2.5 rounded-xl bg-primary/5 border border-primary/10 text-[10px] text-primary/95 leading-relaxed text-left flex gap-2">
+                <i class="pi pi-info-circle mt-0.5 flex-shrink-0"></i>
+                <span>A extração está rodando em segundo plano. Você pode continuar navegando pela plataforma.</span>
+            </div>
+
+            <div v-if="job.status === 'success'" class="mt-3 space-y-2.5">
+                <div class="p-2.5 rounded-xl bg-success/5 border border-success/10 text-[10px] text-success leading-relaxed text-left flex gap-1.5">
+                    <i class="pi pi-check mt-0.5 flex-shrink-0"></i>
+                    <div>
+                        Foram criadas <strong>{{ job.disciplinesCreated }} disciplinas</strong> e <strong>{{ job.topicsCreated }} tópicos</strong>.
+                    </div>
+                </div>
+                
+                <!-- REQUIRED: Warning about manual check and potential failure -->
+                <div class="p-2.5 rounded-xl bg-warning/10 border border-warning/20 text-[10px] text-warning leading-relaxed text-left flex gap-1.5">
+                    <i class="pi pi-exclamation-triangle mt-0.5 flex-shrink-0 text-warning"></i>
+                    <span>
+                        <strong>Atenção:</strong> Como a extração foi feita por IA, revise atentamente a grade gerada no seu plano de estudo, pois podem ter ocorrido falhas ou omissões.
+                    </span>
+                </div>
+                
+                <div class="flex gap-2">
+                    <VButton @click="goToDisciplines" class="w-full text-[10px] py-1.5 bg-success text-white hover:bg-success-dark">
+                        <i class="pi pi-arrow-right mr-1 text-[9px]"></i>
+                        Ver Disciplinas
+                    </VButton>
+                    <VButton @click="removeJob(job.id)" variant="ghost" class="text-[10px] py-1.5">
+                        Fechar
+                    </VButton>
+                </div>
+            </div>
+
+            <div v-if="job.status === 'error'" class="mt-3 space-y-2.5">
+                <div class="p-2.5 rounded-xl bg-error/5 border border-error/10 text-[10px] text-error leading-relaxed text-left flex gap-1.5">
+                    <i class="pi pi-times-circle mt-0.5 flex-shrink-0"></i>
+                    <span>{{ job.errorMsg || 'Ocorreu um erro inesperado durante a análise do edital.' }}</span>
+                </div>
+                <div class="flex gap-2">
+                    <VButton @click="retryJob(job.id)" class="w-full text-[10px] py-1.5 bg-error text-white hover:bg-error-dark">
+                        <i class="pi pi-refresh mr-1 text-[9px]"></i>
+                        Tentar Novamente
+                    </VButton>
+                    <VButton @click="removeJob(job.id)" variant="ghost" class="text-[10px] py-1.5">
+                        Fechar
+                    </VButton>
+                </div>
+            </div>
+        </div>
+    </div>
   </div>
 </template>
 

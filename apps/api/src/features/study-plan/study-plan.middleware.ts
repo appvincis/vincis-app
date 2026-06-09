@@ -9,7 +9,8 @@ export interface StudyPlanInjectedRequest extends AuthenticatedRequest {
 
 export const injectStudyPlan = async (req: Request, res: Response, next: NextFunction) => {
     const injectedReq = req as StudyPlanInjectedRequest
-    const studyPlanId = req.cookies?.study_plan_id
+    const queryOrHeaderId = req.query.study_plan_id || req.headers['x-study-plan-id']
+    const studyPlanId = queryOrHeaderId ? Number(queryOrHeaderId) : (req.cookies?.study_plan_id ? Number(req.cookies.study_plan_id) : null)
     const userId = injectedReq.dbUser!.id
 
     if (!studyPlanId) {
@@ -17,7 +18,7 @@ export const injectStudyPlan = async (req: Request, res: Response, next: NextFun
         return next()
     }
 
-    const studyPlan = await studyPlanService.getStudyPlanById(Number(studyPlanId), Number(userId))
+    const studyPlan = await studyPlanService.getStudyPlanById(studyPlanId, Number(userId))
 
     if (!studyPlan) {
         return res.status(404).json({ message: 'Plano de estudo não encontrado.' })
