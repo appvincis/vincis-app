@@ -30,23 +30,37 @@ const loadingCargos = ref(false)
 const cargosError = ref('')
 const modalStep = ref(1)
 
-const fetchCargos = async (id: number) => {
+const fetchCargos = async (id: number, currentCargo?: string | null) => {
     loadingCargos.value = true
     cargosError.value = ''
     cargos.value = []
-    selectedCargo.value = null
+    selectedCargo.value = currentCargo || null
     customCargo.value = ''
     
     try {
         const { data } = await api.get<{ cargos: string[] }>(`/editais/${id}/cargos`)
         cargos.value = data.cargos || []
-        if (cargos.value.length > 0) {
-            // Inicia sem selecionar nenhum para dar a opção de extrair tudo por padrão
+        
+        if (currentCargo) {
+            // Se o cargo atual não está na lista retornada pela IA, nós marcamos como customizado e jogamos pro input
+            if (cargos.value.length > 0 && !cargos.value.includes(currentCargo)) {
+                selectedCargo.value = 'custom'
+                customCargo.value = currentCargo
+            } else if (cargos.value.length === 0) {
+                // Caso não retorne lista de cargos, colocamos no input de fallback
+                selectedCargo.value = 'custom'
+                customCargo.value = currentCargo
+            }
+        } else {
             selectedCargo.value = null
         }
     } catch (e: any) {
         console.error('Erro ao buscar cargos:', e)
         cargosError.value = e.response?.data?.error || e.message || 'Erro ao carregar cargos.'
+        if (currentCargo) {
+            selectedCargo.value = 'custom'
+            customCargo.value = currentCargo
+        }
     } finally {
         loadingCargos.value = false
     }
@@ -107,7 +121,7 @@ const handleExtract = (id: number) => {
     showConfirmModal.value = true
     
     // Iniciar a busca dos cargos disponíveis ao abrir o modal
-    fetchCargos(id)
+    fetchCargos(id, edital.cargo)
 }
 
 const startExtractionProcess = async () => {
@@ -499,6 +513,9 @@ const formatDate = (dateString: string) => {
             </span>
             <span v-else-if="edital.extractionStatus === 'FAILED'" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-error/10 text-error border border-error/20" :title="edital.extractionError || ''">
                 <i class="pi pi-exclamation-triangle text-[8px]"></i> Falha na Extração
+            </span>
+            <span v-if="edital.cargo" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20" :title="edital.cargo">
+                <i class="pi pi-briefcase text-[8px]"></i> Cargo: {{ edital.cargo }}
             </span>
         </div>
 

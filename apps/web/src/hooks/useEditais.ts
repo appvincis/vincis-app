@@ -11,6 +11,7 @@ export interface Edital {
     parsedContent?: string;
     extractionStatus: string;
     extractionError?: string | null;
+    cargo?: string | null;
     disciplinesCreated: number;
     topicsCreated: number;
 }

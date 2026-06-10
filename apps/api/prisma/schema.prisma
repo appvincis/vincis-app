@@ -120,6 +120,7 @@ model Edital {
   
   extractionStatus   String   @default("PENDING") // PENDING, PROCESSING, SUCCESS, FAILED
   extractionError    String?
+  cargo              String?
   disciplinesCreated Int      @default(0)
   topicsCreated      Int      @default(0)
   

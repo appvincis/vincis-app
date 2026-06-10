@@ -347,6 +347,71 @@ export const getEditalCargos = async (req: AuthenticatedRequest, res: Response):
     }
 };
 
+interface SyllabusPageRange {
+    geral: {
+        startPage: number | null;
+        endPage: number | null;
+    };
+    especifico: {
+        startPage: number | null;
+        endPage: number | null;
+    };
+}
+
+async function locateSyllabusPages(parsedContent: string, cargo?: string): Promise<SyllabusPageRange> {
+    try {
+        // Obter os primeiros 150.000 caracteres para ver o sumário e as partes iniciais
+        const summaryText = parsedContent.substring(0, 150000);
+        
+        let cargoInstruction = '';
+        if (cargo) {
+            cargoInstruction = `e também para a parte de Conhecimentos Específicos para o cargo de "${cargo}".`;
+        } else {
+            cargoInstruction = `(como não foi informado um cargo específico, procure apenas pelas disciplinas gerais/básicas e retorne a parte específica como nula).`;
+        }
+
+        const prompt = `Analise o texto inicial do edital (que inclui sumário e introdução) e identifique o número exato das páginas onde se localizam as disciplinas do conteúdo programático de estudo.\n\n` +
+            `Você precisa identificar as páginas correspondentes para as disciplinas de Conhecimentos Gerais/Básicos (comum a todos os cargos) ${cargoInstruction}\n\n` +
+            `Se as páginas não forem explicitadas ou você não puder identificar com certeza absoluta, retorne null para os campos.\n` +
+            `Preste atenção aos marcadores "--- PÁGINA X ---" presentes no texto para mapear o número exato da página.\n\n` +
+            `--- CONTEÚDO INICIAL DO EDITAL ---\n` +
+            summaryText;
+
+        const response = await generateObjectWithFallback({
+            schema: z.object({
+                geral: z.object({
+                    startPage: z.number().nullable().describe('Página inicial de Conhecimentos Gerais (comum)'),
+                    endPage: z.number().nullable().describe('Página final de Conhecimentos Gerais (comum)')
+                }),
+                especifico: z.object({
+                    startPage: z.number().nullable().describe('Página inicial de Conhecimentos Específicos do cargo informado'),
+                    endPage: z.number().nullable().describe('Página final de Conhecimentos Específicos do cargo informado')
+                })
+            }),
+            prompt,
+            temperature: 0.1
+        });
+
+        const obj = response.object as any;
+        // Validação básica dos intervalos
+        if (obj.geral && obj.geral.startPage && obj.geral.endPage && obj.geral.startPage > obj.geral.endPage) {
+            obj.geral.startPage = null;
+            obj.geral.endPage = null;
+        }
+        if (obj.especifico && obj.especifico.startPage && obj.especifico.endPage && obj.especifico.startPage > obj.especifico.endPage) {
+            obj.especifico.startPage = null;
+            obj.especifico.endPage = null;
+        }
+        return obj;
+    } catch (err) {
+        console.error('Erro ao mapear páginas do edital por IA:', err);
+        return {
+            geral: { startPage: null, endPage: null },
+            especifico: { startPage: null, endPage: null }
+        };
+    }
+}
+
 export const extractEdital = async (req: AuthenticatedRequest, res: Response): Promise<any> => {
     try {
         const userId = req.dbUser?.id;
@@ -398,7 +463,8 @@ export const extractEdital = async (req: AuthenticatedRequest, res: Response): P
             where: { id: editalId },
             data: {
                 extractionStatus: 'PROCESSING',
-                extractionError: 'Limpando e preparando edital...'
+                extractionError: 'Limpando e preparando edital...',
+                cargo: cargo || null
             }
         });
 
@@ -418,9 +484,35 @@ export const extractEdital = async (req: AuthenticatedRequest, res: Response): P
                     const startPage = parseInt(startStr);
                     const endPage = parseInt(endStr);
                     candidateSyllabusChunk = extractPages(parsedContent, startPage, endPage);
+                } else if (cargo) {
+                    try {
+                        console.log(`[Extração] Mapeando páginas para o cargo: ${cargo}`);
+                        const pages = await locateSyllabusPages(parsedContent, cargo);
+                        let generalChunk = '';
+                        let specificChunk = '';
+
+                        if (pages.geral.startPage && pages.geral.endPage) {
+                            console.log(`[Extração] Páginas Geral detectadas: ${pages.geral.startPage}-${pages.geral.endPage}`);
+                            generalChunk = extractPages(parsedContent, pages.geral.startPage, pages.geral.endPage);
+                        }
+                        if (pages.especifico.startPage && pages.especifico.endPage) {
+                            console.log(`[Extração] Páginas Específico detectadas: ${pages.especifico.startPage}-${pages.especifico.endPage}`);
+                            specificChunk = extractPages(parsedContent, pages.especifico.startPage, pages.especifico.endPage);
+                        }
+
+                        if (generalChunk || specificChunk) {
+                            candidateSyllabusChunk = [
+                                generalChunk ? `--- SEÇÃO CONHECIMENTOS BÁSICOS/GERAIS ---\n${generalChunk}` : '',
+                                specificChunk ? `--- SEÇÃO CONHECIMENTOS ESPECÍFICOS (${cargo}) ---\n${specificChunk}` : ''
+                            ].filter(Boolean).join('\n\n');
+                        }
+                    } catch (err) {
+                        console.error('[Extração] Falha ao mapear páginas por cargo:', err);
+                    }
                 }
 
                 if (!candidateSyllabusChunk) {
+                    console.log('[Extração] Usando método tradicional de janela de texto...');
                     candidateSyllabusChunk = extractSyllabusText(parsedContent);
                 }
 
