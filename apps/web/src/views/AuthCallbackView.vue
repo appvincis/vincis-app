@@ -50,6 +50,7 @@ onMounted(async () => {
 
 <template>
   <div class="callback-container">
+    <div class="background-image"></div>
     <div class="card shadow-lg">
       <div v-if="!isError" class="spinner-container">
         <div class="spinner"></div>
@@ -71,6 +72,7 @@ onMounted(async () => {
   background: var(--color-surface-container-lowest, #0e1118);
   font-family: var(--font-sans, sans-serif);
   padding: 1.5rem;
+  z-index: 1;
 }
 
 .card {
@@ -85,6 +87,7 @@ onMounted(async () => {
   flex-direction: column;
   align-items: center;
   gap: 1.5rem;
+  z-index: 1;
 }
 
 .spinner-container {
@@ -121,5 +124,19 @@ onMounted(async () => {
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+.background-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url('../assets/renascenca.png');
+  background-size: cover;
+  background-position: center;
+  opacity: 0.65;
+  z-index: 0;
+  pointer-events: none;
 }
 </style>
