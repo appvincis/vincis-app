@@ -72,6 +72,7 @@ export const useExtractEditalMutation = () => {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['disciplines'] });
+            queryClient.invalidateQueries({ queryKey: ['editais'] });
         }
     });
 };

@@ -47,7 +47,23 @@ app.use("/ai", aiRouter)
 
 // Verifica conexão com banco antes de escutar na porta
 prisma.$connect()
-    .then(() => {
+    .then(async () => {
+        // Limpar extrações travadas no status PROCESSING ao iniciar o servidor
+        try {
+            const result = await prisma.edital.updateMany({
+                where: { extractionStatus: 'PROCESSING' },
+                data: {
+                    extractionStatus: 'FAILED',
+                    extractionError: 'O servidor foi reiniciado ou a extração foi interrompida inesperadamente. Por favor, tente novamente.'
+                }
+            });
+            if (result.count > 0) {
+                console.log(`[Startup] ${result.count} extrações pendentes foram resetadas para FAILED.`);
+            }
+        } catch (dbErr) {
+            console.error('[Startup] Falha ao resetar extrações pendentes:', dbErr);
+        }
+
         app.listen(PORT, () => {
             console.log(`Back end conectado com banco e escutando na porta ${PORT}`)
         })

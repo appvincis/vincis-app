@@ -36,6 +36,27 @@ interface ExtractionJob {
 }
 
 const activeExtractions = ref<ExtractionJob[]>([])
+
+// Carregar do localStorage ao iniciar
+const savedProgresses = ref<Record<number, number>>({});
+try {
+    const saved = localStorage.getItem('vincis_extractions_progress');
+    if (saved) {
+        savedProgresses.value = JSON.parse(saved);
+    }
+} catch (e) {
+    console.error('Erro ao ler progressos do localStorage', e);
+}
+
+const saveProgressesToLocalStorage = () => {
+    const progresses: Record<number, number> = {};
+    activeExtractions.value.forEach(job => {
+        if (job.status === 'running') {
+            progresses[job.id] = job.progress;
+        }
+    });
+    localStorage.setItem('vincis_extractions_progress', JSON.stringify(progresses));
+};
 const showPremiumModal = ref(false)
 const showConfirmModal = ref(false)
 const selectedEditalId = ref<number | null>(null)
@@ -69,11 +90,12 @@ const startExtractionProcess = async () => {
     // Create or update job
     const edital = editais.value?.find(e => e.id === id)
     const title = edital?.title || `Edital #${id}`
+    const initialProgress = savedProgresses.value[id] || 15
 
     const job: ExtractionJob = {
         id,
         title,
-        progress: 10,
+        progress: initialProgress,
         status: 'running'
     }
 
@@ -93,15 +115,16 @@ const startExtractionProcess = async () => {
         const currentJob = activeExtractions.value.find(j => j.id === id)
         if (currentJob && currentJob.status === 'running') {
             if (currentJob.progress < 90) {
-                currentJob.progress += Math.random() * 4 + 1
+                currentJob.progress += Math.random() * 2 + 0.5
                 if (currentJob.progress > 90) {
                     currentJob.progress = 90
                 }
+                saveProgressesToLocalStorage()
             }
         } else {
             clearInterval(intervalId)
         }
-    }, 500)
+    }, 1000)
 
     job.intervalId = intervalId
 
@@ -149,11 +172,13 @@ watch(editais, (newEditais) => {
         if (edital.extractionStatus === 'PROCESSING') {
             if (jobIndex === -1) {
                 // Nova extração detectada em progresso (ex: após refresh)
+                const initialProgress = savedProgresses.value[edital.id] || 15;
                 const job: ExtractionJob = {
                     id: edital.id,
                     title: edital.title,
-                    progress: 10,
-                    status: 'running'
+                    progress: initialProgress,
+                    status: 'running',
+                    errorMsg: edital.extractionError || undefined
                 }
 
                 // Inicia simulação de progresso local
@@ -161,18 +186,24 @@ watch(editais, (newEditais) => {
                     const currentJob = activeExtractions.value.find(j => j.id === edital.id)
                     if (currentJob && currentJob.status === 'running') {
                         if (currentJob.progress < 90) {
-                            currentJob.progress += Math.random() * 4 + 1
+                            currentJob.progress += Math.random() * 2 + 0.5
                             if (currentJob.progress > 90) {
                                 currentJob.progress = 90
                             }
+                            saveProgressesToLocalStorage()
                         }
                     } else {
                         clearInterval(intervalId)
                     }
-                }, 500)
+                }, 1000)
 
                 job.intervalId = intervalId
                 activeExtractions.value.push(job)
+            } else {
+                const job = activeExtractions.value[jobIndex]
+                if (job && job.status === 'running') {
+                    job.errorMsg = edital.extractionError || undefined
+                }
             }
         } else if (edital.extractionStatus === 'SUCCESS') {
             if (jobIndex !== -1) {
@@ -183,6 +214,10 @@ watch(editais, (newEditais) => {
                     job.status = 'success'
                     job.disciplinesCreated = edital.disciplinesCreated
                     job.topicsCreated = edital.topicsCreated
+                    
+                    // Remover do localStorage ao finalizar com sucesso
+                    delete savedProgresses.value[edital.id]
+                    localStorage.setItem('vincis_extractions_progress', JSON.stringify(savedProgresses.value))
                 }
             }
         } else if (edital.extractionStatus === 'FAILED') {
@@ -192,6 +227,10 @@ watch(editais, (newEditais) => {
                     if (job.intervalId) clearInterval(job.intervalId)
                     job.status = 'error'
                     job.errorMsg = edital.extractionError || 'Erro ao extrair disciplinas com IA.'
+                    
+                    // Remover do localStorage ao falhar
+                    delete savedProgresses.value[edital.id]
+                    localStorage.setItem('vincis_extractions_progress', JSON.stringify(savedProgresses.value))
                 }
             }
         }
@@ -246,6 +285,7 @@ const isJobRunning = (id: number) => {
 const showUploadModal = ref(false)
 const newTitle = ref('')
 const newDescription = ref('')
+const newPageRange = ref('')
 const selectedFile = ref<File | null>(null)
 const uploadError = ref('')
 
@@ -280,6 +320,7 @@ const submitUpload = async () => {
     const formData = new FormData()
     formData.append('title', newTitle.value)
     if (newDescription.value) formData.append('description', newDescription.value)
+    if (newPageRange.value) formData.append('pageRange', newPageRange.value)
     formData.append('file', selectedFile.value)
 
     createEdital.mutate(formData, {
@@ -287,6 +328,7 @@ const submitUpload = async () => {
             showUploadModal.value = false
             newTitle.value = ''
             newDescription.value = ''
+            newPageRange.value = ''
             selectedFile.value = null
             uploadError.value = ''
         },
@@ -409,8 +451,8 @@ const formatDate = (dateString: string) => {
             <span v-if="edital.extractionStatus === 'SUCCESS'" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-success/10 text-success border border-success/20">
                 <i class="pi pi-check text-[8px]"></i> Grade Extraída ({{ edital.disciplinesCreated }} disc. / {{ edital.topicsCreated }} tóp.)
             </span>
-            <span v-else-if="edital.extractionStatus === 'PROCESSING' || isJobRunning(edital.id)" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 animate-pulse">
-                <i class="pi pi-spin pi-spinner text-[8px]"></i> Processando IA...
+            <span v-else-if="edital.extractionStatus === 'PROCESSING' || isJobRunning(edital.id)" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 animate-pulse" :title="edital.extractionError || ''">
+                <i class="pi pi-spin pi-spinner text-[8px]"></i> {{ edital.extractionError || 'Processando IA...' }}
             </span>
             <span v-else-if="edital.extractionStatus === 'FAILED'" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-error/10 text-error border border-error/20" :title="edital.extractionError || ''">
                 <i class="pi pi-exclamation-triangle text-[8px]"></i> Falha na Extração
@@ -489,6 +531,13 @@ const formatDate = (dateString: string) => {
             <textarea v-model="newDescription" rows="2"
                 class="ds-textarea"
                 placeholder="Informações adicionais..."></textarea>
+        </div>
+
+        <div class="modal-field">
+            <label class="field-label">FAIXA DE PÁGINAS DO CONTEÚDO (OPCIONAL)</label>
+            <input v-model="newPageRange" type="text"
+                class="ds-input"
+                placeholder="Ex: 25-35 (Vazio = Edital Completo)" />
         </div>
 
         <div class="modal-field mt-2">
@@ -649,7 +698,7 @@ const formatDate = (dateString: string) => {
                 <div class="flex-1 min-w-0 text-left">
                     <h4 class="font-bold text-xs text-on-surface truncate">{{ job.title }}</h4>
                     <p class="text-[10px] text-on-surface-muted mt-0.5">
-                        <span v-if="job.status === 'running'">Extraindo disciplinas com IA...</span>
+                        <span v-if="job.status === 'running'">{{ job.errorMsg || 'Extraindo disciplinas com IA...' }}</span>
                         <span v-else-if="job.status === 'success'">Processo concluído com sucesso!</span>
                         <span v-else-if="job.status === 'error'">Falha no processamento.</span>
                     </p>

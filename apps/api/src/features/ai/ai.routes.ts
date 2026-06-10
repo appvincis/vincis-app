@@ -11,6 +11,11 @@ export const aiRouter = Router()
 
 aiRouter.use(requireAuth)
 
+const openrouter = createOpenAI({
+  baseURL: 'https://openrouter.ai/api/v1',
+  apiKey: process.env.OPENROUTER_API_KEY || ''
+})
+
 const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY
 })
@@ -149,7 +154,10 @@ aiRouter.post('/chat', async (req: Request, res: Response) => {
 
     let model: any
     let fallbackModel: any
-    if (provider === 'gemini') {
+    if (process.env.OPENROUTER_API_KEY) {
+      model = openrouter('nvidia/nemotron-3-ultra-550b-a55b:free')
+      fallbackModel = google('gemini-2.5-flash')
+    } else if (provider === 'gemini') {
       model = google('gemini-2.5-flash')
       fallbackModel = openai('gpt-4o-mini')
     } else {
@@ -327,16 +335,24 @@ ${JSON.stringify(promptData, null, 2)}`
       prompt: 'Gere o diagnóstico estruturado com base nestas estatísticas do aluno.'
     }
 
+    let primaryModel = google('gemini-2.5-flash')
+    let fallbackModel = openai('gpt-4o-mini')
+
+    if (process.env.OPENROUTER_API_KEY) {
+      primaryModel = openrouter('nvidia/nemotron-3-ultra-550b-a55b:free')
+      fallbackModel = google('gemini-2.5-flash')
+    }
+
     let result: any;
     try {
       result = await generateObject({
-        model: google('gemini-2.5-flash'),
+        model: primaryModel,
         ...objectOptions
       })
     } catch (err) {
       console.warn("Primary AI model failed for diagnostic, falling back to secondary model...", err);
       result = await generateObject({
-        model: openai('gpt-4o-mini'),
+        model: fallbackModel,
         ...objectOptions
       })
     }

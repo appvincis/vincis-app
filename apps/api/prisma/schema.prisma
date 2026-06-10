@@ -116,6 +116,7 @@ model Edital {
   fileUrl     String // Storage path, ex: `editais/${userId}/${filename}`
   fileSize    Int // In bytes
   parsedContent String? // Conteúdo de texto extraído do PDF
+  pageRange   String? // Faixa de páginas do edital, ex: "25-35"
   
   extractionStatus   String   @default("PENDING") // PENDING, PROCESSING, SUCCESS, FAILED
   extractionError    String?

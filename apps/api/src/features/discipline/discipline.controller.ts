@@ -8,6 +8,11 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { prisma } from "../../lib/prisma.js";
 
+const openrouter = createOpenAI({
+  baseURL: 'https://openrouter.ai/api/v1',
+  apiKey: process.env.OPENROUTER_API_KEY || ''
+});
+
 const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
@@ -17,13 +22,16 @@ const google = createGoogleGenerativeAI({
 });
 
 const getAiModel = () => {
+    if (process.env.OPENROUTER_API_KEY) {
+        return openrouter('nvidia/nemotron-3-ultra-550b-a55b:free');
+    }
     if (process.env.GEMINI_API_KEY) {
         return google('gemini-2.5-flash');
     }
     if (process.env.OPENAI_API_KEY) {
         return openai('gpt-4o-mini');
     }
-    throw new Error('Nenhuma chave de API (GEMINI_API_KEY ou OPENAI_API_KEY) configurada.');
+    throw new Error('Nenhuma chave de API (OPENROUTER_API_KEY, GEMINI_API_KEY ou OPENAI_API_KEY) configurada.');
 };
 
 const parseId = (raw: string | string[] | undefined) => Number(raw);
