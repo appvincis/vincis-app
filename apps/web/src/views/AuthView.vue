@@ -46,10 +46,11 @@ onMounted(() => {
   // Loop de Animação
   const animate = () => {
     ctx.clearRect(0, 0, width, height)
-    ctx.fillStyle = '#ebe7e4' // Fundo escuro igual ao aside
+    // Fundo preto sólido
+    ctx.fillStyle = '#000000'
     ctx.fillRect(0, 0, width, height)
 
-    // Desenhar linhas de conexão entre os pontos próximos
+    // Desenhar linhas de conexão entre os pontos próximos (douradas e mais visíveis)
     for (let i = 0; i < particleCount; i++) {
       const p1 = particles[i]
       if (!p1) continue
@@ -61,7 +62,8 @@ onMounted(() => {
         const dist = Math.sqrt(dx * dx + dy * dy)
 
         if (dist < 110) {
-          ctx.strokeStyle = `rgba(115, 92, 0, ${0.15 * (1 - dist / 110)})` // Linhas em tom dourado suave
+          // Linhas douradas com opacidade que aumenta conforme proximidade
+          ctx.strokeStyle = `rgba(212, 175, 55, ${0.8 * (1 - dist / 110)})` // Opacidade aumentada de 0.25 para 0.8
           ctx.lineWidth = 0.8
           ctx.beginPath()
           ctx.moveTo(p1.x, p1.y)
@@ -71,14 +73,21 @@ onMounted(() => {
       }
     }
 
-    // Atualizar posição e desenhar os pontos (nódulos)
+    // Atualizar posição e desenhar os pontos (nódulos dourados)
     for (let i = 0; i < particleCount; i++) {
       const p = particles[i]
       if (!p) continue
-      ctx.fillStyle = 'rgba(115, 92, 0, 0.4)'
+      // Pontos dourados com brilho
+      ctx.fillStyle = 'rgba(212, 175, 55, 0.8)'
       ctx.beginPath()
       ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2)
       ctx.fill()
+      
+      // Adicionar um pequeno brilho/glow nos pontos
+      ctx.shadowBlur = 4
+      ctx.shadowColor = 'rgba(212, 175, 55, 0.5)'
+      ctx.fill()
+      ctx.shadowBlur = 0 // Reset
 
       p.x += p.vx
       p.y += p.vy
@@ -435,7 +444,7 @@ if (!isLoginMode.value && password.value !== confirmPassword.value) {
   width: 45% !important;
   height: 100% !important; /* Garante que segue os 100vh do pai */
   position: relative !important;
-  background-color: #ebe7e4 !important;
+  background-color: #000000 !important; /* Fundo preto sólido para fallback */
   overflow: hidden !important; /* Impede scroll na parte editorial */
   box-sizing: border-box !important;
 }
@@ -506,21 +515,14 @@ if (!isLoginMode.value && password.value !== confirmPassword.value) {
   position: absolute !important;
   inset: 0 !important;
   z-index: 0 !important;
-}
-
-.aside-image {
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: cover !important;
-  mix-blend-mode: multiply !important;
-  opacity: 0.60 !important;
+  background-color: #000000; /* Fundo preto sólido para garantir que não haja vazamento */
 }
 
 .aside-overlay {
   position: absolute !important;
   inset: 0 !important;
-  background: linear-gradient(to top, #ebe7e4 0%, transparent 60%, #ebe7e4 100%) !important;
-  opacity: 0.90 !important;
+  background: linear-gradient(to top, #000000 0%, transparent 40%, #000000 100%) !important;
+  opacity: 0.6 !important;
   z-index: 1 !important;
 }
 
@@ -532,7 +534,7 @@ if (!isLoginMode.value && password.value !== confirmPassword.value) {
   height: 100% !important;
   padding: 4rem !important;
   justify-content: space-between !important;
-  color: #1c1b1a !important;
+  color: #ffffff !important; /* Texto branco para contraste com fundo preto */
   box-sizing: border-box !important;
 }
 
@@ -547,7 +549,6 @@ if (!isLoginMode.value && password.value !== confirmPassword.value) {
 .aside-logo-img {
   height: 12rem !important;
   width: auto !important;
-  filter: none !important;
 }
 
 .logo-text {
@@ -569,20 +570,20 @@ if (!isLoginMode.value && password.value !== confirmPassword.value) {
   line-height: 1.15 !important;
   margin-bottom: 2rem !important;
   font-style: italic !important;
-  color: #1c1b1a !important;
+  color: #ffffff !important; /* Título branco */
 }
 
 .aside-divider {
   width: 6rem !important;
   height: 4px !important;
-  background-color: var(--primary-container) !important;
+  background-color: #d4af37 !important; /* Dourado */
   margin-bottom: 2rem !important;
 }
 
 .aside-description {
   font-family: var(--ds-font-sans) !important;
   font-size: 1.125rem !important;
-  color: rgba(28, 27, 26, 0.7) !important;
+  color: rgba(255, 255, 255, 0.7) !important; /* Branco com opacidade */
   line-height: 1.65 !important;
 }
 
@@ -599,13 +600,13 @@ if (!isLoginMode.value && password.value !== confirmPassword.value) {
   font-weight: 700 !important;
   text-transform: uppercase !important;
   letter-spacing: 0.22em !important;
-  color: #1c1b1a !important;
+  color: #ffffff !important;
 }
 
 .aside-footer-copy {
   font-family: var(--ds-font-sans) !important;
   font-size: 0.875rem !important;
-  color: #1c1b1a !important;
+  color: #ffffff !important;
 }
 
 /* ─────────────────────────────────────────────────────────────────
@@ -909,7 +910,7 @@ if (!isLoginMode.value && password.value !== confirmPassword.value) {
 
 :deep(.p-inputtext:focus) {
   border-color: var(--primary) !important;
-  box-shadow: 0 0 0 2px rgba(115, 92, 0, 0.15) !important;
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.25) !important; /* Dourado com opacidade */
   outline: none !important;
 }
 
@@ -951,7 +952,7 @@ if (!isLoginMode.value && password.value !== confirmPassword.value) {
   background-color: var(--primary) !important;
   border-color: var(--primary) !important;
   transform: translateY(-1px) !important;
-  box-shadow: 0 6px 24px rgba(115, 92, 0, 0.25) !important;
+  box-shadow: 0 6px 24px rgba(212, 175, 55, 0.35) !important;
 }
 
 :deep(.p-button:active) {
