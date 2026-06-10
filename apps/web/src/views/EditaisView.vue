@@ -21,6 +21,37 @@ const deleteEdital = useDeleteEditalMutation()
 const getSignedUrl = useEditalSignedUrlMutation()
 const extractEdital = useExtractEditalMutation()
 
+import { api } from '../lib/axios'
+
+const cargos = ref<string[]>([])
+const selectedCargo = ref<string | null>(null)
+const customCargo = ref('')
+const loadingCargos = ref(false)
+const cargosError = ref('')
+const modalStep = ref(1)
+
+const fetchCargos = async (id: number) => {
+    loadingCargos.value = true
+    cargosError.value = ''
+    cargos.value = []
+    selectedCargo.value = null
+    customCargo.value = ''
+    
+    try {
+        const { data } = await api.get<{ cargos: string[] }>(`/editais/${id}/cargos`)
+        cargos.value = data.cargos || []
+        if (cargos.value.length > 0) {
+            // Inicia sem selecionar nenhum para dar a opção de extrair tudo por padrão
+            selectedCargo.value = null
+        }
+    } catch (e: any) {
+        console.error('Erro ao buscar cargos:', e)
+        cargosError.value = e.response?.data?.error || e.message || 'Erro ao carregar cargos.'
+    } finally {
+        loadingCargos.value = false
+    }
+}
+
 const extractingId = ref<number | null>(null)
 
 interface ExtractionJob {
@@ -72,7 +103,11 @@ const handleExtract = (id: number) => {
 
     selectedEditalId.value = id
     selectedEditalTitle.value = edital.title
+    modalStep.value = 1
     showConfirmModal.value = true
+    
+    // Iniciar a busca dos cargos disponíveis ao abrir o modal
+    fetchCargos(id)
 }
 
 const startExtractionProcess = async () => {
@@ -128,8 +163,16 @@ const startExtractionProcess = async () => {
 
     job.intervalId = intervalId
 
+    // Definir o cargo que será enviado
+    let targetCargoToSend: string | null = null
+    if (selectedCargo.value === 'custom') {
+        targetCargoToSend = customCargo.value.trim() || null
+    } else {
+        targetCargoToSend = selectedCargo.value
+    }
+
     try {
-        await extractEdital.mutateAsync(id)
+        await extractEdital.mutateAsync({ id, cargo: targetCargoToSend })
         // A extração foi iniciada no backend. O status do job será atualizado
         // pelo watcher que escuta as atualizações de editais via polling.
     } catch (e: any) {
@@ -595,41 +638,101 @@ const formatDate = (dateString: string) => {
     <!-- Modal de Confirmação e Aviso da Extração IA -->
     <VModal v-model:visible="showConfirmModal" header="Extração de Disciplinas com IA" :style="{ width: '450px' }" id="modal-confirm-extract" @close="showConfirmModal = false">
         <div class="modal-body text-left space-y-4">
-            <div class="flex items-center gap-3 text-primary mb-2">
-                <i class="pi pi-bolt text-2xl"></i>
-                <h3 class="font-bold text-lg text-on-surface">Iniciar Processamento?</h3>
-            </div>
-            
-            <p class="text-sm text-on-surface leading-relaxed">
-                Você está prestes a iniciar a extração automática das disciplinas e assuntos contidos no edital <strong>{{ selectedEditalTitle }}</strong>.
-            </p>
-
-            <div class="p-4 rounded-2xl bg-warning/10 border border-warning/30 text-xs text-warning space-y-2 leading-relaxed">
-                <div class="flex gap-2 font-bold text-sm">
-                    <i class="pi pi-exclamation-triangle mt-0.5 text-warning"></i>
-                    <span>AVISO IMPORTANTE</span>
+            <!-- Passo 1: Aviso Importante -->
+            <div v-if="modalStep === 1" class="space-y-4">
+                <div class="flex items-center gap-3 text-primary mb-2">
+                    <i class="pi pi-bolt text-2xl"></i>
+                    <h3 class="font-bold text-lg text-on-surface">Iniciar Processamento?</h3>
                 </div>
-                <p>
-                    Dependendo do tamanho e formatação do edital, esse processo é pesado e <strong>pode demorar de 30 segundos a alguns minutos</strong>.
+                
+                <p class="text-sm text-on-surface leading-relaxed">
+                    Você está prestes a iniciar a extração automática das disciplinas e assuntos contidos no edital <strong>{{ selectedEditalTitle }}</strong>.
                 </p>
-                <p class="font-semibold text-on-surface">
-                    A extração é baseada em inteligência artificial. Após a conclusão, o próprio usuário deve revisar o plano de estudos gerado, pois podem ocorrer falhas de mapeamento ou tópicos duplicados/omitidos.
+
+                <div class="p-4 rounded-2xl bg-warning/10 border border-warning/30 text-xs text-warning space-y-2 leading-relaxed">
+                    <div class="flex gap-2 font-bold text-sm">
+                        <i class="pi pi-exclamation-triangle mt-0.5 text-warning"></i>
+                        <span>AVISO IMPORTANTE</span>
+                    </div>
+                    <p>
+                        Dependendo do tamanho e formatação do edital, esse processo é pesado e <strong>pode demorar de 30 segundos a alguns minutos</strong>.
+                    </p>
+                    <p class="font-semibold text-on-surface">
+                        A extração é baseada em inteligência artificial. Após a conclusão, o próprio usuário deve revisar o plano de estudos gerado, pois podem ocorrer falhas de mapeamento ou tópicos duplicados/omitidos.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Passo 2: Seleção de Cargo -->
+            <div v-if="modalStep === 2" class="space-y-4">
+                <div class="flex items-center gap-3 text-primary mb-2">
+                    <i class="pi pi-filter text-2xl"></i>
+                    <h3 class="font-bold text-lg text-on-surface">Filtrar por Cargo</h3>
+                </div>
+                
+                <p class="text-sm text-on-surface leading-relaxed">
+                    Selecione o cargo pretendido para que a IA extraia apenas as matérias comuns e específicas deste cargo.
+                </p>
+
+                <div class="space-y-2 mt-4 text-left border-t border-outline-variant/15 pt-4">
+                    <label class="field-label">Cargo Pretendido (Filtro IA)</label>
+                    
+                    <div v-if="loadingCargos" class="flex items-center gap-2 py-2 text-xs text-on-surface-muted font-medium">
+                        <i class="pi pi-spin pi-spinner text-primary"></i>
+                        <span>Analisando edital para listar cargos...</span>
+                    </div>
+                    <div v-else-if="cargosError" class="text-xs text-error font-medium py-1">
+                        Não foi possível identificar a lista de cargos automaticamente. Você pode digitar abaixo ou extrair completo.
+                    </div>
+                    
+                    <div v-if="!loadingCargos">
+                        <!-- Dropdown de cargos extraídos se houver cargos -->
+                        <select v-if="cargos.length > 0" v-model="selectedCargo" class="ds-input mb-3">
+                            <option :value="null">-- Extrair tudo (sem filtrar por cargo) --</option>
+                            <option v-for="cargo in cargos" :key="cargo" :value="cargo">{{ cargo }}</option>
+                            <option value="custom">-- Outro cargo (digitar...) --</option>
+                        </select>
+                        
+                        <!-- Fallback input text para cargo manual -->
+                        <div v-if="cargos.length === 0 || selectedCargo === 'custom'" class="space-y-1">
+                            <input v-model="customCargo" 
+                                   type="text" 
+                                   class="ds-input" 
+                                   placeholder="Ex: Analista de TI, Soldado..." />
+                            <p class="text-[10px] text-on-surface-muted">
+                                Digite o cargo exatamente como consta no edital.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <p class="text-xs text-on-surface-muted mt-2">
+                    A extração será executada em segundo plano. Você poderá continuar usando a plataforma normalmente.
                 </p>
             </div>
-            
-            <p class="text-xs text-on-surface-muted">
-                A extração será executada em segundo plano. Você poderá continuar usando a plataforma normalmente.
-            </p>
         </div>
 
         <template #footer>
             <div class="modal-footer mt-4">
-                <VButton variant="ghost" @click="showConfirmModal = false">
-                    Cancelar
-                </VButton>
-                <VButton @click="startExtractionProcess" class="bg-primary text-white hover:bg-primary-dark">
-                    Iniciar Extração
-                </VButton>
+                <!-- Footer Passo 1 -->
+                <template v-if="modalStep === 1">
+                    <VButton variant="ghost" @click="showConfirmModal = false">
+                        Cancelar
+                    </VButton>
+                    <VButton @click="modalStep = 2" class="bg-primary text-white hover:bg-primary-dark">
+                        Continuar
+                    </VButton>
+                </template>
+                
+                <!-- Footer Passo 2 -->
+                <template v-else-if="modalStep === 2">
+                    <VButton variant="ghost" @click="modalStep = 1">
+                        Voltar
+                    </VButton>
+                    <VButton @click="startExtractionProcess" class="bg-primary text-white hover:bg-primary-dark" :disabled="loadingCargos">
+                        Iniciar Extração
+                    </VButton>
+                </template>
             </div>
         </template>
     </VModal>

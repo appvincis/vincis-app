@@ -6,6 +6,7 @@ import { PRESET_COLORS } from '../../../helpers/disciplineColors'
 const props = defineProps<{
     showCreateForm: boolean
     isCreating: boolean
+    isPremium?: boolean
 }>()
 
 const emit = defineEmits(['create-discipline', 'cancel-create'])
@@ -52,7 +53,7 @@ function handleCancel() {
 
                 <!-- Modal -->
                 <div
-                    class="relative bg-surface-container-lowest rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+                     class="relative bg-surface-container-lowest rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
                     <!-- Header -->
                     <div class="flex items-center justify-between px-6 pt-6 pb-4">
                         <h2 class="text-xl font-headline font-bold text-on-surface">Nova Disciplina</h2>
@@ -110,7 +111,15 @@ function handleCancel() {
                         </div>
 
                         <!-- Optional Syllabus for IA Extraction -->
-                        <div class="border-t border-outline-variant/20 pt-4">
+                        <div class="border-t border-outline-variant/20 pt-4 relative">
+                            <!-- Premium lock for AI Wand in Create Form -->
+                            <div v-if="!isPremium" class="absolute inset-0 bg-surface-container-lowest/70 backdrop-blur-[0.5px] z-10 flex items-center justify-center p-4">
+                                <p class="text-xs font-semibold text-on-surface-muted flex items-center gap-1.5 bg-surface-container-low px-3 py-1.5 rounded-full border border-outline-variant/30 select-none">
+                                    <i class="pi pi-lock text-primary"></i>
+                                    Varinha IA (Premium)
+                                </p>
+                            </div>
+
                             <label
                                 class="block text-[10px] font-label font-bold uppercase tracking-[0.15em] text-primary mb-2 flex items-center gap-1.5">
                                 <i class="pi pi-magic text-[10px]"></i>

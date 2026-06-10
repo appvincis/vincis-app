@@ -22,18 +22,59 @@ const google = createGoogleGenerativeAI({
   apiKey: process.env.GEMINI_API_KEY
 });
 
-const getAiModel = () => {
+const getAiModels = () => {
+    const models = [];
     if (process.env.OPENROUTER_API_KEY) {
-        return openrouter('nvidia/nemotron-3-ultra-550b-a55b:free');
+        models.push(openrouter('nvidia/nemotron-3-ultra-550b-a55b:free'));
     }
     if (process.env.GEMINI_API_KEY) {
-        return google('gemini-2.5-flash');
+        models.push(google('gemini-2.5-flash'));
     }
     if (process.env.OPENAI_API_KEY) {
-        return openai('gpt-4o-mini');
+        models.push(openai('gpt-4o-mini'));
     }
-    throw new Error('Nenhuma chave de API (OPENROUTER_API_KEY, GEMINI_API_KEY ou OPENAI_API_KEY) configurada.');
+    if (process.env.OPENROUTER_API_KEY) {
+        models.push(openrouter('google/gemini-2.5-flash'));
+    }
+    if (models.length === 0) {
+        throw new Error('Nenhuma chave de API (OPENROUTER_API_KEY, GEMINI_API_KEY ou OPENAI_API_KEY) configurada.');
+    }
+    return models;
 };
+
+async function generateObjectWithFallback(options: any) {
+    const models = getAiModels();
+    let lastError: any;
+    for (const model of models) {
+        try {
+            return await generateObject({
+                ...options,
+                model
+            });
+        } catch (err) {
+            console.warn(`generateObject failed for ${model.modelId || 'model'}, trying next fallback...`, err);
+            lastError = err;
+        }
+    }
+    throw lastError || new Error("Todos os modelos falharam na geração de objeto.");
+}
+
+async function streamObjectWithFallback(options: any) {
+    const models = getAiModels();
+    let lastError: any;
+    for (const model of models) {
+        try {
+            return await streamObject({
+                ...options,
+                model
+            });
+        } catch (err) {
+            console.warn(`streamObject failed for ${model.modelId || 'model'}, trying next fallback...`, err);
+            lastError = err;
+        }
+    }
+    throw lastError || new Error("Todos os modelos falharam no streaming de objeto.");
+}
 
 const normalizeText = (text: string): string => {
     return text
@@ -269,6 +310,43 @@ export const deleteEdital = async (req: AuthenticatedRequest, res: Response): Pr
     }
 };
 
+export const getEditalCargos = async (req: AuthenticatedRequest, res: Response): Promise<any> => {
+    try {
+        const userId = req.dbUser?.id;
+        const editalId = parseInt(req.params.id as string);
+
+        if (!userId) return res.status(401).json({ error: 'Não autorizado' });
+        if (isNaN(editalId)) return res.status(400).json({ error: 'ID inválido' });
+
+        const edital = await prisma.edital.findFirst({ where: { id: editalId, userId } });
+        if (!edital) return res.status(404).json({ error: 'Edital não encontrado' });
+
+        const parsedContent = edital.parsedContent;
+        if (!parsedContent) {
+            return res.status(400).json({ error: 'Este edital não possui conteúdo textual extraído para processamento.' });
+        }
+
+        // Os cargos geralmente aparecem no início do edital. Usamos uma janela dos primeiros 120.000 caracteres.
+        const candidateText = parsedContent.substring(0, 120000);
+        const response = await generateObjectWithFallback({
+            schema: z.object({
+                cargos: z.array(z.string().describe('Nome curto e oficial do cargo encontrado no edital (ex: Analista de TI, Técnico Administrativo, Soldado)'))
+            }),
+            prompt: `Analise o texto do edital abaixo e extraia todos os cargos/vagas disponíveis listados no concurso.\n` +
+                    `Retorne uma lista limpa apenas com os nomes oficiais dos cargos, sem salários, requisitos ou códigos.\n\n` +
+                    `--- CONTEÚDO DO EDITAL ---\n` +
+                    candidateText,
+            temperature: 0.1,
+        });
+
+        const cargos = (response.object as { cargos: string[] }).cargos || [];
+        return res.json({ cargos });
+    } catch (error: any) {
+        console.error('Erro ao extrair cargos do edital:', error);
+        return res.status(500).json({ error: error.message || 'Erro ao extrair cargos do edital.' });
+    }
+};
+
 export const extractEdital = async (req: AuthenticatedRequest, res: Response): Promise<any> => {
     try {
         const userId = req.dbUser?.id;
@@ -293,6 +371,9 @@ export const extractEdital = async (req: AuthenticatedRequest, res: Response): P
         if (edital.extractionStatus === 'PROCESSING') {
             return res.status(409).json({ error: 'Uma extração para este edital já está em andamento.' });
         }
+
+        // Ler o cargo desejado se enviado no body
+        const { cargo } = req.body;
 
         // Resolvendo o plano de estudos ativo (cookie ou banco)
         let studyPlanId = req.cookies?.study_plan_id ? Number(req.cookies.study_plan_id) : null;
@@ -343,8 +424,6 @@ export const extractEdital = async (req: AuthenticatedRequest, res: Response): P
                     candidateSyllabusChunk = extractSyllabusText(parsedContent);
                 }
 
-                const model = getAiModel();
-
                 await prisma.edital.update({
                     where: { id: editalId },
                     data: {
@@ -352,9 +431,15 @@ export const extractEdital = async (req: AuthenticatedRequest, res: Response): P
                     }
                 });
                 
+                let targetJobPrompt = '';
+                if (cargo) {
+                    targetJobPrompt = `Você deve focar na extração das disciplinas pertinentes ao cargo "${cargo}". Extraia tanto as disciplinas de Conhecimentos Básicos/Gerais (comuns a todos os cargos) quanto as disciplinas de Conhecimentos Específicos exclusivas para o cargo "${cargo}". Ignore disciplinas de conhecimentos específicos destinadas a outros cargos.`;
+                } else {
+                    targetJobPrompt = `Extraia todas as disciplinas e conteúdos programáticos gerais e específicos encontrados.`;
+                }
+
                 // Extração estruturada a partir do texto recortado do edital com progresso em streaming
-                const response = await streamObject({
-                    model,
+                const response = (await streamObjectWithFallback({
                     schema: z.object({
                         disciplines: z.array(z.object({
                             name: z.string().describe('Nome da disciplina, ex: Língua Portuguesa'),
@@ -367,13 +452,14 @@ export const extractEdital = async (req: AuthenticatedRequest, res: Response): P
                     prompt: `Analise o texto recortado do edital abaixo e extraia o conteúdo programático estruturado.\n\n` +
                             `CRITÉRIOS RIGOROSOS DE EXTRAÇÃO:\n` +
                             `1. Ignore regras de provas, inscrições, datas, taxas, atribuições de cargo, etc. Foque EXCLUSIVAMENTE nas disciplinas/matérias de estudo e seus respectivos tópicos/assuntos.\n` +
-                            `2. Separe todas as disciplinas encontradas (ex: Língua Portuguesa, Informática, Direito Constitucional, etc).\n` +
-                            `3. DENTRO DE CADA DISCIPLINA: quebre blocos longos de texto em tópicos individuais curtos e objetivos (ex: "Crase", "Acentuação").\n` +
-                            `4. Use o idioma português.\n\n` +
+                            `2. ${targetJobPrompt}\n` +
+                            `3. Separe todas as disciplinas encontradas (ex: Língua Portuguesa, Informática, Direito Constitucional, etc).\n` +
+                            `4. DENTRO DE CADA DISCIPLINA: quebre blocos longos de texto em tópicos individuais curtos e objetivos (ex: "Crase", "Acentuação").\n` +
+                            `5. Use o idioma português.\n\n` +
                             `--- CONTEÚDO DO EDITAL ---\n` +
                             candidateSyllabusChunk,
                     temperature: 0.1,
-                });
+                })) as any;
 
                 let lastLoggedDiscipline = '';
                 let lastUpdateTime = 0;
@@ -442,7 +528,7 @@ export const extractEdital = async (req: AuthenticatedRequest, res: Response): P
 
                         if (discData.topics && discData.topics.length > 0) {
                             await tx.topic.createMany({
-                                data: discData.topics.map(t => ({
+                                data: discData.topics.map((t: any) => ({
                                     name: t.name,
                                     description: t.description || null,
                                     disciplineId: discipline.id,

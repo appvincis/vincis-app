@@ -1,4 +1,7 @@
 import 'dotenv/config'
+import dns from 'dns'
+dns.setDefaultResultOrder('ipv4first')
+
 import express, { Request, Response } from 'express'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'

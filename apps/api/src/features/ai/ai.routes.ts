@@ -156,13 +156,19 @@ aiRouter.post('/chat', async (req: Request, res: Response) => {
     let fallbackModel: any
     if (process.env.OPENROUTER_API_KEY) {
       model = openrouter('nvidia/nemotron-3-ultra-550b-a55b:free')
-      fallbackModel = google('gemini-2.5-flash')
-    } else if (provider === 'gemini') {
+      fallbackModel = process.env.GEMINI_API_KEY 
+        ? google('gemini-2.5-flash') 
+        : (process.env.OPENAI_API_KEY 
+            ? openai('gpt-4o-mini') 
+            : openrouter('google/gemini-2.5-flash'))
+    } else if (process.env.GEMINI_API_KEY) {
       model = google('gemini-2.5-flash')
-      fallbackModel = openai('gpt-4o-mini')
-    } else {
+      fallbackModel = process.env.OPENAI_API_KEY ? openai('gpt-4o-mini') : openrouter('google/gemini-2.5-flash')
+    } else if (process.env.OPENAI_API_KEY) {
       model = openai('gpt-4o-mini')
       fallbackModel = google('gemini-2.5-flash')
+    } else {
+      throw new Error('Nenhuma chave de API (OPENROUTER_API_KEY, GEMINI_API_KEY ou OPENAI_API_KEY) configurada.')
     }
 
     let finalSystemPrompt = systemInstruction;
@@ -335,12 +341,24 @@ ${JSON.stringify(promptData, null, 2)}`
       prompt: 'Gere o diagnóstico estruturado com base nestas estatísticas do aluno.'
     }
 
-    let primaryModel = google('gemini-2.5-flash')
-    let fallbackModel = openai('gpt-4o-mini')
-
+    let primaryModel: any
+    let fallbackModel: any
+    
     if (process.env.OPENROUTER_API_KEY) {
       primaryModel = openrouter('nvidia/nemotron-3-ultra-550b-a55b:free')
+      fallbackModel = process.env.GEMINI_API_KEY 
+        ? google('gemini-2.5-flash') 
+        : (process.env.OPENAI_API_KEY 
+            ? openai('gpt-4o-mini') 
+            : openrouter('google/gemini-2.5-flash'))
+    } else if (process.env.GEMINI_API_KEY) {
+      primaryModel = google('gemini-2.5-flash')
+      fallbackModel = process.env.OPENAI_API_KEY ? openai('gpt-4o-mini') : openrouter('google/gemini-2.5-flash')
+    } else if (process.env.OPENAI_API_KEY) {
+      primaryModel = openai('gpt-4o-mini')
       fallbackModel = google('gemini-2.5-flash')
+    } else {
+      throw new Error('Nenhuma chave de API (OPENROUTER_API_KEY, GEMINI_API_KEY ou OPENAI_API_KEY) configurada.')
     }
 
     let result: any;

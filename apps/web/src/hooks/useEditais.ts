@@ -66,8 +66,8 @@ export const useEditalSignedUrlMutation = () => {
 export const useExtractEditalMutation = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async (id: number) => {
-            const { data } = await api.post<{ message: string; disciplinesCreated: number; topicsCreated: number; tokensSpent?: number }>(`/editais/${id}/extract`);
+        mutationFn: async ({ id, cargo }: { id: number; cargo?: string | null }) => {
+            const { data } = await api.post<{ message: string; disciplinesCreated: number; topicsCreated: number; tokensSpent?: number }>(`/editais/${id}/extract`, { cargo });
             return data;
         },
         onSuccess: () => {

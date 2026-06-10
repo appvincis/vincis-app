@@ -21,18 +21,42 @@ const google = createGoogleGenerativeAI({
   apiKey: process.env.GEMINI_API_KEY
 });
 
-const getAiModel = () => {
+const getAiModels = () => {
+    const models = [];
     if (process.env.OPENROUTER_API_KEY) {
-        return openrouter('nvidia/nemotron-3-ultra-550b-a55b:free');
+        models.push(openrouter('nvidia/nemotron-3-ultra-550b-a55b:free'));
     }
     if (process.env.GEMINI_API_KEY) {
-        return google('gemini-2.5-flash');
+        models.push(google('gemini-2.5-flash'));
     }
     if (process.env.OPENAI_API_KEY) {
-        return openai('gpt-4o-mini');
+        models.push(openai('gpt-4o-mini'));
     }
-    throw new Error('Nenhuma chave de API (OPENROUTER_API_KEY, GEMINI_API_KEY ou OPENAI_API_KEY) configurada.');
+    if (process.env.OPENROUTER_API_KEY) {
+        models.push(openrouter('google/gemini-2.5-flash'));
+    }
+    if (models.length === 0) {
+        throw new Error('Nenhuma chave de API (OPENROUTER_API_KEY, GEMINI_API_KEY ou OPENAI_API_KEY) configurada.');
+    }
+    return models;
 };
+
+async function generateObjectWithFallback(options: any) {
+    const models = getAiModels();
+    let lastError: any;
+    for (const model of models) {
+        try {
+            return await generateObject({
+                ...options,
+                model
+            });
+        } catch (err) {
+            console.warn(`generateObject failed for ${model.modelId || 'model'}, trying next fallback...`, err);
+            lastError = err;
+        }
+    }
+    throw lastError || new Error("Todos os modelos falharam na geração estruturada.");
+}
 
 const parseId = (raw: string | string[] | undefined) => Number(raw);
 
@@ -149,9 +173,7 @@ export async function generateTopicsForDiscipline(req: Request, res: Response) {
             return res.status(404).json({ message: "Disciplina não encontrada." });
         }
 
-        const model = getAiModel();
-        const response = await generateObject({
-            model,
+        const response = await generateObjectWithFallback({
             schema: z.object({
                 topics: z.array(z.object({
                     name: z.string().describe('Nome curto e objetivo do tópico, ex: Crase'),
@@ -167,7 +189,7 @@ export async function generateTopicsForDiscipline(req: Request, res: Response) {
             temperature: 0.1,
         });
 
-        const extracted = response.object;
+        const extracted = response.object as { topics: { name: string; description?: string }[] };
         if (!extracted.topics || extracted.topics.length === 0) {
             return res.status(422).json({ message: "Nenhum tópico pôde ser extraído." });
         }
