@@ -17,6 +17,8 @@ import { errorLogRouter } from './features/error-log/error-log.routes.js'
 import { editalRouter } from './features/edital/edital.routes.js'
 import { paymentRouter } from './features/payment/payment.routes.js'
 import { focusSessionRouter } from './features/focus-session/focus-session.routes.js'
+import { initQueue } from './lib/queue.service.js'
+import { registerExtractionWorker } from './features/edital/extraction.worker.js'
 
 const PORT = Number(process.env.PORT) || 4000
 const app = express()
@@ -65,6 +67,14 @@ prisma.$connect()
             }
         } catch (dbErr) {
             console.error('[Startup] Falha ao resetar extrações pendentes:', dbErr);
+        }
+
+        // Inicializar a fila e registrar o worker de extração
+        try {
+            await initQueue();
+            registerExtractionWorker();
+        } catch (queueErr) {
+            console.error('[Startup] Erro ao inicializar a fila do pg-boss:', queueErr);
         }
 
         app.listen(PORT, () => {

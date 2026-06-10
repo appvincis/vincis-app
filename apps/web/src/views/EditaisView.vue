@@ -205,7 +205,7 @@ const startExtractionProcess = async () => {
 let pollingIntervalId: any = null
 
 const startPollingIfNeeded = () => {
-    const hasProcessing = editais.value?.some(e => e.extractionStatus === 'PROCESSING')
+    const hasProcessing = editais.value?.some(e => e.extractionStatus === 'PROCESSING' || e.extractionStatus === 'QUEUED')
     if (hasProcessing) {
         if (!pollingIntervalId) {
             pollingIntervalId = setInterval(() => {
@@ -226,7 +226,7 @@ watch(editais, (newEditais) => {
     newEditais.forEach(edital => {
         const jobIndex = activeExtractions.value.findIndex(j => j.id === edital.id)
 
-        if (edital.extractionStatus === 'PROCESSING') {
+        if (edital.extractionStatus === 'PROCESSING' || edital.extractionStatus === 'QUEUED') {
             if (jobIndex === -1) {
                 // Nova extração detectada em progresso (ex: após refresh)
                 const initialProgress = savedProgresses.value[edital.id] || 15;
@@ -335,7 +335,7 @@ const isJobRunning = (id: number) => {
     const job = activeExtractions.value.find(j => j.id === id)
     if (job) return job.status === 'running'
     const edital = editais.value?.find(e => e.id === id)
-    return edital?.extractionStatus === 'PROCESSING'
+    return edital?.extractionStatus === 'PROCESSING' || edital?.extractionStatus === 'QUEUED'
 }
 
 // ─── Modal Upload ─────────────────────────────────────────────────────────────
@@ -507,6 +507,9 @@ const formatDate = (dateString: string) => {
         <div class="mb-4 flex flex-wrap gap-2 text-left">
             <span v-if="edital.extractionStatus === 'SUCCESS'" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-success/10 text-success border border-success/20">
                 <i class="pi pi-check text-[8px]"></i> Grade Extraída ({{ edital.disciplinesCreated }} disc. / {{ edital.topicsCreated }} tóp.)
+            </span>
+            <span v-else-if="edital.extractionStatus === 'QUEUED'" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-warning/10 text-warning border border-warning/20" :title="edital.extractionError || ''">
+                <i class="pi pi-hourglass text-[8px] animate-pulse"></i> {{ edital.extractionError || 'Aguardando na fila...' }}
             </span>
             <span v-else-if="edital.extractionStatus === 'PROCESSING' || isJobRunning(edital.id)" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 animate-pulse" :title="edital.extractionError || ''">
                 <i class="pi pi-spin pi-spinner text-[8px]"></i> {{ edital.extractionError || 'Processando IA...' }}

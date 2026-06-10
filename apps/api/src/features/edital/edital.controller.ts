@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthenticatedRequest } from '../auth/auth.middleware.js';
 import { prisma } from '../../lib/prisma.js';
 import { supabaseAdmin } from '../../lib/supabase.js';
+import { boss } from '../../lib/queue.service.js';
 import crypto from 'crypto';
 import { PDFParse } from 'pdf-parse';
 import { generateObject, generateText, streamObject } from 'ai';
@@ -42,7 +43,7 @@ const getAiModels = () => {
     return models;
 };
 
-async function generateObjectWithFallback(options: any) {
+export async function generateObjectWithFallback(options: any) {
     const models = getAiModels();
     let lastError: any;
     for (const model of models) {
@@ -59,7 +60,7 @@ async function generateObjectWithFallback(options: any) {
     throw lastError || new Error("Todos os modelos falharam na geração de objeto.");
 }
 
-async function streamObjectWithFallback(options: any) {
+export async function streamObjectWithFallback(options: any) {
     const models = getAiModels();
     let lastError: any;
     for (const model of models) {
@@ -83,7 +84,7 @@ const normalizeText = (text: string): string => {
         .toLowerCase();
 };
 
-const extractPages = (fullText: string, startPage: number, endPage: number): string => {
+export const extractPages = (fullText: string, startPage: number, endPage: number): string => {
     if (!fullText) return '';
     const lines = fullText.split('\n');
     let output = '';
@@ -110,7 +111,7 @@ const extractPages = (fullText: string, startPage: number, endPage: number): str
     return output.trim();
 };
 
-const extractSyllabusText = (fullText: string): string => {
+export const extractSyllabusText = (fullText: string): string => {
     if (!fullText) return '';
     
     const totalLength = fullText.length;
@@ -358,7 +359,7 @@ interface SyllabusPageRange {
     };
 }
 
-async function locateSyllabusPages(parsedContent: string, cargo?: string): Promise<SyllabusPageRange> {
+export async function locateSyllabusPages(parsedContent: string, cargo?: string): Promise<SyllabusPageRange> {
     try {
         // Obter os primeiros 150.000 caracteres para ver o sumário e as partes iniciais
         const summaryText = parsedContent.substring(0, 150000);
@@ -433,8 +434,8 @@ export const extractEdital = async (req: AuthenticatedRequest, res: Response): P
         }
 
         // Lock de concorrência: se já está rodando, impede nova chamada
-        if (edital.extractionStatus === 'PROCESSING') {
-            return res.status(409).json({ error: 'Uma extração para este edital já está em andamento.' });
+        if (edital.extractionStatus === 'PROCESSING' || edital.extractionStatus === 'QUEUED') {
+            return res.status(409).json({ error: 'Uma extração para este edital já está em andamento ou aguardando na fila.' });
         }
 
         // Ler o cargo desejado se enviado no body
@@ -458,202 +459,29 @@ export const extractEdital = async (req: AuthenticatedRequest, res: Response): P
             return res.status(400).json({ error: 'Você precisa ter pelo menos um Plano de Estudo criado para realizar a extração.' });
         }
 
-        // Atualizar status para PROCESSING e limpar erros anteriores no banco
-        await prisma.edital.update({
+        // Atualizar status para QUEUED e limpar erros anteriores no banco
+        await (prisma.edital.update as any)({
             where: { id: editalId },
             data: {
-                extractionStatus: 'PROCESSING',
-                extractionError: 'Limpando e preparando edital...',
+                extractionStatus: 'QUEUED',
+                extractionError: 'Aguardando na fila de processamento...',
                 cargo: cargo || null
             }
         });
 
         // Responder imediatamente ao cliente com 202 Accepted
         res.status(202).json({
-            message: 'Extração iniciada em segundo plano.',
-            status: 'PROCESSING'
+            message: 'Extração agendada com sucesso.',
+            status: 'QUEUED'
         });
 
-        // Inicia processamento assíncrono em segundo plano
-        (async () => {
-            try {
-                // Extrair páginas específicas se indicadas pelo usuário, ou usar heurística inteligente
-                let candidateSyllabusChunk = '';
-                if (edital.pageRange && /^\d+-\d+$/.test(edital.pageRange)) {
-                    const [startStr, endStr] = edital.pageRange.split('-');
-                    const startPage = parseInt(startStr);
-                    const endPage = parseInt(endStr);
-                    candidateSyllabusChunk = extractPages(parsedContent, startPage, endPage);
-                } else if (cargo) {
-                    try {
-                        console.log(`[Extração] Mapeando páginas para o cargo: ${cargo}`);
-                        const pages = await locateSyllabusPages(parsedContent, cargo);
-                        let generalChunk = '';
-                        let specificChunk = '';
-
-                        if (pages.geral.startPage && pages.geral.endPage) {
-                            console.log(`[Extração] Páginas Geral detectadas: ${pages.geral.startPage}-${pages.geral.endPage}`);
-                            generalChunk = extractPages(parsedContent, pages.geral.startPage, pages.geral.endPage);
-                        }
-                        if (pages.especifico.startPage && pages.especifico.endPage) {
-                            console.log(`[Extração] Páginas Específico detectadas: ${pages.especifico.startPage}-${pages.especifico.endPage}`);
-                            specificChunk = extractPages(parsedContent, pages.especifico.startPage, pages.especifico.endPage);
-                        }
-
-                        if (generalChunk || specificChunk) {
-                            candidateSyllabusChunk = [
-                                generalChunk ? `--- SEÇÃO CONHECIMENTOS BÁSICOS/GERAIS ---\n${generalChunk}` : '',
-                                specificChunk ? `--- SEÇÃO CONHECIMENTOS ESPECÍFICOS (${cargo}) ---\n${specificChunk}` : ''
-                            ].filter(Boolean).join('\n\n');
-                        }
-                    } catch (err) {
-                        console.error('[Extração] Falha ao mapear páginas por cargo:', err);
-                    }
-                }
-
-                if (!candidateSyllabusChunk) {
-                    console.log('[Extração] Usando método tradicional de janela de texto...');
-                    candidateSyllabusChunk = extractSyllabusText(parsedContent);
-                }
-
-                await prisma.edital.update({
-                    where: { id: editalId },
-                    data: {
-                        extractionError: 'Iniciando extração da grade...'
-                    }
-                });
-                
-                let targetJobPrompt = '';
-                if (cargo) {
-                    targetJobPrompt = `Você deve focar na extração das disciplinas pertinentes ao cargo "${cargo}". Extraia tanto as disciplinas de Conhecimentos Básicos/Gerais (comuns a todos os cargos) quanto as disciplinas de Conhecimentos Específicos exclusivas para o cargo "${cargo}". Ignore disciplinas de conhecimentos específicos destinadas a outros cargos.`;
-                } else {
-                    targetJobPrompt = `Extraia todas as disciplinas e conteúdos programáticos gerais e específicos encontrados.`;
-                }
-
-                // Extração estruturada a partir do texto recortado do edital com progresso em streaming
-                const response = (await streamObjectWithFallback({
-                    schema: z.object({
-                        disciplines: z.array(z.object({
-                            name: z.string().describe('Nome da disciplina, ex: Língua Portuguesa'),
-                            topics: z.array(z.object({
-                                name: z.string().describe('Nome curto do tópico/assunto'),
-                                description: z.string().optional().describe('Descrição curta do tópico')
-                            }))
-                        }))
-                    }),
-                    prompt: `Analise o texto recortado do edital abaixo e extraia o conteúdo programático estruturado.\n\n` +
-                            `CRITÉRIOS RIGOROSOS DE EXTRAÇÃO:\n` +
-                            `1. Ignore regras de provas, inscrições, datas, taxas, atribuições de cargo, etc. Foque EXCLUSIVAMENTE nas disciplinas/matérias de estudo e seus respectivos tópicos/assuntos.\n` +
-                            `2. ${targetJobPrompt}\n` +
-                            `3. Separe todas as disciplinas encontradas (ex: Língua Portuguesa, Informática, Direito Constitucional, etc).\n` +
-                            `4. DENTRO DE CADA DISCIPLINA: quebre blocos longos de texto em tópicos individuais curtos e objetivos (ex: "Crase", "Acentuação").\n` +
-                            `5. Use o idioma português.\n\n` +
-                            `--- CONTEÚDO DO EDITAL ---\n` +
-                            candidateSyllabusChunk,
-                    temperature: 0.1,
-                })) as any;
-
-                let lastLoggedDiscipline = '';
-                let lastUpdateTime = 0;
-
-                for await (const partial of response.partialObjectStream) {
-                    const disciplines = partial.disciplines;
-                    if (disciplines && disciplines.length > 0) {
-                        const lastDiscipline = disciplines[disciplines.length - 1];
-                        if (lastDiscipline && lastDiscipline.name) {
-                            const name = lastDiscipline.name;
-                            const now = Date.now();
-                            // throttled updates (every 1.5 seconds) to avoid overload
-                            if (name !== lastLoggedDiscipline || now - lastUpdateTime > 1500) {
-                                lastLoggedDiscipline = name;
-                                lastUpdateTime = now;
-                                try {
-                                    await prisma.edital.update({
-                                        where: { id: editalId },
-                                        data: {
-                                            extractionError: `Extraindo: ${name}...`
-                                        }
-                                    });
-                                } catch (dbErr) {
-                                    // ignore intermittent db errors to avoid breaking execution
-                                }
-                            }
-                        }
-                    }
-                }
-
-                const extracted = await response.object;
-                if (!extracted.disciplines || extracted.disciplines.length === 0) {
-                    throw new Error('Nenhuma disciplina pôde ser extraída do texto do edital.');
-                }
-
-                await prisma.edital.update({
-                    where: { id: editalId },
-                    data: {
-                        extractionError: 'Salvando disciplinas no banco...'
-                    }
-                });
-
-                const presetColors = [
-                    '#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f97316',
-                    '#eab308', '#22c55e', '#14b8a6', '#3b82f6', '#735c00'
-                ];
-
-                let disciplinesCreatedCount = 0;
-                let topicsCreatedCount = 0;
-
-                // Inserir no banco de dados em transação
-                await prisma.$transaction(async (tx) => {
-                    for (let i = 0; i < extracted.disciplines.length; i++) {
-                        const discData = extracted.disciplines[i];
-                        const color = presetColors[i % presetColors.length];
-
-                        const discipline = await tx.discipline.create({
-                            data: {
-                                name: discData.name,
-                                color,
-                                weight: 1.0,
-                                studyPlanId
-                            }
-                        });
-                        disciplinesCreatedCount++;
-
-                        if (discData.topics && discData.topics.length > 0) {
-                            await tx.topic.createMany({
-                                data: discData.topics.map((t: any) => ({
-                                    name: t.name,
-                                    description: t.description || null,
-                                    disciplineId: discipline.id,
-                                    isCompleted: false
-                                }))
-                            });
-                            topicsCreatedCount += discData.topics.length;
-                        }
-                    }
-                });
-
-                // Atualizar status para sucesso com as métricas geradas e limpar logs temporários
-                await prisma.edital.update({
-                    where: { id: editalId },
-                    data: {
-                        extractionStatus: 'SUCCESS',
-                        extractionError: null,
-                        disciplinesCreated: disciplinesCreatedCount,
-                        topicsCreated: topicsCreatedCount
-                    }
-                });
-
-            } catch (bgError: any) {
-                console.error('Erro na extração de edital em segundo plano:', bgError);
-                await prisma.edital.update({
-                    where: { id: editalId },
-                    data: {
-                        extractionStatus: 'FAILED',
-                        extractionError: bgError.message || 'Erro desconhecido durante o processamento com IA.'
-                    }
-                });
-            }
-        })();
+        // Publicar o job na fila para processamento em segundo plano pelo worker
+        await boss.send('edital-extraction', {
+            editalId,
+            userId,
+            studyPlanId,
+            cargo: cargo || null
+        });
 
     } catch (error: any) {
         console.error('Erro ao iniciar extração de edital:', error);
