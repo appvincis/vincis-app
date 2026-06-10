@@ -118,6 +118,14 @@ model Edital {
   parsedContent String? // Conteúdo de texto extraído do PDF
   pageRange   String? // Faixa de páginas do edital, ex: "25-35"
   
+  // Cache do trecho de conteúdo programático já localizado — evita relocalização a cada extração
+  syllabusChunk      String? // Texto do CP extraído e salvo após primeira localização
+  syllabusChunkCargo String? // Cargo para o qual syllabusChunk foi extraído (null = geral)
+
+  // Segmentos pré-parseados por disciplina — permite extração paralela e sem IA quando possível
+  // Formato: [{name: string, rawText: string, topics?: string[], order: number}]
+  syllabusSegments   Json?
+
   extractionStatus   String   @default("PENDING") // PENDING, PROCESSING, SUCCESS, FAILED
   extractionError    String?
   cargo              String?

@@ -9,6 +9,7 @@ import { generateObject, generateText, streamObject } from 'ai';
 import { z } from 'zod';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { segmentByDiscipline } from './edital.segmenter.js';
 
 const openrouter = createOpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
@@ -25,17 +26,21 @@ const google = createGoogleGenerativeAI({
 
 const getAiModels = () => {
     const models = [];
+    // Prioridade 1: OpenRouter com Gemini 2.5 Flash (boa relação custo/velocidade)
     if (process.env.OPENROUTER_API_KEY) {
-        models.push(openrouter('nvidia/nemotron-3-ultra-550b-a55b:free'));
+        models.push(openrouter.chat('google/gemini-2.5-flash'));
     }
+    // Prioridade 2: Gemini nativo
     if (process.env.GEMINI_API_KEY) {
         models.push(google('gemini-2.5-flash'));
     }
-    if (process.env.OPENAI_API_KEY) {
-        models.push(openai('gpt-4o-mini'));
+    // Prioridade 3: OpenAI nativo (só se a chave for real — começa com 'sk-')
+    if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.startsWith('sk-')) {
+        models.push(openai.chat('gpt-4o-mini'));
     }
+    // Prioridade 4: Modelo gratuito via OpenRouter (último recurso)
     if (process.env.OPENROUTER_API_KEY) {
-        models.push(openrouter('google/gemini-2.5-flash'));
+        models.push(openrouter.chat('nvidia/nemotron-3-ultra-550b-a55b:free'));
     }
     if (models.length === 0) {
         throw new Error('Nenhuma chave de API (OPENROUTER_API_KEY, GEMINI_API_KEY ou OPENAI_API_KEY) configurada.');
@@ -60,17 +65,25 @@ export async function generateObjectWithFallback(options: any) {
     throw lastError || new Error("Todos os modelos falharam na geração de objeto.");
 }
 
+const MODEL_TIMEOUT_MS = 45000; // 45s por modelo antes de tentar o próximo
+
 export async function streamObjectWithFallback(options: any) {
     const models = getAiModels();
     let lastError: any;
     for (const model of models) {
         try {
-            return await streamObject({
-                ...options,
-                model
-            });
-        } catch (err) {
-            console.warn(`streamObject failed for ${model.modelId || 'model'}, trying next fallback...`, err);
+            console.log(`[AI] Tentando modelo: ${model.modelId || 'unknown'}`);
+            // Race entre a chamada real e um timeout por modelo
+            const result = await Promise.race([
+                streamObject({ ...options, model }),
+                new Promise<never>((_, reject) =>
+                    setTimeout(() => reject(new Error(`Timeout de ${MODEL_TIMEOUT_MS / 1000}s atingido para o modelo ${model.modelId || 'unknown'}`)), MODEL_TIMEOUT_MS)
+                )
+            ]);
+            console.log(`[AI] Modelo ${model.modelId || 'unknown'} respondeu com sucesso.`);
+            return result;
+        } catch (err: any) {
+            console.warn(`[AI] streamObject falhou para ${model.modelId || 'model'}: ${err.message}. Tentando próximo fallback...`);
             lastError = err;
         }
     }
@@ -88,19 +101,25 @@ export const extractPages = (fullText: string, startPage: number, endPage: numbe
     if (!fullText) return '';
     const lines = fullText.split('\n');
     let output = '';
-    let isInsideRange = startPage === 1;
+    // G5 fix: startPage <= 1 já começa dentro do range desde o início do texto
+    let isInsideRange = startPage <= 1;
 
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         const match = line.match(/^--- PÁGINA (\d+) ---$/);
         if (match) {
             const pageNum = parseInt(match[1]);
-            if (pageNum === startPage - 1) {
+            // Entra no range quando vê o marcador da página ANTERIOR ao início
+            if (pageNum === startPage - 1 && !isInsideRange) {
                 isInsideRange = true;
                 continue;
             }
-            if (pageNum === endPage) {
-                output += '\n' + line + '\n';
+            // Também abre no marcador exato do início (caso o marcador seja a própria página)
+            if (pageNum === startPage && !isInsideRange) {
+                isInsideRange = true;
+            }
+            // Sai do range ao atingir a página final
+            if (isInsideRange && pageNum > endPage) {
                 break;
             }
         }
@@ -111,52 +130,92 @@ export const extractPages = (fullText: string, startPage: number, endPage: numbe
     return output.trim();
 };
 
-export const extractSyllabusText = (fullText: string): string => {
+/**
+ * Encontra o trecho mais provável de conteúdo programático usando heurísticas de texto puro,
+ * sem nenhuma chamada de IA. Retorna uma janela compacta (~40k chars) a partir do início detectado.
+ *
+ * Estratégia:
+ *  1. Busca TODAS as ocorrências das keywords (não só a primeira)
+ *  2. Descarta ocorrências nos primeiros 25% do documento (sumário/índice)
+ *  3. Prefere ocorrências cercadas por padrões típicos de listas de disciplinas
+ *  4. Fallback: posição de 40% do documento
+ */
+export const smartExtractSyllabusChunk = (fullText: string): string => {
     if (!fullText) return '';
-    
     const totalLength = fullText.length;
-    
-    // Para editais pequenos (menos de 40.000 caracteres, ~10 páginas), processamos tudo
-    if (totalLength <= 40000) {
-        return fullText;
-    }
-    
+
+    // Editais pequenos: processa tudo
+    if (totalLength <= 40000) return fullText;
+
     const normalizedText = normalizeText(fullText);
+    const minStartIndex = Math.floor(totalLength * 0.25); // ignora os primeiros 25% (sumário)
+
     const keywords = [
         'conteudo programatico',
         'conteudos programaticos',
         'anexo de disciplinas',
         'anexo das disciplinas',
-        'anexo ii',
-        'objeto de avaliacao',
-        'conhecimentos especificos',
-        'conhecimentos basicos',
         'programa das disciplinas',
         'quadro de disciplinas',
         'conteudos das provas',
-        'lingua portuguesa'
+        'objeto de avaliacao',
+        'conhecimentos especificos',
+        'conhecimentos basicos',
+        'lingua portuguesa',
+        'anexo ii',
+        'anexo iii',
     ];
-    
-    // Primeiro buscamos a palavra-chave em todo o documento
-    let startIndex = -1;
+
+    // Coleta todos os índices válidos (fora do sumário)
+    const candidates: number[] = [];
     for (const kw of keywords) {
-        startIndex = normalizedText.indexOf(kw);
-        if (startIndex !== -1) {
-            break;
+        let searchFrom = 0;
+        while (true) {
+            const idx = normalizedText.indexOf(kw, searchFrom);
+            if (idx === -1) break;
+            if (idx >= minStartIndex) {
+                candidates.push(idx);
+            }
+            searchFrom = idx + 1;
         }
     }
-    
-    // Se não encontrou nenhuma palavra-chave, ou se a palavra-chave estava muito no início
-    // (o que geralmente indica um falso positivo, como menção no sumário ou índice),
-    // começamos a partir dos 40% do edital como estimativa padrão.
-    const fortyPercentIndex = Math.floor(totalLength * 0.40);
-    if (startIndex === -1 || startIndex < fortyPercentIndex) {
-        startIndex = fortyPercentIndex;
+
+    if (candidates.length === 0) {
+        // Fallback: a partir de 40% do documento
+        const fallbackStart = Math.floor(totalLength * 0.40);
+        console.log(`[smartExtract] Nenhuma keyword encontrada fora do sumário. Usando fallback 40% (idx=${fallbackStart}).`);
+        return fullText.substring(fallbackStart, fallbackStart + 60000);
     }
-    
-    const windowSize = 120000;
-    return fullText.substring(startIndex, startIndex + windowSize);
+
+    // Ordena por posição e pega o mais próximo do início real do CP
+    candidates.sort((a, b) => a - b);
+
+    // Verifica qual candidato tem mais "densidade de conteúdo programático" na vizinhança:
+    // um bom início tem linhas curtas (tópicos) e muitas vírgulas/pontos
+    let bestIdx = candidates[0];
+    let bestScore = -1;
+    for (const idx of candidates.slice(0, 5)) { // analisa os 5 primeiros candidatos
+        const sample = fullText.substring(idx, idx + 3000);
+        const lines = sample.split('\n').filter(l => l.trim().length > 0);
+        const shortLines = lines.filter(l => l.trim().length < 80).length;
+        const commasAndDots = (sample.match(/[,;.]/g) || []).length;
+        const score = shortLines + commasAndDots * 0.3;
+        if (score > bestScore) {
+            bestScore = score;
+            bestIdx = idx;
+        }
+    }
+
+    // Recua até o início da linha para não cortar no meio de uma palavra
+    while (bestIdx > 0 && fullText[bestIdx - 1] !== '\n') bestIdx--;
+
+    const windowSize = 60000;
+    console.log(`[smartExtract] Chunk selecionado a partir do índice ${bestIdx} (${(bestIdx / totalLength * 100).toFixed(1)}% do documento).`);
+    return fullText.substring(bestIdx, bestIdx + windowSize);
 };
+
+/** @deprecated Use smartExtractSyllabusChunk. Mantido para compatibilidade. */
+export const extractSyllabusText = smartExtractSyllabusChunk;
 
 export const uploadEdital = async (req: AuthenticatedRequest, res: Response): Promise<any> => {
     try {
@@ -198,12 +257,26 @@ export const uploadEdital = async (req: AuthenticatedRequest, res: Response): Pr
 
         // Extrair texto do PDF com delimitadores de página
         let parsedContent = null;
+        let syllabusSegments = null;
         try {
             const parser = new PDFParse({ data: file.buffer });
             const pdfData = await parser.getText({
                 pageJoiner: '--- PÁGINA page_number ---'
             });
             parsedContent = pdfData.text;
+
+            // Pré-segmentar no upload para otimizar o fluxo e caching
+            try {
+                const chunk = smartExtractSyllabusChunk(parsedContent);
+                if (chunk) {
+                    const segments = segmentByDiscipline(chunk);
+                    if (segments.length > 0) {
+                        syllabusSegments = segments as any;
+                    }
+                }
+            } catch (segError) {
+                console.warn('Erro ao pré-segmentar edital no upload:', segError);
+            }
         } catch (pdfError) {
             console.error('Erro ao extrair texto do PDF:', pdfError);
             // Continua mesmo se falhar a extração, mas o campo ficará null
@@ -217,6 +290,7 @@ export const uploadEdital = async (req: AuthenticatedRequest, res: Response): Pr
                 fileUrl: filePath,
                 fileSize: file.size,
                 parsedContent,
+                syllabusSegments,
                 userId
             }
         });
@@ -233,9 +307,27 @@ export const getEditais = async (req: AuthenticatedRequest, res: Response): Prom
         const userId = req.dbUser?.id;
         if (!userId) return res.status(401).json({ error: 'Não autorizado' });
 
+        // G4 fix: exclui parsedContent e syllabusChunk da listagem (campos grandes, não necessários na lista)
         const editais = await prisma.edital.findMany({
             where: { userId },
-            orderBy: { createdAt: 'desc' }
+            orderBy: { createdAt: 'desc' },
+            select: {
+                id: true,
+                title: true,
+                description: true,
+                fileUrl: true,
+                fileSize: true,
+                pageRange: true,
+                extractionStatus: true,
+                extractionError: true,
+                cargo: true,
+                disciplinesCreated: true,
+                topicsCreated: true,
+                userId: true,
+                createdAt: true,
+                updatedAt: true,
+                // parsedContent e syllabusChunk excluídos intencionalmente (pesados, não usados na UI de lista)
+            }
         });
 
         return res.json(editais);
@@ -327,8 +419,8 @@ export const getEditalCargos = async (req: AuthenticatedRequest, res: Response):
             return res.status(400).json({ error: 'Este edital não possui conteúdo textual extraído para processamento.' });
         }
 
-        // Os cargos geralmente aparecem no início do edital. Usamos uma janela dos primeiros 120.000 caracteres.
-        const candidateText = parsedContent.substring(0, 120000);
+        // G1 fix: cargos estão sempre nas primeiras páginas — 30k chars (~8 páginas) é suficiente
+        const candidateText = parsedContent.substring(0, 30000);
         const response = await generateObjectWithFallback({
             schema: z.object({
                 cargos: z.array(z.string().describe('Nome curto e oficial do cargo encontrado no edital (ex: Analista de TI, Técnico Administrativo, Soldado)'))
@@ -338,6 +430,7 @@ export const getEditalCargos = async (req: AuthenticatedRequest, res: Response):
                     `--- CONTEÚDO DO EDITAL ---\n` +
                     candidateText,
             temperature: 0.1,
+            maxTokens: 500,
         });
 
         const cargos = (response.object as { cargos: string[] }).cargos || [];
@@ -361,8 +454,8 @@ interface SyllabusPageRange {
 
 export async function locateSyllabusPages(parsedContent: string, cargo?: string): Promise<SyllabusPageRange> {
     try {
-        // Obter os primeiros 150.000 caracteres para ver o sumário e as partes iniciais
-        const summaryText = parsedContent.substring(0, 150000);
+        // Limitar a 80k chars — o sumário e índice ficam sempre no início do documento
+        const summaryText = parsedContent.substring(0, 80000);
         
         let cargoInstruction = '';
         if (cargo) {
@@ -390,7 +483,8 @@ export async function locateSyllabusPages(parsedContent: string, cargo?: string)
                 })
             }),
             prompt,
-            temperature: 0.1
+            temperature: 0.1,
+            maxTokens: 300, // só precisa retornar números de página
         });
 
         const obj = response.object as any;

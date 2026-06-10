@@ -23,17 +23,21 @@ const google = createGoogleGenerativeAI({
 
 const getAiModels = () => {
     const models = [];
+    // Prioridade 1: OpenRouter com Gemini 2.5 Flash
     if (process.env.OPENROUTER_API_KEY) {
-        models.push(openrouter('nvidia/nemotron-3-ultra-550b-a55b:free'));
+        models.push(openrouter.chat('google/gemini-2.5-flash'));
     }
+    // Prioridade 2: Gemini nativo
     if (process.env.GEMINI_API_KEY) {
         models.push(google('gemini-2.5-flash'));
     }
-    if (process.env.OPENAI_API_KEY) {
-        models.push(openai('gpt-4o-mini'));
+    // Prioridade 3: OpenAI nativo (só se a chave for real)
+    if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.startsWith('sk-')) {
+        models.push(openai.chat('gpt-4o-mini'));
     }
+    // Prioridade 4: modelo gratuito (último recurso)
     if (process.env.OPENROUTER_API_KEY) {
-        models.push(openrouter('google/gemini-2.5-flash'));
+        models.push(openrouter.chat('nvidia/nemotron-3-ultra-550b-a55b:free'));
     }
     if (models.length === 0) {
         throw new Error('Nenhuma chave de API (OPENROUTER_API_KEY, GEMINI_API_KEY ou OPENAI_API_KEY) configurada.');
@@ -41,17 +45,23 @@ const getAiModels = () => {
     return models;
 };
 
+const MODEL_TIMEOUT_MS = 45000;
+
 async function generateObjectWithFallback(options: any) {
     const models = getAiModels();
     let lastError: any;
     for (const model of models) {
         try {
-            return await generateObject({
-                ...options,
-                model
-            });
-        } catch (err) {
-            console.warn(`generateObject failed for ${model.modelId || 'model'}, trying next fallback...`, err);
+            console.log(`[AI-Discipline] Tentando modelo: ${model.modelId || 'unknown'}`);
+            const result = await Promise.race([
+                generateObject({ ...options, model }),
+                new Promise<never>((_, reject) =>
+                    setTimeout(() => reject(new Error(`Timeout de ${MODEL_TIMEOUT_MS / 1000}s para o modelo ${model.modelId || 'unknown'}`)), MODEL_TIMEOUT_MS)
+                )
+            ]);
+            return result;
+        } catch (err: any) {
+            console.warn(`[AI-Discipline] generateObject falhou para ${model.modelId || 'model'}: ${err.message}`);
             lastError = err;
         }
     }
@@ -187,6 +197,7 @@ export async function generateTopicsForDiscipline(req: Request, res: Response) {
                     `--- CONTEÚDO PROGRAMÁTICO ---\n` +
                     syllabusText,
             temperature: 0.1,
+            maxTokens: 1000, // G2 fix: limita output para evitar respostas longas desnecessárias
         });
 
         const extracted = response.object as { topics: { name: string; description?: string }[] };

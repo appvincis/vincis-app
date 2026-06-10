@@ -4,9 +4,10 @@ import {
     locateSyllabusPages, 
     streamObjectWithFallback, 
     extractPages, 
-    extractSyllabusText 
+    smartExtractSyllabusChunk
 } from './edital.controller.js';
 import { z } from 'zod';
+import { segmentByDiscipline, tryParseTopics, SyllabusSegment } from './edital.segmenter.js';
 
 export interface ExtractionJobPayload {
     editalId: number;
@@ -20,7 +21,7 @@ export function registerExtractionWorker() {
     
     // Inscrever-se na fila com concorrência máxima de 2 jobs por instância do worker
     // Isso evita esgotar limites de cota de IA (Gemini/OpenRouter) e CPU do servidor
-    boss.work('edital-extraction', { teamSize: 2 } as any, async (job: any) => {
+    boss.work('edital-extraction', { teamSize: 2 } as any, async ([job]: any) => {
         const { editalId, userId, studyPlanId, cargo } = job.data as ExtractionJobPayload;
         console.log(`[Worker] Iniciando processamento do Edital #${editalId} para o usuário #${userId}`);
 
@@ -39,112 +40,157 @@ export function registerExtractionWorker() {
             });
 
             const parsedContent = edital.parsedContent;
+            const cargoKey = cargo ?? null;
 
-            // Extrair páginas específicas se indicadas pelo usuário, ou usar heurística inteligente
-            let candidateSyllabusChunk = '';
-            if (edital.pageRange && /^\d+-\d+$/.test(edital.pageRange)) {
-                const [startStr, endStr] = edital.pageRange.split('-');
-                const startPage = parseInt(startStr);
-                const endPage = parseInt(endStr);
-                candidateSyllabusChunk = extractPages(parsedContent, startPage, endPage);
-            } else if (cargo) {
-                try {
-                    console.log(`[Worker] Mapeando páginas para o cargo: ${cargo}`);
-                    const pages = await locateSyllabusPages(parsedContent, cargo);
-                    let generalChunk = '';
-                    let specificChunk = '';
+            // ── OBTENÇÃO DOS SEGMENTOS ───────────────────────────────────────────
+            let segments: SyllabusSegment[] = [];
 
-                    if (pages.geral.startPage && pages.geral.endPage) {
-                        generalChunk = extractPages(parsedContent, pages.geral.startPage, pages.geral.endPage);
-                    }
-                    if (pages.especifico.startPage && pages.especifico.endPage) {
-                        specificChunk = extractPages(parsedContent, pages.especifico.startPage, pages.especifico.endPage);
-                    }
+            if (edital.syllabusSegments && Array.isArray(edital.syllabusSegments) && edital.syllabusSegments.length > 0) {
+                segments = edital.syllabusSegments as any[];
+                console.log(`[Worker] Cache hit! Usando ${segments.length} syllabusSegments salvos.`);
+            } else {
+                console.log(`[Worker] Cache miss para syllabusSegments. Iniciando localização e segmentação...`);
+                let candidateSyllabusChunk = '';
 
-                    if (generalChunk || specificChunk) {
-                        candidateSyllabusChunk = [
-                            generalChunk ? `--- SEÇÃO CONHECIMENTOS BÁSICOS/GERAIS ---\n${generalChunk}` : '',
-                            specificChunk ? `--- SEÇÃO CONHECIMENTOS ESPECÍFICOS (${cargo}) ---\n${specificChunk}` : ''
-                        ].filter(Boolean).join('\n\n');
-                    }
-                } catch (err) {
-                    console.error('[Worker] Falha ao mapear páginas por cargo:', err);
+                // 1. Usuário forneceu pageRange manualmente → mais preciso
+                if (edital.pageRange && /^\d+-\d+$/.test(edital.pageRange)) {
+                    const [startStr, endStr] = edital.pageRange.split('-');
+                    candidateSyllabusChunk = extractPages(parsedContent, parseInt(startStr), parseInt(endStr));
+                    console.log(`[Worker] Usando pageRange manual: ${edital.pageRange}`);
                 }
-            }
 
-            if (!candidateSyllabusChunk) {
-                console.log('[Worker] Usando método tradicional de janela de texto...');
-                candidateSyllabusChunk = extractSyllabusText(parsedContent);
+                // 2. Cargo informado → tentar localização por IA como 2º recurso
+                if (!candidateSyllabusChunk && cargo) {
+                    try {
+                        console.log(`[Worker] Tentando localização por IA para o cargo: ${cargo}`);
+                        const pages = await locateSyllabusPages(parsedContent, cargo);
+                        let generalChunk = '';
+                        let specificChunk = '';
+
+                        if (pages.geral.startPage && pages.geral.endPage) {
+                            generalChunk = extractPages(parsedContent, pages.geral.startPage, pages.geral.endPage);
+                        }
+                        if (pages.especifico.startPage && pages.especifico.endPage) {
+                            specificChunk = extractPages(parsedContent, pages.especifico.startPage, pages.especifico.endPage);
+                        }
+
+                        if (generalChunk || specificChunk) {
+                            candidateSyllabusChunk = [
+                                generalChunk ? `--- SEÇÃO CONHECIMENTOS BÁSICOS/GERAIS ---\n${generalChunk}` : '',
+                                specificChunk ? `--- SEÇÃO CONHECIMENTOS ESPECÍFICOS (${cargo}) ---\n${specificChunk}` : ''
+                            ].filter(Boolean).join('\n\n');
+                        }
+                    } catch (err) {
+                        console.error('[Worker] Falha na localização por IA, usando heurística:', err);
+                    }
+                }
+
+                // 3. Fallback: heurística inteligente de texto puro (smartExtractSyllabusChunk)
+                if (!candidateSyllabusChunk) {
+                    console.log('[Worker] Usando heurística smartExtractSyllabusChunk...');
+                    candidateSyllabusChunk = smartExtractSyllabusChunk(parsedContent);
+                }
+
+                // ── SALVAR CACHE E SEGMENTAR ──────────────────────────────────────
+                if (candidateSyllabusChunk) {
+                    segments = segmentByDiscipline(candidateSyllabusChunk, cargo);
+                    console.log(`[Worker] Segmentação gerou ${segments.length} disciplinas.`);
+
+                    try {
+                        await prisma.edital.update({
+                            where: { id: editalId },
+                            data: {
+                                syllabusChunk: candidateSyllabusChunk,
+                                syllabusChunkCargo: cargoKey,
+                                syllabusSegments: segments as any
+                            }
+                        });
+                        console.log(`[Worker] syllabusChunk e syllabusSegments salvos no banco para uso futuro.`);
+                    } catch (cacheErr) {
+                        console.warn('[Worker] Não foi possível salvar caches no banco:', cacheErr);
+                    }
+                }
             }
 
             await prisma.edital.update({
                 where: { id: editalId },
                 data: {
-                    extractionError: 'Iniciando extração da grade...'
+                    extractionError: 'Iniciando extração estrutural da grade...'
                 }
             });
-            
-            let targetJobPrompt = '';
-            if (cargo) {
-                targetJobPrompt = `Você deve focar na extração das disciplinas pertinentes ao cargo "${cargo}". Extraia tanto as disciplinas de Conhecimentos Básicos/Gerais (comuns a todos os cargos) quanto as disciplinas de Conhecimentos Específicos exclusivas para o cargo "${cargo}". Ignore disciplinas de conhecimentos específicos destinadas a outros cargos.`;
-            } else {
-                targetJobPrompt = `Extraia todas as disciplinas e conteúdos programáticos gerais e específicos encontrados.`;
+
+            if (segments.length === 0) {
+                throw new Error('Nenhuma disciplina/segmento pôde ser detectado no conteúdo programático.');
             }
 
-            const response = (await streamObjectWithFallback({
-                schema: z.object({
-                    disciplines: z.array(z.object({
-                        name: z.string().describe('Nome da disciplina, ex: Língua Portuguesa'),
-                        topics: z.array(z.object({
-                            name: z.string().describe('Nome curto do tópico/assunto'),
-                            description: z.string().optional().describe('Descrição curta do tópico')
-                        }))
-                    }))
-                }),
-                prompt: `Analise o texto recortado do edital abaixo e extraia o conteúdo programático estruturado.\n\n` +
-                        `CRITÉRIOS RIGOROSOS DE EXTRAÇÃO:\n` +
-                        `1. Ignore regras de provas, inscrições, datas, taxas, atribuições de cargo, etc. Foque EXCLUSIVAMENTE nas disciplinas/matérias de estudo e seus respectivos tópicos/assuntos.\n` +
-                        `2. ${targetJobPrompt}\n` +
-                        `3. Separe todas as disciplinas encontradas (ex: Língua Portuguesa, Informática, Direito Constitucional, etc).\n` +
-                        `4. DENTRO DE CADA DISCIPLINA: quebre blocos longos de texto em tópicos individuais curtos e objetivos (ex: "Crase", "Acentuação").\n` +
-                        `5. Use o idioma português.\n\n` +
-                        `--- CONTEÚDO DO EDITAL ---\n` +
-                        candidateSyllabusChunk,
-                temperature: 0.1,
-            })) as any;
-
-            let lastLoggedDiscipline = '';
-            let lastUpdateTime = 0;
-
-            for await (const partial of response.partialObjectStream) {
-                const disciplines = partial.disciplines;
-                if (disciplines && disciplines.length > 0) {
-                    const lastDiscipline = disciplines[disciplines.length - 1];
-                    if (lastDiscipline && lastDiscipline.name) {
-                        const name = lastDiscipline.name;
-                        const now = Date.now();
-                        if (name !== lastLoggedDiscipline || now - lastUpdateTime > 1500) {
-                            lastLoggedDiscipline = name;
-                            lastUpdateTime = now;
-                            try {
-                                await prisma.edital.update({
-                                    where: { id: editalId },
-                                    data: {
-                                        extractionError: `Extraindo: ${name}...`
-                                    }
-                                });
-                            } catch (dbErr) {
-                                // ignore
-                            }
-                        }
-                    }
+            const updateExtractionStatus = async (message: string) => {
+                try {
+                    await prisma.edital.update({
+                        where: { id: editalId },
+                        data: { extractionError: message }
+                    });
+                } catch (dbErr) {
+                    // ignore
                 }
+            };
+
+            // Processamento em paralelo dos segmentos para extrair os tópicos (regex + fallback IA)
+            const extractedDisciplines = await Promise.all(
+                segments.map(async (seg) => {
+                    // 1. Tentar parsear via Regex (gratuito, instantâneo)
+                    const parsedTopics = tryParseTopics(seg.rawText);
+                    if (parsedTopics && parsedTopics.length > 0) {
+                        console.log(`[Worker] Disciplina "${seg.name}" extraída via Regex. Encontrados ${parsedTopics.length} tópicos.`);
+                        return {
+                            name: seg.name,
+                            topics: parsedTopics
+                        };
+                    }
+
+                    // 2. Fallback para IA se não for uma lista numerada/separada simples
+                    console.log(`[Worker] Disciplina "${seg.name}" requer IA. Iniciando chamada de extração...`);
+                    await updateExtractionStatus(`Extraindo: ${seg.name}...`);
+
+                    try {
+                        const response = await streamObjectWithFallback({
+                            schema: z.object({
+                                topics: z.array(z.string().describe('Nome curto e objetivo do tópico/assunto (máx 10 palavras)'))
+                            }),
+                            prompt: `Analise a ementa/conteúdo programático da disciplina "${seg.name}" do edital e retorne seus tópicos de estudo estruturados.\n\n` +
+                                    `REGRAS OBRIGATÓRIAS:\n` +
+                                    `1. Extraia APENAS tópicos de estudo e conteúdos programáticos reais. Ignore datas, pesos de prova ou outros textos administrativos.\n` +
+                                    `2. Retorne os tópicos de forma curta e direta (máximo 10 palavras por tópico).\n` +
+                                    `3. Responda em português.\n\n` +
+                                    `--- CONTEÚDO PROGRAMÁTICO DE ${seg.name.toUpperCase()} ---\n` +
+                                    seg.rawText,
+                            temperature: 0.1,
+                            maxTokens: 1000
+                        }) as any;
+
+                        const extractedObj = await response.object;
+                        return {
+                            name: seg.name,
+                            topics: extractedObj.topics || []
+                        };
+                    } catch (aiErr) {
+                        console.error(`[Worker] Falha ao extrair via IA para "${seg.name}":`, aiErr);
+                        return {
+                            name: seg.name,
+                            topics: []
+                        };
+                    }
+                })
+            );
+
+            // Filtra disciplinas que acabaram vindo vazias por qualquer erro extremo
+            const disciplinesToSave = extractedDisciplines.filter(d => d.topics.length > 0);
+            if (disciplinesToSave.length === 0) {
+                throw new Error('Nenhuma disciplina com tópicos pôde ser extraída do texto do edital.');
             }
 
-            const extracted = await response.object;
-            if (!extracted.disciplines || extracted.disciplines.length === 0) {
-                throw new Error('Nenhuma disciplina pôde ser extraída do texto do edital.');
-            }
+            const extracted = {
+                disciplines: disciplinesToSave
+            };
 
             await prisma.edital.update({
                 where: { id: editalId },
@@ -161,32 +207,39 @@ export function registerExtractionWorker() {
             let disciplinesCreatedCount = 0;
             let topicsCreatedCount = 0;
 
+            // G8 fix: substitui o loop N+1 por 2 queries em batch
             await prisma.$transaction(async (tx) => {
+                // 1ª query: cria todas as disciplinas de uma vez e retorna os IDs
+                const createdDisciplines = await (tx.discipline as any).createManyAndReturn({
+                    data: extracted.disciplines.map((disc: any, i: number) => ({
+                        name: disc.name,
+                        color: presetColors[i % presetColors.length],
+                        weight: 1.0,
+                        studyPlanId
+                    }))
+                });
+                disciplinesCreatedCount = createdDisciplines.length;
+
+                // 2ª query: monta todos os tópicos em memória e insere em um único createMany
+                const allTopicsData: any[] = [];
                 for (let i = 0; i < extracted.disciplines.length; i++) {
                     const discData = extracted.disciplines[i];
-                    const color = presetColors[i % presetColors.length];
+                    const discipline = createdDisciplines[i];
+                    if (!discipline || !discData.topics || discData.topics.length === 0) continue;
 
-                    const discipline = await tx.discipline.create({
-                        data: {
-                            name: discData.name,
-                            color,
-                            weight: 1.0,
-                            studyPlanId
-                        }
-                    });
-                    disciplinesCreatedCount++;
-
-                    if (discData.topics && discData.topics.length > 0) {
-                        await tx.topic.createMany({
-                            data: discData.topics.map((t: any) => ({
-                                name: t.name,
-                                description: t.description || null,
-                                disciplineId: discipline.id,
-                                isCompleted: false
-                            }))
+                    for (const t of discData.topics) {
+                        allTopicsData.push({
+                            name: typeof t === 'string' ? t : (t.name ?? String(t)),
+                            description: null,
+                            disciplineId: discipline.id,
+                            isCompleted: false
                         });
-                        topicsCreatedCount += discData.topics.length;
                     }
+                }
+
+                if (allTopicsData.length > 0) {
+                    await tx.topic.createMany({ data: allTopicsData });
+                    topicsCreatedCount = allTopicsData.length;
                 }
             });
 
