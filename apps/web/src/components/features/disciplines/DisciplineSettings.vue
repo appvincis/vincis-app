@@ -18,6 +18,7 @@ const emit = defineEmits<{
 const panelWeight = ref<number>(1.0)
 const panelName = ref('')
 const panelColor = ref('')
+const panelIsActive = ref(true)
 const isSavingInfo = ref(false)
 const isEditOpen = ref(false)
 
@@ -27,6 +28,7 @@ watch(() => props.discipline, (newVal) => {
         panelWeight.value = newVal.weight ?? 1.0
         panelName.value = newVal.name
         panelColor.value = newVal.color
+        panelIsActive.value = newVal.isActive !== false
         isEditOpen.value = false
     }
 }, { immediate: true })
@@ -43,6 +45,7 @@ async function saveDisciplineInfo() {
             name: panelName.value.trim(),
             color: panelColor.value,
             weight: panelWeight.value,
+            isActive: panelIsActive.value,
         })
         emit('update:discipline', res.data.discipline)
         isEditOpen.value = false
@@ -60,9 +63,23 @@ async function saveDisciplineInfo() {
             <i class="pi pi-sliders-h " style="font-size:1rem;vertical-align:-2px"></i>
             Editar Disciplina
         </summary>
-        <div class="detail__edit-body">
+        <div class="detail__edit-body text-left">
             <VInput v-model="panelName" label="Nome" icon="subject" />
             <ColorPicker v-model="panelColor" />
+            
+            <!-- Active/Archived Status -->
+            <div class="flex justify-between items-center py-1">
+                <p class="text-xs text-secondary font-bold">Status da Disciplina</p>
+                <button 
+                    type="button"
+                    @click="panelIsActive = !panelIsActive"
+                    class="px-3 py-1 rounded-lg text-xs font-bold transition-all border cursor-pointer"
+                    :class="panelIsActive ? 'bg-primary/10 border-primary text-primary' : 'bg-outline-variant/10 border-outline-variant text-on-surface-muted'"
+                >
+                    {{ panelIsActive ? 'Ativa' : 'Arquivada' }}
+                </button>
+            </div>
+
             <div>
                 <div class="flex justify-between items-center mb-1">
                     <p class="text-xs text-secondary">Peso / Importância</p>

@@ -23,7 +23,8 @@ watch(filterDisciplineId, () => { filterTopicId.value = null })
 // ─── Queries ──────────────────────────────────────────────────────────────────
 const disciplinesQuery = useDisciplinesQuery()
 const disciplines      = computed(() => disciplinesQuery.data.value || [])
-const filterTopicsQ    = useTopicsQuery(filterDisciplineId)
+const filterDisciplineIdQueryArg = computed(() => filterDisciplineId.value ?? undefined)
+const filterTopicsQ    = useTopicsQuery(filterDisciplineIdQueryArg)
 const filterTopics     = computed(() => filterTopicsQ.data.value || [])
 
 const logsQuery = useErrorLogsQuery(filters)
@@ -57,7 +58,8 @@ const formCorrecao     = ref('')
 
 watch(formDisciplineId, () => { formTopicId.value = null })
 
-const formTopicsQ   = useTopicsQuery(formDisciplineId)
+const formDisciplineIdQueryArg = computed(() => formDisciplineId.value ?? undefined)
+const formTopicsQ   = useTopicsQuery(formDisciplineIdQueryArg)
 const formTopics    = computed(() => formTopicsQ.data.value || [])
 const isFormValid   = computed(() => formAnalise.value.trim().length > 0)
 

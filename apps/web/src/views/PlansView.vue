@@ -3,7 +3,7 @@ import { computed, ref } from 'vue';
 import { VButton } from '@/components/ui';
 import DsModal from '@/components/ui/DsModal.vue';
 import { usePlan, useUpdatePlanMutation, type PlanType } from '@/hooks/usePlan';
-import { useGeneratePixMutation, useSimulatePaymentMutation } from '@/hooks/usePayment';
+import { useGeneratePixMutation } from '@/hooks/usePayment';
 import { useAuthStore } from '@/stores/auth';
 import { useQueryClient } from '@tanstack/vue-query';
 
@@ -12,9 +12,6 @@ const authStore = useAuthStore()
 const queryClient = useQueryClient()
 const { mutate: updatePlan, isPending: isUpdating } = useUpdatePlanMutation()
 const { mutateAsync: generatePix, isPending: isGeneratingPix } = useGeneratePixMutation()
-const { mutateAsync: simulatePayment, isPending: isSimulating } = useSimulatePaymentMutation()
-
-
 
 const currentPlan = computed(() => plan.value.type)
 

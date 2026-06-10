@@ -99,7 +99,7 @@ const handleDeletePlan = async (id: number) => {
   
   if (studyPlanStore.activePlanId === id) {
     const remainingPlans = studyPlans.value.filter(p => p.id !== id)
-    if (remainingPlans.length > 0) {
+    if (remainingPlans.length > 0 && remainingPlans[0]) {
       await selectStudyPlan({ id: remainingPlans[0].id, name: remainingPlans[0].name })
     } else {
       studyPlanStore.clearPlan()

@@ -101,11 +101,11 @@ const KNOWLEDGE_LABELS: Record<number, string> = {
 }
 
 function priorityColor(p: number): string {
-    return ['#595f67','#735c00','#e65100','#ba1a1a'][p - 1]
+    return ['#595f67','#735c00','#e65100','#ba1a1a'][p - 1] || '#595f67'
 }
 
 function knowledgeColor(k: number): string {
-    return ['#ba1a1a','#e65100','#735c00','#2e7d32'][k - 1]
+    return ['#ba1a1a','#e65100','#735c00','#2e7d32'][k - 1] || '#ba1a1a'
 }
 </script>
 

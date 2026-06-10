@@ -41,7 +41,7 @@ aiRouter.get('/sessions/:id', async (req: Request, res: Response) => {
     const userId = (req as AuthenticatedRequest).dbUser!.id
     const { id } = req.params
     const session = await prisma.aiSession.findFirst({
-      where: { id, userId },
+      where: { id: id as string, userId },
       include: {
         messages: {
           orderBy: { createdAt: 'asc' },
@@ -69,7 +69,7 @@ aiRouter.delete('/sessions/:id', async (req: Request, res: Response) => {
 
     // Check if session exists and belongs to user
     const session = await prisma.aiSession.findFirst({
-      where: { id, userId }
+      where: { id: id as string, userId }
     })
 
     if (!session) {
@@ -77,7 +77,7 @@ aiRouter.delete('/sessions/:id', async (req: Request, res: Response) => {
     }
 
     await prisma.aiSession.delete({
-      where: { id }
+      where: { id: id as string }
     })
 
     res.json({ success: true })
@@ -147,11 +147,14 @@ aiRouter.post('/chat', async (req: Request, res: Response) => {
         5. FORMATAÇÃO: Use Bullet Points e NEGRITO nas palavras-chave.
     `
 
-    let model
+    let model: any
+    let fallbackModel: any
     if (provider === 'gemini') {
       model = google('gemini-2.5-flash')
+      fallbackModel = openai('gpt-4o-mini')
     } else {
       model = openai('gpt-4o-mini')
+      fallbackModel = google('gemini-2.5-flash')
     }
 
     let finalSystemPrompt = systemInstruction;
@@ -196,13 +199,12 @@ aiRouter.post('/chat', async (req: Request, res: Response) => {
       }
     }
 
-    const result = await streamText({
-      model: model,
+    const streamOptions = {
       system: finalSystemPrompt,
       messages: await convertToModelMessages(messages),
       temperature: 0.5,
-      maxTokens: 500,
-      async onFinish({ text, usage }) {
+      maxOutputTokens: 500,
+      async onFinish({ text, usage }: any) {
         // Save the assistant's response when the stream finishes
         const tokens = usage?.totalTokens || null;
         await prisma.aiMessage.create({
@@ -220,11 +222,25 @@ aiRouter.post('/chat', async (req: Request, res: Response) => {
           data: { updatedAt: new Date() }
         })
       }
-    })
+    };
+
+    let result: any;
+    try {
+      result = await streamText({
+        model: model,
+        ...streamOptions
+      })
+    } catch (err) {
+      console.warn("Primary AI model failed, falling back to secondary model...", err);
+      result = await streamText({
+        model: fallbackModel,
+        ...streamOptions
+      })
+    }
 
     // Send sessionId in headers so the client knows it (for new sessions)
     res.setHeader('x-session-id', sessionId)
-    result.pipeUIMessageStreamToResponse(res, { sendUsage: true })
+    result.pipeUIMessageStreamToResponse(res)
   } catch (error) {
     console.error('Error generating AI response:', error)
     res.status(500).json({ error: 'Failed to generate response' })
@@ -300,8 +316,7 @@ Regras:
 Dados do aluno:
 ${JSON.stringify(promptData, null, 2)}`
 
-    const result = await generateObject({
-      model: google('gemini-2.5-flash'),
+    const objectOptions = {
       system: systemPrompt,
       schema: z.object({
         highlightDiscipline: z.string().describe('O NOME da disciplina onde o aluno foi melhor ou dedicou mais tempo.'),
@@ -310,7 +325,21 @@ ${JSON.stringify(promptData, null, 2)}`
         recommendationText: z.string().describe('Uma frase de recomendação baseada nos erros e acertos.')
       }),
       prompt: 'Gere o diagnóstico estruturado com base nestas estatísticas do aluno.'
-    })
+    }
+
+    let result: any;
+    try {
+      result = await generateObject({
+        model: google('gemini-2.5-flash'),
+        ...objectOptions
+      })
+    } catch (err) {
+      console.warn("Primary AI model failed for diagnostic, falling back to secondary model...", err);
+      result = await generateObject({
+        model: openai('gpt-4o-mini'),
+        ...objectOptions
+      })
+    }
 
     return res.json({
       isEmpty: false,

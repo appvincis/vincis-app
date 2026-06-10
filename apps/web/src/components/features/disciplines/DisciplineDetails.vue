@@ -1,7 +1,15 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { VButton, VSpinner } from '../../ui'
 import DisciplineSettings from './DisciplineSettings.vue'
 import DisciplineTopicManager from './DisciplineTopicManager.vue'
+import { useGenerateTopicsForDisciplineMutation } from '../../../hooks/useDisciplines'
+import { useDisciplineFocusSessionsQuery } from '../../../hooks/useFocusSessions'
+import { usePlan } from '../../../hooks/usePlan'
+import { useRouter } from 'vue-router'
+
+const { plan } = usePlan()
+const router = useRouter()
 
 const props = defineProps<{
     isOpen: boolean;
@@ -14,6 +22,25 @@ const emit = defineEmits<{
 }>();
 
 const topicsCount = ref(0)
+const activeTab = ref<'topics' | 'history' | 'ai'>('topics')
+
+// Varinha IA state
+const syllabusText = ref('')
+const generateTopics = useGenerateTopicsForDisciplineMutation()
+const isGenerating = ref(false)
+
+// Focus sessions history query
+const { data: sessions, isLoading: isLoadingSessions, refetch: refetchSessions } = useDisciplineFocusSessionsQuery(
+    computed(() => props.discipline?.id)
+)
+
+watch(() => props.isOpen, (open) => {
+    if (open) {
+        activeTab.value = 'topics'
+        syllabusText.value = ''
+        refetchSessions()
+    }
+})
 
 function closePanel() {
     emit('update:isOpen', false)
@@ -21,6 +48,25 @@ function closePanel() {
 
 function handleDisciplineUpdate(updated: any) {
     emit('update:discipline', updated)
+}
+
+async function handleGenerateTopics() {
+    if (!syllabusText.value.trim() || !props.discipline) return
+    isGenerating.value = true
+    try {
+        const res = await generateTopics.mutateAsync({
+            id: props.discipline.id,
+            syllabusText: syllabusText.value.trim()
+        })
+        alert(`Sucesso! Foram criados ${res.topicsCreated} tópicos para esta disciplina. (Tokens gastos: ${res.tokensSpent || 0})`);
+        syllabusText.value = ''
+        activeTab.value = 'topics'
+    } catch (e: any) {
+        const errorMsg = e.response?.data?.message || e.message || 'Erro ao extrair tópicos.';
+        alert(`Erro: ${errorMsg}`);
+    } finally {
+        isGenerating.value = false
+    }
 }
 </script>
 
@@ -38,20 +84,123 @@ function handleDisciplineUpdate(updated: any) {
                         </div>
                     </div>
                     <button class="detail__close" @click="closePanel" title="Fechar">
-                        <i class="pi pi-times "></i>
+                        <i class="pi pi-times"></i>
+                    </button>
+                </div>
+
+                <!-- Tabs Navigation -->
+                <div class="flex border-b border-outline-variant/20 px-4 bg-surface-container-lowest flex-shrink-0">
+                    <button 
+                        @click="activeTab = 'topics'" 
+                        class="py-3 px-4 text-xs font-bold border-b-2 transition-colors cursor-pointer"
+                        :class="activeTab === 'topics' ? 'border-primary text-primary' : 'border-transparent text-on-surface-muted hover:text-on-surface'"
+                    >
+                        Tópicos
+                    </button>
+                    <button 
+                        @click="activeTab = 'history'" 
+                        class="py-3 px-4 text-xs font-bold border-b-2 transition-colors cursor-pointer"
+                        :class="activeTab === 'history' ? 'border-primary text-primary' : 'border-transparent text-on-surface-muted hover:text-on-surface'"
+                    >
+                        Histórico de Foco
+                    </button>
+                    <button 
+                        @click="activeTab = 'ai'" 
+                        class="py-3 px-4 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5"
+                        :class="activeTab === 'ai' ? 'border-primary text-primary' : 'border-transparent text-on-surface-muted hover:text-on-surface'"
+                    >
+                        <i class="pi pi-magic text-[10px]"></i>
+                        Varinha IA
                     </button>
                 </div>
 
                 <template v-if="discipline">
-                    <DisciplineTopicManager 
-                        :discipline-id="discipline.id" 
-                        :panel-color="discipline.color"
-                        @update:topicsCount="topicsCount = $event" 
-                    />
-                    <DisciplineSettings 
-                        :discipline="discipline" 
-                        @update:discipline="handleDisciplineUpdate" 
-                    />
+                    <!-- Tab: Topics & Settings -->
+                    <div v-show="activeTab === 'topics'" class="flex-1 flex flex-col overflow-hidden">
+                        <div class="flex-1 overflow-y-auto flex flex-col">
+                            <DisciplineTopicManager 
+                                :discipline-id="discipline.id" 
+                                :panel-color="discipline.color"
+                                @update:topicsCount="topicsCount = $event" 
+                            />
+                        </div>
+                        <DisciplineSettings 
+                            :discipline="discipline" 
+                            @update:discipline="handleDisciplineUpdate" 
+                        />
+                    </div>
+
+                    <!-- Tab: Focus Sessions History -->
+                    <div v-if="activeTab === 'history'" class="detail__history p-5 overflow-y-auto flex-1">
+                        <div v-if="isLoadingSessions" class="flex justify-center py-8">
+                            <VSpinner size="sm" />
+                        </div>
+                        <div v-else-if="!sessions?.length" class="text-center py-12">
+                            <i class="pi pi-clock text-4xl text-outline-variant mb-2" style="display:block"></i>
+                            <p class="text-secondary text-sm">Nenhum histórico de estudo registrado.</p>
+                        </div>
+                        <ul v-else class="space-y-3">
+                            <li v-for="session in sessions" :key="session.id" class="p-4 bg-surface-container-low border border-outline-variant/30 rounded-xl flex justify-between items-center text-sm animate-fade-in">
+                                <div class="flex flex-col text-left">
+                                    <span class="font-bold text-on-surface">Sessão de Foco</span>
+                                    <span class="text-xs text-on-surface-muted">{{ new Date(session.startedAt).toLocaleDateString('pt-BR') }}</span>
+                                </div>
+                                <span class="font-mono bg-surface-container-high px-2 py-1 rounded text-xs text-on-surface font-bold">
+                                    {{ session.duration }} min
+                                </span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Tab: AI Varinha Mágica -->
+                    <div v-if="activeTab === 'ai'" class="detail__ai p-5 overflow-y-auto flex-1 flex flex-col gap-4 text-left relative">
+                        <!-- Premium lock overlay -->
+                        <div v-if="!plan.isPremium" class="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 bg-surface-container-lowest/80 backdrop-blur-[2px] text-center space-y-4">
+                            <div class="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                                <i class="pi pi-lock text-xl"></i>
+                            </div>
+                            <div class="space-y-1 max-w-xs">
+                                <h4 class="font-bold text-sm text-on-surface">Recurso Premium</h4>
+                                <p class="text-xs text-on-surface-muted leading-relaxed">
+                                    A <strong>Varinha IA</strong> é exclusiva do plano Premium. Assine para criar tópicos automaticamente.
+                                </p>
+                            </div>
+                            <VButton @click="router.push('/private/plans')" class="bg-primary text-white hover:bg-primary-dark text-xs py-2 px-4">
+                                Assinar Plano Premium
+                            </VButton>
+                        </div>
+
+                        <!-- Content wrapper (with conditional blur if not premium) -->
+                        <div class="flex-1 flex flex-col gap-4" :class="{ 'blur-[2px] pointer-events-none select-none opacity-40': !plan.isPremium }">
+                            <div>
+                                <h3 class="text-base font-bold text-on-surface mb-1 flex items-center gap-2">
+                                    <i class="pi pi-bolt text-primary"></i>
+                                    Varinha Mágica (IA)
+                                </h3>
+                                <p class="text-xs text-on-surface-muted leading-relaxed">
+                                    Cole o conteúdo programático desta disciplina (extraído do edital) para que a IA crie e organize os tópicos de estudo automaticamente.
+                                </p>
+                            </div>
+
+                            <textarea 
+                                v-model="syllabusText" 
+                                rows="8"
+                                class="w-full p-3 rounded-xl border border-outline-variant/60 bg-surface-container-low text-on-surface text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                                placeholder="Cole o texto aqui... Ex: 'Ortografia oficial. Acentuação gráfica. Crase.'"
+                            ></textarea>
+
+                            <VButton 
+                                variant="primary" 
+                                class="w-full"
+                                :disabled="isGenerating || !syllabusText.trim()"
+                                @click="handleGenerateTopics"
+                            >
+                                <i v-if="isGenerating" class="pi pi-spin pi-spinner mr-2"></i>
+                                <i v-else class="pi pi-magic mr-2"></i>
+                                {{ isGenerating ? 'Processando...' : 'Gerar Tópicos com IA' }}
+                            </VButton>
+                        </div>
+                    </div>
                 </template>
             </div>
         </div>
@@ -125,6 +274,15 @@ function handleDisciplineUpdate(updated: any) {
 .detail__close:hover {
     background: rgba(208, 197, 175, 0.12);
     color: var(--on-surface);
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 /* Panel slide transition */

@@ -31,6 +31,7 @@ export const focusSessionService = {
                 disciplineId: data.disciplineId,
                 studyPlanId,
                 userId,
+                updatedAt: new Date(),
             },
             include: {
                 Discipline: {

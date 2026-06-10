@@ -6,6 +6,7 @@ export interface AiSession {
     id: string
     title: string
     updatedAt: string
+    editalId?: number | null
     messages?: AiMessage[]
 }
 

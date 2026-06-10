@@ -69,8 +69,9 @@ const { data: editais } = useEditaisQuery()
 
 const initialWelcomeMessage = {
   id: 'welcome',
-  role: 'assistant' as const,
-  content: 'Olá! Sou o seu Tutor IA focado em Concursos. Estou aqui para tirar suas dúvidas sobre editais e matérias. Sobre o que vamos falar hoje?'
+  role: 'assistant' as 'user' | 'assistant' | 'system',
+  content: 'Olá! Sou o seu Tutor IA focado em Concursos. Estou aqui para tirar suas dúvidas sobre editais e matérias. Sobre o que vamos falar hoje?',
+  parts: [{ type: 'text' as const, text: 'Olá! Sou o seu Tutor IA focado em Concursos. Estou aqui para tirar suas dúvidas sobre editais e matérias. Sobre o que vamos falar hoje?' }]
 }
 
 const input = ref('')
@@ -125,31 +126,24 @@ const handleSubmit = (event?: Event) => {
   const attachments = []
   if (attachedEditalId.value) {
     const edital = editais.value?.find((e: any) => e.id === attachedEditalId.value)
-    if (edital && edital.conteudo) {
+    if (edital && edital.parsedContent) {
       attachments.push({
         url: 'db://edital',
         contentType: 'text/plain',
-        content: `CONTEÚDO DO EDITAL DE REFERÊNCIA (${edital.titulo}):\n\n${edital.conteudo}`
+        content: `CONTEÚDO DO EDITAL DE REFERÊNCIA (${edital.title}):\n\n${edital.parsedContent}`
       })
     }
   }
 
   // Support for attachments using Vercel AI SDK parts format
   const parts: any[] = [{ type: 'text', text }]
-  if (attachments.length > 0) {
+  if (attachments.length > 0 && attachments[0]) {
      // Currently we just send the text alongside if there's no native multipart format
      parts[0].text += '\n\n' + attachments[0].content
   }
 
   chat.sendMessage(
-    { text: parts[0].text },
-    { 
-      data: { 
-        provider: selectedModel.value, 
-        sessionId: sessionId.value || '', 
-        editalId: attachedEditalId.value?.toString() || '' 
-      } 
-    }
+    { text: parts[0].text }
   )
 }
 
@@ -288,14 +282,14 @@ const handleKeyDown = (e: KeyboardEvent) => {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault()
     if (input.value.trim() && !isLoading.value) {
-      handleSubmit(e as unknown as Event, { data: { provider: selectedModel.value, sessionId: sessionId.value || '', editalId: attachedEditalId.value?.toString() || '' } })
+      handleSubmit(e as unknown as Event)
     }
   }
 }
 
 const sendClick = (e: Event) => {
   if (input.value.trim() && !isLoading.value) {
-    handleSubmit(e, { data: { provider: selectedModel.value, sessionId: sessionId.value || '', editalId: attachedEditalId.value?.toString() || '' } })
+    handleSubmit(e)
   }
 }
 

@@ -4,11 +4,14 @@ import { computed } from 'vue'
 const props = defineProps<{
     discipline: any;
     isActive?: boolean;
+    isSelected?: boolean;
 }>()
 
 defineEmits<{
     (e: 'click'): void;
     (e: 'delete'): void;
+    (e: 'clone'): void;
+    (e: 'select', value: boolean): void;
 }>()
 
 const topicsTotal = computed(() => props.discipline.topics?.length ?? 0)
@@ -21,22 +24,42 @@ const progress = computed(() =>
 <template>
     <button
         class="group relative bg-surface-container-lowest p-6 rounded-xl border transition-all duration-300 flex flex-col justify-between aspect-square text-left cursor-pointer w-full"
-        :class="isActive
-            ? 'border-primary-container shadow-md'
-            : 'border-on-surface/10 hover:border-primary-container hover:shadow-sm'"
+        :class="[
+            isActive ? 'border-primary-container shadow-md' : 'border-on-surface/10 hover:border-primary-container hover:shadow-sm',
+            discipline.isActive === false ? 'opacity-60 grayscale-[30%] hover:opacity-100 hover:grayscale-0' : ''
+        ]"
         @click="$emit('click')"
     >
-        <!-- Delete button -->
-        <button
-            class="absolute top-3 right-3 w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-muted opacity-0 group-hover:opacity-100 hover:bg-error/10 hover:text-error transition-all duration-150 cursor-pointer"
-            @click.stop="$emit('delete')"
-            title="Remover disciplina"
-        >
-            <i class="pi pi-trash text-[11px]"></i>
-        </button>
+        <!-- Selection checkbox -->
+        <div class="absolute top-4 left-4 z-10" @click.stop>
+            <input 
+                type="checkbox" 
+                :checked="isSelected" 
+                @change="$emit('select', ($event.target as HTMLInputElement).checked)"
+                class="w-4 h-4 rounded border-outline/30 text-primary focus:ring-primary cursor-pointer"
+            />
+        </div>
+
+        <!-- Top right actions -->
+        <div class="absolute top-3 right-3 flex gap-1 z-10" @click.stop>
+            <button
+                class="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-muted opacity-0 group-hover:opacity-100 hover:bg-primary-container/20 hover:text-primary transition-all duration-150 cursor-pointer"
+                @click="$emit('clone')"
+                title="Copiar para outro plano"
+            >
+                <i class="pi pi-clone text-[11px]"></i>
+            </button>
+            <button
+                class="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-muted opacity-0 group-hover:opacity-100 hover:bg-error/10 hover:text-error transition-all duration-150 cursor-pointer"
+                @click="$emit('delete')"
+                title="Remover disciplina"
+            >
+                <i class="pi pi-trash text-[11px]"></i>
+            </button>
+        </div>
 
         <!-- Top section: tag + name + topics count -->
-        <div>
+        <div class="pl-4 mt-1">
             <div class="flex items-center gap-2 mb-3">
                 <span class="text-[10px] font-label font-bold tracking-[0.15em] uppercase text-primary">
                     Peso {{ (discipline.weight ?? 1).toFixed(1) }}
@@ -52,7 +75,7 @@ const progress = computed(() =>
         </div>
 
         <!-- Bottom: progress bar -->
-        <div class="mt-6">
+        <div class="mt-6 w-full">
             <div class="flex justify-between items-end mb-2">
                 <span class="text-[10px] font-label font-bold text-on-surface-muted uppercase tracking-wider">Progresso</span>
                 <span class="text-sm font-label font-bold text-on-surface">{{ progress }}%</span>
