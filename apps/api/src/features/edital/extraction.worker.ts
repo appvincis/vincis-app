@@ -134,53 +134,75 @@ export function registerExtractionWorker() {
                 }
             };
 
-            // Processamento em paralelo dos segmentos para extrair os tópicos (regex + fallback IA)
-            const extractedDisciplines = await Promise.all(
-                segments.map(async (seg) => {
-                    // 1. Tentar parsear via Regex (gratuito, instantâneo)
-                    const parsedTopics = tryParseTopics(seg.rawText);
-                    if (parsedTopics && parsedTopics.length > 0) {
-                        console.log(`[Worker] Disciplina "${seg.name}" extraída via Regex. Encontrados ${parsedTopics.length} tópicos.`);
-                        return {
-                            name: seg.name,
-                            topics: parsedTopics
-                        };
-                    }
+            let completedCount = 0;
+            const totalCount = segments.length;
 
-                    // 2. Fallback para IA se não for uma lista numerada/separada simples
-                    console.log(`[Worker] Disciplina "${seg.name}" requer IA. Iniciando chamada de extração...`);
-                    await updateExtractionStatus(`Extraindo: ${seg.name}...`);
+            // Processamento sequencial dos segmentos para respeitar quotas e evitar erros 429 (Rate Limits)
+            const extractedDisciplines = [];
+            for (const seg of segments) {
+                // Checar se a extração foi cancelada pelo usuário durante a execução
+                const checkEdital = await prisma.edital.findUnique({
+                    where: { id: editalId },
+                    select: { extractionStatus: true }
+                });
+                if (!checkEdital || checkEdital.extractionStatus !== 'PROCESSING') {
+                    console.log(`[Worker] Extração do Edital #${editalId} foi interrompida ou cancelada no banco. Abortando processamento.`);
+                    return;
+                }
 
-                    try {
-                        const response = await streamObjectWithFallback({
-                            schema: z.object({
-                                topics: z.array(z.string().describe('Nome curto e objetivo do tópico/assunto (máx 10 palavras)'))
-                            }),
-                            prompt: `Analise a ementa/conteúdo programático da disciplina "${seg.name}" do edital e retorne seus tópicos de estudo estruturados.\n\n` +
-                                    `REGRAS OBRIGATÓRIAS:\n` +
-                                    `1. Extraia APENAS tópicos de estudo e conteúdos programáticos reais. Ignore datas, pesos de prova ou outros textos administrativos.\n` +
-                                    `2. Retorne os tópicos de forma curta e direta (máximo 10 palavras por tópico).\n` +
-                                    `3. Responda em português.\n\n` +
-                                    `--- CONTEÚDO PROGRAMÁTICO DE ${seg.name.toUpperCase()} ---\n` +
-                                    seg.rawText,
-                            temperature: 0.1,
-                            maxTokens: 1000
-                        }) as any;
+                // 1. Tentar parsear via Regex (gratuito, instantâneo)
+                const parsedTopics = tryParseTopics(seg.rawText);
+                if (parsedTopics && parsedTopics.length > 0) {
+                    completedCount++;
+                    console.log(`[Worker] Disciplina "${seg.name}" extraída via Regex. Encontrados ${parsedTopics.length} tópicos.`);
+                    await updateExtractionStatus(`[${completedCount}/${totalCount}] Extraindo: ${seg.name}...`);
+                    extractedDisciplines.push({
+                        name: seg.name,
+                        topics: parsedTopics
+                    });
+                    continue;
+                }
 
-                        const extractedObj = await response.object;
-                        return {
-                            name: seg.name,
-                            topics: extractedObj.topics || []
-                        };
-                    } catch (aiErr) {
-                        console.error(`[Worker] Falha ao extrair via IA para "${seg.name}":`, aiErr);
-                        return {
-                            name: seg.name,
-                            topics: []
-                        };
-                    }
-                })
-            );
+                // 2. Fallback para IA se não for uma lista numerada/separada simples
+                console.log(`[Worker] Disciplina "${seg.name}" requer IA. Iniciando chamada de extração...`);
+                await updateExtractionStatus(`[${completedCount + 1}/${totalCount}] Extraindo: ${seg.name}...`);
+
+                try {
+                    // Pequena pausa (1.2s) para não sobrecarregar requisições por minuto (RPM) das cotas gratuitas
+                    await new Promise(resolve => setTimeout(resolve, 1200));
+
+                    const response = await streamObjectWithFallback({
+                        schema: z.object({
+                            topics: z.array(z.string().describe('Nome curto e objetivo do tópico/assunto (máx 10 palavras)'))
+                        }),
+                        prompt: `Analise a ementa/conteúdo programático da disciplina "${seg.name}" do edital e retorne seus tópicos de estudo estruturados.\n\n` +
+                                `REGRAS OBRIGATÓRIAS:\n` +
+                                `1. Extraia APENAS tópicos de estudo e conteúdos programáticos reais. Ignore datas, pesos de prova ou outros textos administrativos.\n` +
+                                `2. Retorne os tópicos de forma corta e direta (máximo 10 palavras por tópico).\n` +
+                                `3. Responda em português.\n\n` +
+                                `--- CONTEÚDO PROGRAMÁTICO DE ${seg.name.toUpperCase()} ---\n` +
+                                seg.rawText,
+                        temperature: 0.1,
+                        maxTokens: 1000
+                    }) as any;
+
+                    const extractedObj = await response.object;
+                    completedCount++;
+                    await updateExtractionStatus(`[${completedCount}/${totalCount}] Extraindo: ${seg.name}...`);
+                    extractedDisciplines.push({
+                        name: seg.name,
+                        topics: extractedObj.topics || []
+                    });
+                } catch (aiErr) {
+                    console.error(`[Worker] Falha ao extrair via IA para "${seg.name}":`, aiErr);
+                    completedCount++;
+                    await updateExtractionStatus(`[${completedCount}/${totalCount}] Extraindo: ${seg.name}...`);
+                    extractedDisciplines.push({
+                        name: seg.name,
+                        topics: []
+                    });
+                }
+            }
 
             // Filtra disciplinas que acabaram vindo vazias por qualquer erro extremo
             const disciplinesToSave = extractedDisciplines.filter(d => d.topics.length > 0);

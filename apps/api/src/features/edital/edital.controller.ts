@@ -26,21 +26,21 @@ const google = createGoogleGenerativeAI({
 
 const getAiModels = () => {
     const models = [];
-    // Prioridade 1: OpenRouter com Gemini 2.5 Flash (boa relação custo/velocidade)
+    // Prioridade 1: Modelo gratuito via OpenRouter (nvidia/nemotron-3-ultra-550b-a55b:free)
+    if (process.env.OPENROUTER_API_KEY) {
+        models.push(openrouter.chat('nvidia/nemotron-3-ultra-550b-a55b:free'));
+    }
+    // Prioridade 2: OpenRouter com Gemini 2.5 Flash
     if (process.env.OPENROUTER_API_KEY) {
         models.push(openrouter.chat('google/gemini-2.5-flash'));
     }
-    // Prioridade 2: Gemini nativo
+    // Prioridade 3: Gemini nativo
     if (process.env.GEMINI_API_KEY) {
         models.push(google('gemini-2.5-flash'));
     }
-    // Prioridade 3: OpenAI nativo (só se a chave for real — começa com 'sk-')
+    // Prioridade 4: OpenAI nativo (só se a chave for real — começa com 'sk-')
     if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.startsWith('sk-')) {
         models.push(openai.chat('gpt-4o-mini'));
-    }
-    // Prioridade 4: Modelo gratuito via OpenRouter (último recurso)
-    if (process.env.OPENROUTER_API_KEY) {
-        models.push(openrouter.chat('nvidia/nemotron-3-ultra-550b-a55b:free'));
     }
     if (models.length === 0) {
         throw new Error('Nenhuma chave de API (OPENROUTER_API_KEY, GEMINI_API_KEY ou OPENAI_API_KEY) configurada.');
@@ -323,6 +323,7 @@ export const getEditais = async (req: AuthenticatedRequest, res: Response): Prom
                 cargo: true,
                 disciplinesCreated: true,
                 topicsCreated: true,
+                syllabusSegments: true,
                 userId: true,
                 createdAt: true,
                 updatedAt: true,
@@ -580,5 +581,56 @@ export const extractEdital = async (req: AuthenticatedRequest, res: Response): P
     } catch (error: any) {
         console.error('Erro ao iniciar extração de edital:', error);
         return res.status(500).json({ error: error.message || 'Erro interno ao iniciar processamento do edital.' });
+    }
+};
+
+export const cancelExtractEdital = async (req: AuthenticatedRequest, res: Response): Promise<any> => {
+    try {
+        const userId = req.dbUser?.id;
+        const editalId = parseInt(req.params.id as string);
+
+        if (!userId) return res.status(401).json({ error: 'Não autorizado' });
+        if (isNaN(editalId)) return res.status(400).json({ error: 'ID inválido' });
+
+        const edital = await prisma.edital.findFirst({ where: { id: editalId, userId } });
+        if (!edital) return res.status(404).json({ error: 'Edital não encontrado' });
+
+        if (edital.extractionStatus !== 'PROCESSING' && edital.extractionStatus !== 'QUEUED') {
+            return res.status(400).json({ error: 'Esta extração não está ativa ou na fila para ser cancelada.' });
+        }
+
+        // 1. Procurar os jobs associados ao editalId na tabela do pg-boss
+        const jobs = await prisma.$queryRawUnsafe<{ id: string }[]>(`
+            SELECT id 
+            FROM pgboss.job 
+            WHERE name = 'edital-extraction' 
+              AND (data->>'editalId')::int = $1 
+              AND state IN ('created', 'retry', 'active')
+        `, editalId);
+
+        // 2. Cancelar cada job encontrado no pg-boss
+        for (const job of jobs) {
+            try {
+                await boss.cancel('edital-extraction', job.id);
+            } catch (bossErr) {
+                console.warn(`[API] Não foi possível cancelar job ${job.id} no pg-boss:`, bossErr);
+            }
+        }
+
+        // 3. Atualizar o status do edital para FAILED (com erro de cancelado) no banco
+        await prisma.edital.update({
+            where: { id: editalId },
+            data: {
+                extractionStatus: 'FAILED',
+                extractionError: 'Cancelado pelo usuário.'
+            }
+        });
+
+        console.log(`[API] Extração do Edital #${editalId} foi cancelada pelo usuário #${userId}.`);
+        return res.json({ message: 'Extração cancelada com sucesso.' });
+
+    } catch (error: any) {
+        console.error('Erro ao cancelar extração de edital:', error);
+        return res.status(500).json({ error: error.message || 'Erro interno ao cancelar extração.' });
     }
 };

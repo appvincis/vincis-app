@@ -14,6 +14,7 @@ export interface Edital {
     cargo?: string | null;
     disciplinesCreated: number;
     topicsCreated: number;
+    syllabusSegments?: any[] | null;
 }
 
 export const useEditaisQuery = () => {
@@ -73,6 +74,19 @@ export const useExtractEditalMutation = () => {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['disciplines'] });
+            queryClient.invalidateQueries({ queryKey: ['editais'] });
+        }
+    });
+};
+
+export const useCancelExtractEditalMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async (id: number) => {
+            const { data } = await api.post<{ message: string }>(`/editais/${id}/cancel-extract`);
+            return data;
+        },
+        onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['editais'] });
         }
     });
