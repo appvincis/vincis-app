@@ -6,6 +6,7 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { requireAuth, AuthenticatedRequest } from '../auth/auth.middleware.js'
 import { prisma } from '../../lib/prisma.js'
 import { supabaseAdmin } from '../../lib/supabase.js'
+import { nvidiaClient, generateObjectNvidia } from '../../lib/nvidia.js'
 
 export const aiRouter = Router()
 
@@ -22,6 +23,11 @@ const openai = createOpenAI({
 
 const google = createGoogleGenerativeAI({
   apiKey: process.env.GEMINI_API_KEY
+})
+
+const nvidia = createOpenAI({
+  baseURL: 'https://integrate.api.nvidia.com/v1',
+  apiKey: process.env.NVIDIA_API_KEY || ''
 })
 
 // List all sessions for the logged-in user
@@ -154,7 +160,10 @@ aiRouter.post('/chat', async (req: Request, res: Response) => {
 
     let model: any
     let fallbackModel: any
-    if (process.env.OPENROUTER_API_KEY) {
+    if (process.env.NVIDIA_API_KEY) {
+      model = nvidia('openai/gpt-oss-120b')
+      fallbackModel = nvidia('openai/gpt-oss-20b')
+    } else if (process.env.OPENROUTER_API_KEY) {
       model = openrouter('nvidia/nemotron-3-ultra-550b-a55b:free')
       fallbackModel = process.env.GEMINI_API_KEY 
         ? google('gemini-2.5-flash') 
@@ -168,7 +177,7 @@ aiRouter.post('/chat', async (req: Request, res: Response) => {
       model = openai('gpt-4o-mini')
       fallbackModel = google('gemini-2.5-flash')
     } else {
-      throw new Error('Nenhuma chave de API (OPENROUTER_API_KEY, GEMINI_API_KEY ou OPENAI_API_KEY) configurada.')
+      throw new Error('Nenhuma chave de API (NVIDIA_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY ou OPENAI_API_KEY) configurada.')
     }
 
     let finalSystemPrompt = systemInstruction;
@@ -237,6 +246,73 @@ aiRouter.post('/chat', async (req: Request, res: Response) => {
         })
       }
     };
+
+    if (process.env.NVIDIA_API_KEY) {
+      try {
+        console.log(`[AI] Tentando NVIDIA NIM Oficial (nvidia/nemotron-3-nano-omni-30b-a3b-reasoning) via OpenAI SDK...`);
+        const converted = await convertToModelMessages(messages);
+        
+        const completionStream = (await nvidiaClient.chat.completions.create({
+          model: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
+          messages: [
+            { role: 'system', content: finalSystemPrompt },
+            ...converted
+          ] as any,
+          temperature: 0.6,
+          top_p: 0.95,
+          max_tokens: 4096,
+          extra_body: {
+            chat_template_kwargs: { enable_thinking: true },
+            reasoning_budget: 16384
+          },
+          stream: true
+        } as any)) as any;
+
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.setHeader('Transfer-Encoding', 'chunked');
+        res.setHeader('x-session-id', sessionId);
+
+        let fullText = '';
+        let fullReasoning = '';
+
+        for await (const chunk of completionStream) {
+          const delta = chunk.choices[0]?.delta;
+          if (delta) {
+            const reasoning = (delta as any).reasoning_content;
+            if (reasoning) {
+              fullReasoning += reasoning;
+              process.stdout.write(reasoning);
+            }
+            const content = delta.content;
+            if (content) {
+              fullText += content;
+              res.write(`0:${JSON.stringify(content)}\n`);
+            }
+          }
+        }
+
+        console.log("\n=== CONTENT ===");
+        console.log(fullText);
+
+        await prisma.aiMessage.create({
+          data: {
+            sessionId,
+            role: 'assistant',
+            content: fullText,
+            tokens: null
+          }
+        });
+        await prisma.aiSession.update({
+          where: { id: sessionId },
+          data: { updatedAt: new Date() }
+        });
+
+        res.end();
+        return;
+      } catch (err) {
+        console.warn("NVIDIA NIM streaming via OpenAI SDK failed, falling back to other models...", err);
+      }
+    }
 
     let result: any;
     try {
@@ -341,6 +417,19 @@ ${JSON.stringify(promptData, null, 2)}`
       prompt: 'Gere o diagnóstico estruturado com base nestas estatísticas do aluno.'
     }
 
+    if (process.env.NVIDIA_API_KEY) {
+      try {
+        console.log(`[AI-Diagnostic] Tentando NVIDIA NIM Oficial (nvidia/nemotron-3-nano-omni-30b-a3b-reasoning) via OpenAI SDK...`);
+        const resObj = await generateObjectNvidia(objectOptions);
+        return res.json({
+          isEmpty: false,
+          ...resObj.object
+        });
+      } catch (err) {
+        console.warn("NVIDIA NIM generateObject via OpenAI SDK failed for diagnostic, trying fallback models...", err);
+      }
+    }
+
     let primaryModel: any
     let fallbackModel: any
     
@@ -358,7 +447,7 @@ ${JSON.stringify(promptData, null, 2)}`
       primaryModel = openai('gpt-4o-mini')
       fallbackModel = google('gemini-2.5-flash')
     } else {
-      throw new Error('Nenhuma chave de API (OPENROUTER_API_KEY, GEMINI_API_KEY ou OPENAI_API_KEY) configurada.')
+      throw new Error('Nenhuma chave de API (NVIDIA_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY ou OPENAI_API_KEY) configurada.')
     }
 
     let result: any;

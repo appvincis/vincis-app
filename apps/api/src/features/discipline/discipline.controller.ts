@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { prisma } from "../../lib/prisma.js";
+import { generateObjectNvidia } from "../../lib/nvidia.js";
 
 const openrouter = createOpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
@@ -19,6 +20,11 @@ const openai = createOpenAI({
 
 const google = createGoogleGenerativeAI({
   apiKey: process.env.GEMINI_API_KEY
+});
+
+const nvidia = createOpenAI({
+  baseURL: 'https://integrate.api.nvidia.com/v1',
+  apiKey: process.env.NVIDIA_API_KEY || ''
 });
 
 const getAiModels = () => {
@@ -35,21 +41,39 @@ const getAiModels = () => {
     if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.startsWith('sk-')) {
         models.push(openai.chat('gpt-4o-mini'));
     }
-    // Prioridade 4: modelo gratuito (último recurso)
+    // Prioridade 4: modelo gratuito via OpenRouter (último recurso)
     if (process.env.OPENROUTER_API_KEY) {
         models.push(openrouter.chat('nvidia/nemotron-3-ultra-550b-a55b:free'));
     }
     if (models.length === 0) {
-        throw new Error('Nenhuma chave de API (OPENROUTER_API_KEY, GEMINI_API_KEY ou OPENAI_API_KEY) configurada.');
+        throw new Error('Nenhuma chave de API (NVIDIA_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY ou OPENAI_API_KEY) configurada.');
     }
     return models;
 };
 
-const MODEL_TIMEOUT_MS = 45000;
+const MODEL_TIMEOUT_MS = 90000;
 
 async function generateObjectWithFallback(options: any) {
-    const models = getAiModels();
     let lastError: any;
+
+    // Tenta primeiro o cliente oficial da NVIDIA se a chave estiver configurada
+    if (process.env.NVIDIA_API_KEY) {
+        try {
+            console.log(`[AI-Discipline] Tentando NVIDIA NIM Oficial (nvidia/nemotron-3-nano-omni-30b-a3b-reasoning) via OpenAI SDK...`);
+            const result = await Promise.race([
+                generateObjectNvidia(options),
+                new Promise<never>((_, reject) =>
+                    setTimeout(() => reject(new Error(`Timeout de ${MODEL_TIMEOUT_MS / 1000}s para o modelo nvidia/nemotron-3-nano-omni-30b-a3b-reasoning`)), MODEL_TIMEOUT_MS)
+                )
+            ]);
+            return result;
+        } catch (err: any) {
+            console.warn(`[AI-Discipline] generateObject via OpenAI SDK falhou: ${err.message}`);
+            lastError = err;
+        }
+    }
+
+    const models = getAiModels();
     for (const model of models) {
         try {
             console.log(`[AI-Discipline] Tentando modelo: ${model.modelId || 'unknown'}`);

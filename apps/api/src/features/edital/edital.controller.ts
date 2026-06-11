@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { segmentByDiscipline } from './edital.segmenter.js';
+import { generateObjectNvidia } from '../../lib/nvidia.js';
 
 const openrouter = createOpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
@@ -24,48 +25,77 @@ const google = createGoogleGenerativeAI({
   apiKey: process.env.GEMINI_API_KEY
 });
 
+const nvidia = createOpenAI({
+  baseURL: 'https://integrate.api.nvidia.com/v1',
+  apiKey: process.env.NVIDIA_API_KEY || ''
+});
+
 const getAiModels = () => {
     const models = [];
     // Prioridade 1: Modelo gratuito via OpenRouter (nvidia/nemotron-3-ultra-550b-a55b:free)
     if (process.env.OPENROUTER_API_KEY) {
         models.push(openrouter.chat('nvidia/nemotron-3-ultra-550b-a55b:free'));
     }
-    // Prioridade 2: OpenRouter com Gemini 2.5 Flash
+    // Prioridade 3: OpenRouter com Gemini 2.5 Flash
     if (process.env.OPENROUTER_API_KEY) {
         models.push(openrouter.chat('google/gemini-2.5-flash'));
     }
-    // Prioridade 3: Gemini nativo
+    // Prioridade 4: Gemini nativo
     if (process.env.GEMINI_API_KEY) {
         models.push(google('gemini-2.5-flash'));
     }
-    // Prioridade 4: OpenAI nativo (só se a chave for real — começa com 'sk-')
+    // Prioridade 5: OpenAI nativo (só se a chave for real — começa com 'sk-')
     if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.startsWith('sk-')) {
         models.push(openai.chat('gpt-4o-mini'));
     }
     if (models.length === 0) {
-        throw new Error('Nenhuma chave de API (OPENROUTER_API_KEY, GEMINI_API_KEY ou OPENAI_API_KEY) configurada.');
+        throw new Error('Nenhuma chave de API (NVIDIA_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY ou OPENAI_API_KEY) configurada.');
     }
     return models;
 };
+const MODEL_TIMEOUT_MS = 90000; // 90s por modelo antes de tentar o próximo
 
 export async function generateObjectWithFallback(options: any) {
-    const models = getAiModels();
     let lastError: any;
+    
+    // Tenta primeiro o cliente oficial da NVIDIA se a chave estiver configurada
+    if (process.env.NVIDIA_API_KEY) {
+        try {
+            console.log(`[AI] Tentando NVIDIA NIM Oficial (nvidia/nemotron-3-nano-omni-30b-a3b-reasoning) via OpenAI SDK...`);
+            const result = await Promise.race([
+                generateObjectNvidia(options),
+                new Promise<never>((_, reject) =>
+                    setTimeout(() => reject(new Error(`Timeout de ${MODEL_TIMEOUT_MS / 1000}s atingido para o modelo nvidia/nemotron-3-nano-omni-30b-a3b-reasoning`)), MODEL_TIMEOUT_MS)
+                )
+            ]);
+            return result;
+        } catch (err: any) {
+            console.warn(`generateObject via OpenAI SDK failed for NVIDIA, trying next fallback...`, err);
+            lastError = err;
+        }
+    }
+
+    const models = getAiModels();
     for (const model of models) {
         try {
-            return await generateObject({
-                ...options,
-                model
-            });
-        } catch (err) {
+            console.log(`[AI] Tentando modelo de fallback (generateObject): ${model.modelId || 'unknown'}`);
+            const result = await Promise.race([
+                generateObject({
+                    ...options,
+                    model
+                }),
+                new Promise<never>((_, reject) =>
+                    setTimeout(() => reject(new Error(`Timeout de ${MODEL_TIMEOUT_MS / 1000}s atingido para o modelo ${model.modelId || 'unknown'}`)), MODEL_TIMEOUT_MS)
+                )
+            ]);
+            return result;
+        } catch (err: any) {
             console.warn(`generateObject failed for ${model.modelId || 'model'}, trying next fallback...`, err);
             lastError = err;
         }
     }
     throw lastError || new Error("Todos os modelos falharam na geração de objeto.");
 }
-
-const MODEL_TIMEOUT_MS = 45000; // 45s por modelo antes de tentar o próximo
 
 export async function streamObjectWithFallback(options: any) {
     const models = getAiModels();
@@ -148,7 +178,8 @@ export const smartExtractSyllabusChunk = (fullText: string): string => {
     if (totalLength <= 40000) return fullText;
 
     const normalizedText = normalizeText(fullText);
-    const minStartIndex = Math.floor(totalLength * 0.25); // ignora os primeiros 25% (sumário)
+    // Ignora apenas os primeiros ~3-4 páginas para evitar o sumário, sem pular matérias comuns
+    const minStartIndex = Math.min(12000, Math.floor(totalLength * 0.1));
 
     const keywords = [
         'conteudo programatico',
@@ -209,7 +240,7 @@ export const smartExtractSyllabusChunk = (fullText: string): string => {
     // Recua até o início da linha para não cortar no meio de uma palavra
     while (bestIdx > 0 && fullText[bestIdx - 1] !== '\n') bestIdx--;
 
-    const windowSize = 60000;
+    const windowSize = 120000;
     console.log(`[smartExtract] Chunk selecionado a partir do índice ${bestIdx} (${(bestIdx / totalLength * 100).toFixed(1)}% do documento).`);
     return fullText.substring(bestIdx, bestIdx + windowSize);
 };
@@ -460,16 +491,19 @@ export async function locateSyllabusPages(parsedContent: string, cargo?: string)
         
         let cargoInstruction = '';
         if (cargo) {
-            cargoInstruction = `e também para a parte de Conhecimentos Específicos para o cargo de "${cargo}".`;
+            cargoInstruction = `e para a parte de Conhecimentos Específicos do cargo de "${cargo}".`;
         } else {
             cargoInstruction = `(como não foi informado um cargo específico, procure apenas pelas disciplinas gerais/básicas e retorne a parte específica como nula).`;
         }
 
-        const prompt = `Analise o texto inicial do edital (que inclui sumário e introdução) e identifique o número exato das páginas onde se localizam as disciplinas do conteúdo programático de estudo.\n\n` +
-            `Você precisa identificar as páginas correspondentes para as disciplinas de Conhecimentos Gerais/Básicos (comum a todos os cargos) ${cargoInstruction}\n\n` +
-            `Se as páginas não forem explicitadas ou você não puder identificar com certeza absoluta, retorne null para os campos.\n` +
-            `Preste atenção aos marcadores "--- PÁGINA X ---" presentes no texto para mapear o número exato da página.\n\n` +
-            `--- CONTEÚDO INICIAL DO EDITAL ---\n` +
+        const prompt = `Você é um analista especialista em editais de concursos públicos.\n` +
+            `Sua tarefa é ler as páginas iniciais do edital (sumário, índice ou introdução) e localizar os intervalos exatos de páginas onde estão descritos os conteúdos programáticos (ementas das disciplinas).\n\n` +
+            `INSTRUÇÕES CRÍTICAS DE ANÁLISE:\n` +
+            `1. **CONHECIMENTOS GERAIS/BÁSICOS (DISCIPLINAS COMUNS):** Encontre obrigatoriamente a faixa de páginas das matérias que são comuns a todos os cargos do concurso (ex: Língua Portuguesa, Raciocínio Lógico, Informática, Direito Constitucional, Direito Administrativo, Atualidades, etc.). Geralmente ficam no início do conteúdo programático. É fundamental identificar esta faixa para que as disciplinas comuns não sejam ignoradas.\n` +
+            `2. **CONHECIMENTOS ESPECÍFICOS:** ${cargoInstruction}\n` +
+            `3. **MAPEAMENTO DAS PÁGINAS:** Mapeie os números baseando-se estritamente nas marcações do texto que estão no formato "--- PÁGINA X ---". Por exemplo, se a ementa de Conhecimentos Básicos começa após o marcador "--- PÁGINA 15 ---" e termina antes do marcador "--- PÁGINA 19 ---", a página inicial é 15 e a final é 18.\n` +
+            `4. **FORMATO DE PÁGINAS:** Se o conteúdo programático estiver em uma única página, a página inicial e a final serão iguais.\n\n` +
+            `--- CONTEÚDO DE ANÁLISE DO EDITAL ---\n` +
             summaryText;
 
         const response = await generateObjectWithFallback({
@@ -505,6 +539,49 @@ export async function locateSyllabusPages(parsedContent: string, cargo?: string)
             geral: { startPage: null, endPage: null },
             especifico: { startPage: null, endPage: null }
         };
+    }
+}
+
+export interface DisciplineClassification {
+    name: string;
+    category: 'COMMON' | 'SPECIFIC' | 'OTHER';
+    reason: string;
+}
+
+export async function filterDisciplinesByCargoWithAi(
+    disciplineNames: string[],
+    cargo: string
+): Promise<DisciplineClassification[]> {
+    try {
+        const prompt = `Você é um especialista em análise de editais de concursos públicos.\n` +
+            `Recebemos uma lista de disciplinas extraídas de um edital e precisamos filtrar essa lista para manter apenas as disciplinas relevantes para o cargo de "${cargo}".\n\n` +
+            `Classifique cada uma das seguintes disciplinas nas categorias abaixo:\n` +
+            `- "COMMON": Disciplinas básicas/gerais comuns a todos os cargos do concurso (ex: Língua Portuguesa, Raciocínio Lógico, Informática, Direito Constitucional, Direito Administrativo, Redação, etc.).\n` +
+            `- "SPECIFIC": Disciplinas específicas exclusivas para o cargo de "${cargo}".\n` +
+            `- "OTHER": Disciplinas que pertencem especificamente a OUTROS cargos do edital (ex: se o cargo selecionado for 'Escrivão', e a disciplina for 'Conhecimentos Específicos de Delegado' ou 'Contabilidade Avançada para Auditor', classifique como OTHER).\n\n` +
+            `ATENÇÃO: As disciplinas básicas e comuns (ex: Língua Portuguesa, Raciocínio Lógico, Informática, etc.) devem SEMPRE ser classificadas como "COMMON". Não as marque como "OTHER" sob nenhuma hipótese!\n\n` +
+            `Disciplinas a serem classificadas:\n` +
+            disciplineNames.map(name => `- ${name}`).join('\n') + `\n\n` +
+            `Retorne um objeto JSON contendo a classificação para cada disciplina listada.`;
+
+        const response = await generateObjectWithFallback({
+            schema: z.object({
+                classifications: z.array(z.object({
+                    name: z.string().describe('Nome exato da disciplina da lista'),
+                    category: z.enum(['COMMON', 'SPECIFIC', 'OTHER']).describe('Categoria da disciplina para o cargo analisado'),
+                    reason: z.string().describe('Explicação rápida do motivo dessa classificação')
+                }))
+            }),
+            prompt,
+            temperature: 0.1,
+            maxTokens: 800,
+        });
+
+        const obj = response.object as unknown as { classifications: DisciplineClassification[] };
+        return obj.classifications || [];
+    } catch (err) {
+        console.error('Erro ao filtrar disciplinas por cargo via IA:', err);
+        return [];
     }
 }
 
@@ -554,13 +631,18 @@ export const extractEdital = async (req: AuthenticatedRequest, res: Response): P
             return res.status(400).json({ error: 'Você precisa ter pelo menos um Plano de Estudo criado para realizar a extração.' });
         }
 
-        // Atualizar status para QUEUED e limpar erros anteriores no banco
+        const targetCargo = cargo || null;
+
+        // Atualizar status para QUEUED, limpar erros e forçar limpeza do cache para que a IA remapeie tudo do zero
         await (prisma.edital.update as any)({
             where: { id: editalId },
             data: {
                 extractionStatus: 'QUEUED',
                 extractionError: 'Aguardando na fila de processamento...',
-                cargo: cargo || null
+                cargo: targetCargo,
+                syllabusChunk: null,
+                syllabusChunkCargo: null,
+                syllabusSegments: null
             }
         });
 
