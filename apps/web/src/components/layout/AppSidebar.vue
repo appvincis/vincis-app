@@ -90,7 +90,7 @@ const userInitials = computed(() => {
 <template>
   <!-- Desktop Sidebar -->
   <aside
-    class="hidden md:flex flex-col h-screen w-64 bg-surface-container-low dark:bg-surface-dark p-6 fixed left-0 top-0 z-40 border-r soft-brutalist-border">
+    class="hidden md:flex flex-col h-screen w-64 bg-surface-container-low dark:bg-surface-dark p-6 pb-2 fixed left-0 top-0 z-40 border-r soft-brutalist-border">
     <!-- Brand Logo Header -->
     <div class="mb-8 select-none">
       <h1
@@ -141,9 +141,9 @@ const userInitials = computed(() => {
     </div>
 
     <!-- User Footer Profile -->
-    <div class="pt-4 border-t border-outline-variant/30 shrink-0" :class="{ 'mt-auto': plan.isPremium }">
+    <div class="pt-1 pb-0 border-t border-outline-variant/30 shrink-0" :class="{ 'mt-auto': plan.isPremium }">
       <div
-        class="flex items-center gap-3 w-full p-1.5 hover:bg-background dark:hover:bg-surface-dark-elevated rounded-xl cursor-pointer transition-all overflow-hidden"
+        class="flex items-center gap-3 w-full p-4 hover:bg-background dark:hover:bg-surface-dark-elevated rounded-xl cursor-pointer transition-all overflow-hidden"
         @click="toggleUserMenu">
         <div
           class="w-10 h-10 rounded-full bg-primary-container flex-shrink-0 flex items-center justify-center ring-2 ring-outline-variant/20 overflow-hidden">
@@ -167,7 +167,7 @@ const userInitials = computed(() => {
         </div>
       </div>
       <Menu ref="menu" :model="userMenuItems" :popup="true" :pt="{
-        root: { class: 'bg-surface-container-lowest border border-outline-variant/30 rounded-xl shadow-xl w-56 mt-2 overflow-hidden' },
+        root: { class: 'bg-surface-container-lowest border border-outline-variant/30 rounded-xl shadow-xl w-60 pb-1 p-2 mt-2 overflow-hidden' },
         menu: { class: 'p-1.5 outline-none flex flex-col gap-0.5' },
         action: { class: 'flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-muted hover:bg-background hover:text-primary transition-all cursor-pointer group' },
         icon: { class: 'text-[16px] group-hover:scale-110 transition-transform' },
@@ -175,9 +175,9 @@ const userInitials = computed(() => {
         separator: { class: 'border-t border-outline-variant/20 my-1 mx-2' }
       }">
         <template #start>
-          <div class="px-2 py-3 flex items-center gap-3 border-b border-outline-variant/20 mx-1.5 mb-1.5">
+          <div class="px-2 py-3 flex items-center gap-2 border-b border-outline-variant/20 mx-1.5 mb-1.5">
             <div
-              class="w-9 h-9 rounded-full bg-surface-container-lowest border border-outline-variant/40 shadow-sm text-primary font-bold flex items-center justify-center shrink-0 uppercase text-xs">
+              class="w-9 h-9 rounded-full bg-surface-container-lowest border border-outline-variant/40 shadow-sm text-primary font-bold flex  items-center justify-center shrink-0 uppercase text-xs">
               {{ studyPlanStore.activePlanName ? studyPlanStore.activePlanName.substring(0, 2) : 'NA' }}
             </div>
             <div class="flex flex-col min-w-0">

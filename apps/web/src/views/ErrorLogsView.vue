@@ -128,6 +128,31 @@ function topicLabel(log: ErrorLog) {
 function disciplineOf(log: ErrorLog) {
     return log.topic?.discipline || null
 }
+
+function getDisciplineStyle(log: ErrorLog) {
+  const discipline = disciplineOf(log)
+  if (!discipline) return null
+  
+  return {
+    background: discipline.color + '15',
+    color: discipline.color,
+    borderColor: discipline.color + '33'
+  }
+}
+
+function getDisciplineName(log: ErrorLog) {
+  return disciplineOf(log)?.name || null
+}
+watch(visibleLogs, (logs) => {
+  console.log('=== DEBUG LOGS ===')
+  logs.forEach(log => {
+    console.log(`Log ID: ${log.id}`)
+    console.log(`  topic:`, log.topic)
+    console.log(`  discipline:`, log.topic?.discipline)
+    console.log(`  discipline.color:`, log.topic?.discipline?.color)
+    console.log(`  discipline.name:`, log.topic?.discipline?.name)
+  })
+}, { immediate: true, deep: true })
 </script>
 
 <template>
@@ -208,15 +233,16 @@ function disciplineOf(log: ErrorLog) {
                 <div class="err-card-top flex justify-between items-start gap-4 mb-3">
                     <div class="err-badges flex flex-wrap gap-1.5 items-center">
                         <!-- Disciplina -->
-                        <span v-if="disciplineOf(log)" class="badge-disc"
-                            :style="{ background: disciplineOf(log)!.color+'15', color: disciplineOf(log)!.color, borderColor: disciplineOf(log)!.color+'33' }">
-                            {{ disciplineOf(log)!.name }}
+                        <span v-if="getDisciplineName(log)" class="badge-disc"
+                                :style="getDisciplineStyle(log)">
+                            {{ getDisciplineName(log) }}
                         </span>
                         <!-- Diagnóstico -->
                         <span v-if="log.diagnostico" class="badge-diag"
                             :style="{ background: diagColor(log.diagnostico).bg, color: diagColor(log.diagnostico).text }">
                             {{ log.diagnostico }}
                         </span>
+                        
                     </div>
                     <div class="err-actions flex gap-1">
                         <button class="icon-btn" :id="`btn-edit-${log.id}`"
