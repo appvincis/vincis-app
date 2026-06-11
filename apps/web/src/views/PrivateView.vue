@@ -93,9 +93,9 @@ watch(currentStudyPlanId, (newId) => {
     </div>
 
     <!-- Dashboard Content (Loaded State) -->
-    <div v-else class="space-y-12">
+    <div v-else class="space-y-1">
       <!-- Bento Grid Layout -->
-      <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+      <div class="grid grid-cols md:grid-cols-12 gap-5">
         <!-- IA Diagnostic Card (Main) -->
         <VDiagnosticCard class="md:col-span-8 h-fit" :isEmpty="isAiInsightsEmpty" :isPremium="isPremiumUser"
           :isLoading="isGeneratingDiagnostic" :hasData="!!diagnosticData && !diagnosticData.isEmpty"
@@ -105,7 +105,7 @@ watch(currentStudyPlanId, (newId) => {
           :recommendationText="diagnosticData?.recommendationText || ''" @generate="handleGenerateDiagnostic" />
 
         <!-- Quick Stats -->
-        <div class="md:col-span-4 space-y-6">
+        <div class="md:col-span-4 space-y-1">
           <VCardStat title="Taxa de Sucesso" :value="`${successRate}%`" icon="pi-bolt" iconBgClass="bg-primary/10"
             iconColorClass="text-primary" badgeText="+4%" badgeColorClass="text-green-600" badgeBgClass="bg-green-50" />
           <VCardStat title="Foco Médio" :value="mediumFocusPoints.toString()" suffix="pts" icon="pi-bullseye"
@@ -117,7 +117,7 @@ watch(currentStudyPlanId, (newId) => {
       </div>
 
       <!-- Recent Activity List Section -->
-      <section class="space-y-6">
+      <section class="space-y-3">
         <div class="flex items-center justify-between border-b border-outline-variant/10 pb-4">
           <h3 class="text-2xl font-headline font-bold">Atividade Recente</h3>
           <router-link to="/private/focus"
