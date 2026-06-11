@@ -476,7 +476,7 @@ function handleDisciplineUpdate() {
         />
 
         <!-- Search bar -->
-        <div v-if="studyPlanStore.hasActivePlan" class="mb-6 max-w-md animate-fade-in">
+        <div v-if="studyPlanStore.hasActivePlan" class="mb-2 max-w-md animate-fade-in">
             <VInput 
                 v-model="searchTerm" 
                 placeholder="Buscar disciplinas pelo nome..." 
@@ -497,7 +497,7 @@ function handleDisciplineUpdate() {
         </div>
 
         <div v-else-if="filteredDisciplines.length === 0" class="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-outline-variant/20 rounded-2xl bg-surface-container-low max-w-xl mx-auto">
-            <i class="pi pi-folder-open text-5xl text-on-surface-muted mb-4"></i>
+            <i class="pi pi-folder-open text-5xl text-on-surface-muted mb-2"></i>
             <h3 class="text-lg font-headline font-bold text-on-surface mb-1">
                 {{ viewMode === 'ACTIVE' ? 'Nenhuma disciplina ativa' : 'Nenhuma disciplina arquivada' }}
             </h3>
@@ -532,7 +532,7 @@ function handleDisciplineUpdate() {
             </div>
 
             <!-- Bento Grid View -->
-            <div v-if="displayFormat === 'GRID'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 animate-fade-in">
+            <div v-if="displayFormat === 'GRID'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 animate-fade-in">
                 <DisciplineCard
                     v-for="disc in filteredDisciplines"
                     :key="disc.id"
@@ -549,7 +549,7 @@ function handleDisciplineUpdate() {
                 <button
                     v-if="studyPlanStore.hasActivePlan && viewMode === 'ACTIVE'"
                     @click="showCreateForm = true"
-                    class="group bg-surface-container-low border-2 border-dashed border-outline-variant/30 p-6 rounded-xl hover:bg-surface-container hover:border-primary-container transition-all duration-300 flex flex-col items-center justify-center min-h-[220px] gap-4 cursor-pointer w-full"
+                    class="group bg-surface-container-low border-2 border-dashed border-outline-variant/30 p-6 rounded-xl hover:bg-surface-container hover:border-primary-container transition-all duration-300 flex flex-col items-center justify-center min-h-[220px] gap-4 cursor-pointer w-90"
                 >
                     <div class="w-14 h-14 rounded-full bg-surface-container-lowest flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
                         <i class="pi pi-plus text-primary" style="font-size: 1.5rem"></i>

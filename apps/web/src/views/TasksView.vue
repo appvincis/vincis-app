@@ -21,9 +21,9 @@ interface Column {
 }
 
 const columns: Column[] = [
-  { key: 'todo', label: 'A Fazer', icon: 'pi-list', color: 'text-outline', bgColor: 'bg-outline/10' },
-  { key: 'in-progress', label: 'Em Andamento', icon: 'pi-spinner', color: 'text-amber-600', bgColor: 'bg-amber-50' },
-  { key: 'done', label: 'Concluído', icon: 'pi-check-circle', color: 'text-green-600', bgColor: 'bg-green-50' },
+  { key: 'todo', label: 'A Fazer', icon: 'pi-list', color: 'text-outline', bgColor: 'bg-slate-200' },
+  { key: 'in-progress', label: 'Em Andamento', icon: 'pi-spinner', color: 'text-amber-600', bgColor: 'bg-violet-50' },
+  { key: 'done', label: 'Concluído', icon: 'pi-check-circle', color: 'text-green-600', bgColor: 'bg-emerald-50' },
 ]
 
 const STORAGE_KEY = 'vincis_tasks'

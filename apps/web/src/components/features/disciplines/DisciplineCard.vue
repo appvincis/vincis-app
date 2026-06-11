@@ -23,7 +23,7 @@ const progress = computed(() =>
 
 <template>
     <button
-        class="group relative bg-surface-container-lowest p-6 rounded-xl border transition-all duration-300 flex flex-col justify-between aspect-square text-left cursor-pointer w-full"
+        class="group relative bg-surface-container-lowest p-6 rounded-xl border transition-all duration-300 flex flex-col justify-between aspect-square text-left cursor-pointer w-90"
         :class="[
             isActive ? 'border-primary-container shadow-md' : 'border-on-surface/10 hover:border-primary-container hover:shadow-sm',
             discipline.isActive === false ? 'opacity-60 grayscale-[30%] hover:opacity-100 hover:grayscale-0' : ''
@@ -31,7 +31,7 @@ const progress = computed(() =>
         @click="$emit('click')"
     >
         <!-- Selection checkbox -->
-        <div class="absolute top-4 left-4 z-10" @click.stop>
+        <div class="absolute top-2 left-4 z-10" @click.stop>
             <input 
                 type="checkbox" 
                 :checked="isSelected" 
