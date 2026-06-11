@@ -147,6 +147,7 @@ const toggleMode = () => {
   message.value = ''
   isError.value = false
   isConfirmPasswordVisible.value = false
+  
 }
 
 
@@ -453,7 +454,7 @@ if (!isLoginMode.value && password.value !== confirmPassword.value) {
   flex: 1 !important;
   display: flex !important;
   flex-direction: column !important;
-  justify-content: center !important;
+  justify-content: flex-start !important;
   align-items: center !important;
   background-color: var(--background) !important;
   position: relative !important;
@@ -619,8 +620,14 @@ if (!isLoginMode.value && password.value !== confirmPassword.value) {
   flex-direction: column !important;
   gap: 2.5rem !important;
   box-sizing: border-box !important;
+   scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* IE e Edge */
 }
-
+.auth-main::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
 .form-header {
   display: flex !important;
   flex-direction: column !important;
@@ -704,7 +711,7 @@ if (!isLoginMode.value && password.value !== confirmPassword.value) {
 .login-form {
   display: flex !important;
   flex-direction: column !important;
-  gap: 1.5rem !important;
+  gap: 1rem !important;
   width: 100% !important;
 }
 
@@ -752,7 +759,7 @@ if (!isLoginMode.value && password.value !== confirmPassword.value) {
   font-size: 0.875rem !important;
   color: var(--secondary) !important;
   text-align: center !important;
-  line-height: 1.5 !important;
+  line-height: 0 !important;
 }
 
 .form-toggle-btn {
