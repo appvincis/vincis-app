@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { VCard, VButton, VSpinner, VModal } from '../components/ui'
-import { useDisciplinesQuery, useTopicsQuery } from '../hooks/useDisciplines'
+import { useDisciplinesQuery, useTopicsQuery, useCreateTopicMutation } from '../hooks/useDisciplines'
 import {
     useErrorLogsQuery, useCreateErrorLogMutation,
     useUpdateErrorLogMutation, useDeleteErrorLogMutation,
@@ -45,6 +45,7 @@ const pendingCount  = computed(() => totalCount.value - resolvedCount.value)
 const createMutation = useCreateErrorLogMutation()
 const updateMutation = useUpdateErrorLogMutation()
 const deleteMutation = useDeleteErrorLogMutation()
+const createTopicMutation = useCreateTopicMutation()
 
 // ─── Modal de Criação ─────────────────────────────────────────────────────────
 const showModal        = ref(false)
@@ -73,13 +74,35 @@ function resetForm() {
 
 async function saveLog() {
     if (!isFormValid.value) return
+
+    let topicId: number | undefined = formTopicId.value ?? undefined
+    let topicText: string | undefined = formTopicText.value.trim() || undefined
+
+    // Se selecionou uma disciplina mas não selecionou um tópico existente no select
+    if (formDisciplineId.value && !topicId && topicText) {
+        const match = formTopics.value.find(t => t.name.toLowerCase() === topicText.toLowerCase())
+        if (match) {
+            topicId = match.id
+        } else {
+            try {
+                const newTopic = await createTopicMutation.mutateAsync({
+                    name: topicText,
+                    disciplineId: formDisciplineId.value
+                })
+                topicId = newTopic.id
+            } catch (err) {
+                console.error('Erro ao criar tópico automático:', err)
+            }
+        }
+    }
+
     await createMutation.mutateAsync({
         analise:     formAnalise.value.trim(),
         correcao:    formCorrecao.value.trim()  || undefined,
         fonte:       formFonte.value.trim()     || undefined,
         diagnostico: formDiagnostico.value      || undefined,
-        topicText:   formTopicText.value.trim() || undefined,
-        topicId:     formTopicId.value          || undefined,
+        topicText:   topicText,
+        topicId:     topicId,
     })
     resetForm()
 }
@@ -331,9 +354,23 @@ watch(visibleLogs, (logs) => {
                 </div>
                 <div class="modal-field">
                     <label class="field-label">TÓPICO / ASSUNTO</label>
-                    <input id="modal-topic-text" v-model="formTopicText"
-                        class="ds-input" placeholder="Ex: Crase" />
+                    <select 
+                        id="modal-topic-select" 
+                        v-model="formTopicId" 
+                        class="ds-native-select w-full"
+                        :disabled="!formDisciplineId"
+                    >
+                        <option :value="null">Outro / Criar Novo...</option>
+                        <option v-for="t in formTopics" :key="t.id" :value="t.id">{{ t.name }}</option>
+                    </select>
                 </div>
+            </div>
+
+            <!-- Campo de texto livre para novo tópico -->
+            <div class="modal-field" v-if="formDisciplineId && formTopicId === null">
+                <label class="field-label">NOME DO NOVO TÓPICO / ASSUNTO</label>
+                <input id="modal-topic-text" v-model="formTopicText"
+                    class="ds-input" placeholder="Ex: Crase" />
             </div>
 
             <!-- Linha 2 -->
