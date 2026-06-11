@@ -90,14 +90,10 @@ const userInitials = computed(() => {
 <template>
   <!-- Desktop Sidebar -->
   <aside
-    class="hidden md:flex flex-col h-screen w-64 bg-surface-container-low dark:bg-surface-dark p-6 pb-2 fixed left-0 top-0 z-40 border-r soft-brutalist-border">
+    class="hidden md:flex flex-col h-screen w-64 bg-surface-container-low dark:bg-surface-dark p-6 pb-1 fixed left-0 top-0 z-40 border-r soft-brutalist-border">
     <!-- Brand Logo Header -->
     <div class="mb-8 select-none">
-      <h1
-        class="text-xl font-bold text-on-surface dark:text-surface-container-lowest font-serif leading-none tracking-tight">
-        Vincis</h1>
-      <p class="text-[10px] font-sans font-bold uppercase tracking-widest text-on-surface-muted mt-0">Academic Portal
-      </p>
+      <img src="/logo.png" alt="Vincis" class="h-10 w-auto">
     </div>
 
     <!-- Navigation Links -->
@@ -141,7 +137,7 @@ const userInitials = computed(() => {
     </div>
 
     <!-- User Footer Profile -->
-    <div class="pt-1 pb-0 border-t border-outline-variant/30 shrink-0" :class="{ 'mt-auto': plan.isPremium }">
+    <div class="pt-1 border-t border-outline-variant/30 shrink-0" :class="{ 'mt-auto': plan.isPremium }">
       <div
         class="flex items-center gap-3 w-full p-4 hover:bg-background dark:hover:bg-surface-dark-elevated rounded-xl cursor-pointer transition-all overflow-hidden"
         @click="toggleUserMenu">
