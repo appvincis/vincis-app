@@ -96,7 +96,7 @@ const userInitials = computed(() => {
       <h1
         class="text-xl font-bold text-on-surface dark:text-surface-container-lowest font-serif leading-none tracking-tight">
         Vincis</h1>
-      <p class="text-[10px] font-sans font-bold uppercase tracking-widest text-on-surface-muted mt-1.5">Academic Portal
+      <p class="text-[10px] font-sans font-bold uppercase tracking-widest text-on-surface-muted mt-0">Academic Portal
       </p>
     </div>
 
@@ -214,5 +214,19 @@ const userInitials = computed(() => {
 
 .custom-scrollbar:hover::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--color-on-surface) 20%, transparent);
+}
+
+/* Esconder scrollbar da sidebar */
+/* Substitua o overflow-y: auto por overflow-y: visible */
+.custom-scrollbar {
+  overflow-y: visible !important; /* Impede a rolagem */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  display: none !important; /* Chrome, Safari, Opera */
+  width: 0 !important;
+  height: 0 !important;
 }
 </style>
