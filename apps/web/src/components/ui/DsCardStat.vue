@@ -23,21 +23,25 @@ const badgeBg = computed(() => props.badgeBgClass || 'bg-green-50')
 
 <template>
   <div class="bg-surface-container-lowest p-5 rounded-xl soft-brutalist-border hover:shadow-lg transition-all">
-    <div class="flex justify-between items-start ">
-      <span class="p-1.2 rounded-lg" :class="iconBg">
-        <i class="pi" :class="[icon, iconColor]"></i>
-      </span>
-      <span v-if="badgeText" class="text-xs font-label font-bold px-1 rounded" :class="[badgeColor, badgeBg]">
+    <div class="flex justify-between items-center gap-4">
+      <div class="flex items-center gap-3 flex-1">
+        <span class="p-3 rounded-lg" :class="iconBg">
+          <i class="pi" :class="[icon, iconColor]"></i>
+        </span>
+        <div class="flex-1">
+          <p class="text-sm font-label text-secondary mb-1">{{ title }}</p>
+          <div class="flex items-end gap-1">
+            <h4 class="text-4xl font-headline font-bold">
+              {{ value }}
+              <span v-if="suffix && !showProgress" class="text-lg font-label text-secondary ml-1">{{ suffix }}</span>
+            </h4>
+            <span v-if="suffix && showProgress" class="text-xl font-headline text-secondary mb-1">{{ suffix }}</span>
+          </div>
+        </div>
+      </div>
+      <span v-if="badgeText" class="text-xs font-label font-bold px-2 py-1 rounded whitespace-nowrap" :class="[badgeColor, badgeBg]">
         {{ badgeText }}
       </span>
-    </div>
-    <p class="text-sm font-label text-secondary mb-1">{{ title }}</p>
-    <div class="flex items-end gap-1">
-      <h4 class="text-4xl font-headline font-bold">
-        {{ value }}
-        <span v-if="suffix && !showProgress" class="text-lg font-label text-secondary ml-1">{{ suffix }}</span>
-      </h4>
-      <span v-if="suffix && showProgress" class="text-xl font-headline text-secondary mb-1">{{ suffix }}</span>
     </div>
     
     <div v-if="showProgress" class="w-full bg-surface-container h-1 mt-4 rounded-full overflow-hidden">

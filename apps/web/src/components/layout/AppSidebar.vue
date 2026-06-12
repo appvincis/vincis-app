@@ -93,7 +93,7 @@ const userInitials = computed(() => {
     class="hidden md:flex flex-col h-screen w-64 bg-surface-container-low dark:bg-surface-dark p-6 pb-1 fixed left-0 top-0 z-40 border-r soft-brutalist-border">
     <!-- Brand Logo Header -->
     <div class="mb-8 select-none">
-      <img src="/logo.png" alt="Vincis" class="h-10 w-auto">
+      <img src="/logo.png" alt="Vincis" class="h-9 w-auto">
     </div>
 
     <!-- Navigation Links -->

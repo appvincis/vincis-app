@@ -80,8 +80,9 @@ watch(currentStudyPlanId, (newId) => {
           {{ isExporting ? 'Exportando...' : 'Exportar Relatório' }}
         </button>
         <router-link to="/private/focus"
-          class="bg-on-surface text-surface rounded-lg text-sm font-label font-bold active:scale-95 transition-all shadow-sm"
-          style="padding: 10px 24px; min-height: 44px; display: flex; align-items: center; justify-content: center;">
+          class="bg-primary hover:bg-primary/80 text-surface rounded-lg text-sm font-label font-bold active:scale-95 transition-all shadow-sm"
+          style="padding: 10px 24px; min-height: 44px; display: flex; align-items: center; justify-content: center;  gap:4px">
+          <i class="pi pi-clock"></i>
           Modo Foco
         </router-link>
       </div>
@@ -93,7 +94,7 @@ watch(currentStudyPlanId, (newId) => {
     </div>
 
     <!-- Dashboard Content (Loaded State) -->
-    <div v-else class="space-y-1">
+    <div v-else class="space-y-8">
       <!-- Bento Grid Layout -->
       <div class="grid grid-cols md:grid-cols-12 gap-5">
         <!-- IA Diagnostic Card (Main) -->
@@ -105,7 +106,7 @@ watch(currentStudyPlanId, (newId) => {
           :recommendationText="diagnosticData?.recommendationText || ''" @generate="handleGenerateDiagnostic" />
 
         <!-- Quick Stats -->
-        <div class="md:col-span-4 space-y-1">
+        <div class="md:col-span-4 space-y-1.5">
           <VCardStat title="Taxa de Sucesso" :value="`${successRate}%`" icon="pi-bolt" iconBgClass="bg-primary/10"
             iconColorClass="text-primary" badgeText="+4%" badgeColorClass="text-green-600" badgeBgClass="bg-green-50" />
           <VCardStat title="Foco Médio" :value="mediumFocusPoints.toString()" suffix="pts" icon="pi-bullseye"
@@ -120,10 +121,6 @@ watch(currentStudyPlanId, (newId) => {
       <section class="space-y-3">
         <div class="flex items-center justify-between border-b border-outline-variant/10 pb-4">
           <h3 class="text-2xl font-headline font-bold">Atividade Recente</h3>
-          <router-link to="/private/focus"
-            class="text-sm font-label font-bold text-secondary hover:text-primary transition-colors">
-            Ir para o Foco
-          </router-link>
         </div>
 
         <div v-if="isLoadingSessions" class="flex justify-center py-12">

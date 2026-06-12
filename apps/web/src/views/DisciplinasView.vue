@@ -549,7 +549,7 @@ function handleDisciplineUpdate() {
                 <button
                     v-if="studyPlanStore.hasActivePlan && viewMode === 'ACTIVE'"
                     @click="showCreateForm = true"
-                    class="group bg-surface-container-low border-2 border-dashed border-outline-variant/30 p-6 rounded-xl hover:bg-surface-container hover:border-primary-container transition-all duration-300 flex flex-col items-center justify-center min-h-[220px] gap-4 cursor-pointer w-90"
+                    class="group bg-surface-container-low border-2 border-dashed border-outline-variant/30 p-6 rounded-xl hover:bg-surface-container hover:border-primary-container transition-all duration-300 flex flex-col items-center justify-center min-h-[220px] gap-4 cursor-pointer w-100"
                 >
                     <div class="w-14 h-14 rounded-full bg-surface-container-lowest flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
                         <i class="pi pi-plus text-primary" style="font-size: 1.5rem"></i>
