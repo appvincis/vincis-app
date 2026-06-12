@@ -140,7 +140,7 @@ export async function streamObjectWithFallback(options: any) {
 }
 
 export async function extractNativePDFWithGemini(options: {
-    base64Pdf: string,
+    parsedContent: string,
     prompt: string,
     schema: any,
     timeoutMs?: number
@@ -151,11 +151,11 @@ export async function extractNativePDFWithGemini(options: {
         throw new Error('GEMINI_API_KEY não configurada no ambiente. Não é possível usar extração nativa de PDF.');
     }
 
-    // Usamos o gemini-2.5-flash porque ele suporta até 1 Milhão de tokens, ideal para PDFs de editais
+    // Usamos o gemini-2.5-flash porque ele suporta até 1 Milhão de tokens, ideal para textos de editais gigantes
     const model = googleProvider('gemini-2.5-flash');
 
     try {
-        console.log(`[AI] Iniciando leitura nativa de PDF com Gemini 2.5 Flash (Visão Computacional)...`);
+        console.log(`[AI] Iniciando extração com Gemini 2.5 Flash usando o texto puro do Edital...`);
 
         const result = await Promise.race([
             generateObject({
@@ -165,12 +165,11 @@ export async function extractNativePDFWithGemini(options: {
                     {
                         role: 'user',
                         content: [
-                            { type: 'text', text: options.prompt },
-                            { type: 'file', data: options.base64Pdf, mediaType: 'application/pdf' }
+                            { type: 'text', text: options.prompt + '\n\n--- CONTEÚDO DO EDITAL ---\n\n' + options.parsedContent }
                         ]
                     }
                 ],
-                temperature: 0.1, // Rigoroso para evitar alucinações em JSON
+                temperature: 0.1
             }),
             new Promise<never>((_, reject) =>
                 setTimeout(() => reject(new Error(`Timeout de ${timeout / 1000}s atingido pela API do Gemini.`)), timeout)

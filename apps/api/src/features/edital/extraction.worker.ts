@@ -45,36 +45,26 @@ export function registerExtractionWorker() {
                 data: { extractionError: 'Baixando PDF do armazenamento...' }
             });
 
-            // 1. Download do PDF cru do Supabase
-            const bucketName = process.env.SUPABASE_BUCKET_EDITAIS || 'editais';
-            const { data: fileData, error: downloadError } = await supabaseAdmin.storage
-                .from(bucketName)
-                .download(edital.fileUrl);
-
-            if (downloadError || !fileData) {
-                console.error('[Worker] Erro ao baixar PDF:', downloadError);
-                throw new Error('Não foi possível baixar o edital original do armazenamento (Supabase).');
-            }
-
-            const buffer = await fileData.arrayBuffer();
-            const base64Pdf = Buffer.from(buffer).toString('base64');
-
+            // Não precisamos mais baixar o PDF nativo do Supabase!
+            // O Tutor IA provou que enviar o parsedContent (texto extraído) direto pro Gemini
+            // é muito mais rápido, barato e extremamente preciso.
+            
             await prisma.edital.update({
                 where: { id: editalId },
-                data: { extractionError: 'Lendo PDF nativamente com Inteligência Artificial (Gemini)...' }
+                data: { extractionError: 'Lendo Edital com Inteligência Artificial (Gemini)...' }
             });
 
-            // 2. Extração Nativa em Tiro Único
-            const prompt = `Você é um Extrator de Editais Profissional. O arquivo anexo é um Edital de Concurso (PDF).
+            // 2. Extração em Tiro Único com o texto
+            const prompt = `Você é um Extrator de Editais Profissional. O texto abaixo é o conteúdo completo de um Edital de Concurso.
 Seu objetivo é ler o edital inteiro e extrair rigorosamente TODOS OS TÓPICOS do CONTEÚDO PROGRAMÁTICO (Matérias que caem na prova).
 
 CRITÉRIOS OBRIGATÓRIOS:
 1. FOCO NO CARGO: ${cargo || 'Extraia tudo o que for geral se o cargo não for especificado.'}
 2. Identifique quais são as Disciplinas/Matérias (ex: Língua Portuguesa, Direito Constitucional).
-3. ORDEM E SEQUÊNCIA: Extraia os tópicos na exata ordem em que aparecem no PDF, para não quebrar a lógica de estudo do candidato.
+3. ORDEM E SEQUÊNCIA: Extraia os tópicos na exata ordem em que aparecem no texto, para não quebrar a lógica de estudo do candidato.
 4. PRESERVAR CONTEXTO: Agrupe tópicos que possuam o mesmo contexto. NÃO fragmente ou pique conceitos compostos de forma excessiva.
-5. FIDELIDADE ABSOLUTA (ZERO ALUCINAÇÃO): Você está PROIBIDO de inventar palavras, adicionar textos ou presumir tópicos. Mantenha as frases, a nomenclatura e os agrupamentos EXATAMENTE como estão escritos no PDF.
-6. FORMATAÇÃO CLARA: Corrija quebras de linha acidentais do PDF, elimine caracteres estranhos (como falhas de OCR) e mantenha a primeira letra de cada tópico em maiúscula.
+5. FIDELIDADE ABSOLUTA (ZERO ALUCINAÇÃO): Você está PROIBIDO de inventar palavras, adicionar textos ou presumir tópicos. Mantenha as frases, a nomenclatura e os agrupamentos EXATAMENTE como estão escritos no edital.
+6. FORMATAÇÃO CLARA: Corrija quebras de linha acidentais, elimine caracteres estranhos e mantenha a primeira letra de cada tópico em maiúscula.
 7. Se não houver Conteúdo Programático explícito, retorne um array vazio de disciplinas.`;
 
             const extractionSchema = z.object({
@@ -88,10 +78,10 @@ CRITÉRIOS OBRIGATÓRIOS:
 
             try {
                 const response = await extractNativePDFWithGemini({
-                    base64Pdf,
+                    parsedContent,
                     prompt,
                     schema: extractionSchema,
-                    timeoutMs: 300000 // 5 Minutos de limite para leitura do PDF completo
+                    timeoutMs: 300000 // 5 Minutos de limite
                 }) as any;
 
                 extractedDisciplines = response.object?.disciplines || [];
