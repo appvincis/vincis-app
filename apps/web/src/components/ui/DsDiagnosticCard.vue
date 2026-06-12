@@ -25,7 +25,7 @@ defineEmits(['generate'])
     <div class="relative z-10 flex flex-col h-full">
       <div class="flex items-center gap-2 mb-6">
         <span
-          class="bg-primary-container text-on-primary-container text-[10px] font-bold font-label px-2 py-0.5 rounded uppercase tracking-wider">IA
+          class="bg-primary-container text-on-primary-container text-[10px] font-bold font-label p-1.5 rounded uppercase tracking-wider">IA
           Insights</span>
         <span class="text-secondary text-xs font-label">Atualizado há pouco</span>
       </div>

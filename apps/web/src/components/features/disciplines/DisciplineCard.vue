@@ -23,7 +23,7 @@ const progress = computed(() =>
 
 <template>
     <button
-        class="group relative bg-surface-container-lowest p-6 rounded-xl border transition-all duration-300 flex flex-col justify-between aspect-square text-left cursor-pointer w-90"
+        class="group relative bg-surface-container-lowest p-6 rounded-xl border transition-all duration-300 flex flex-col justify-between text-left cursor-pointer w-100 h-90"
         :class="[
             isActive ? 'border-primary-container shadow-md' : 'border-on-surface/10 hover:border-primary-container hover:shadow-sm',
             discipline.isActive === false ? 'opacity-60 grayscale-[30%] hover:opacity-100 hover:grayscale-0' : ''
