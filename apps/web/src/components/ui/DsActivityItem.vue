@@ -41,7 +41,12 @@ const statusColors = computed(() => {
       </div>
       <div>
         <h5 class="font-headline font-bold text-lg">{{ title }}</h5>
-        <p class="text-xs font-label text-secondary uppercase tracking-wider">Módulo: {{ moduleName }}</p>
+        <p v-if="moduleName" class="text-xs font-label text-secondary uppercase tracking-wider">
+          Data: {{ moduleName }}
+        </p>
+        <p v-else class="text-xs font-label text-secondary uppercase tracking-wider">
+          Data: {{ moduleName }}
+        </p>
       </div>
     </div>
     
