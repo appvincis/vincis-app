@@ -67,11 +67,11 @@ export async function generateObjectWithFallback(options: any & { timeoutMs?: nu
         throw new Error('OPENROUTER_API_KEY não configurada no ambiente. Não é possível rodar o modelo obrigatório.');
     }
 
-    // openrouter/free roteia automaticamente para o melhor modelo gratuito disponível e que não esteja sobrecarregado
-    const model = openrouter.chat('openrouter/free');
+    // Usando o modelo solicitado pelo usuário
+    const model = openrouter.chat('nvidia/nemotron-3-super-120b-a12b:free');
 
     try {
-        console.log(`[AI] Iniciando extração com OpenRouter Automático (openrouter/free)...`);
+        console.log(`[AI] Iniciando extração com OpenRouter (nvidia/nemotron-3-super-120b-a12b:free)...`);
         const result = await Promise.race([
             generateObject({
                 ...options,
@@ -95,9 +95,10 @@ export async function generateFastObjectWithFallback(options: any & { timeoutMs?
         throw new Error('OPENROUTER_API_KEY não configurada no ambiente. Não é possível rodar o modelo obrigatório.');
     }
 
-    const model = openrouter.chat('openrouter/free');
+    const model = openrouter.chat('nvidia/nemotron-3-super-120b-a12b:free');
 
     try {
+        console.log(`[AI] Iniciando extração rápida com OpenRouter (nvidia/nemotron-3-super-120b-a12b:free)...`);
         console.log(`[AI] Iniciando extração RÁPIDA com OpenRouter Automático...`);
         const result = await Promise.race([
             generateObject({
@@ -147,39 +148,73 @@ export async function extractNativePDFWithGemini(options: {
 }) {
     const timeout = options.timeoutMs ?? TIMEOUT_COMPLEX_MS;
 
-    if (!process.env.GEMINI_API_KEY) {
-        throw new Error('GEMINI_API_KEY não configurada no ambiente. Não é possível usar extração nativa de PDF.');
+    let primaryModel: any;
+    let fallbackModel: any;
+    let primaryName = '';
+    let fallbackName = '';
+
+    if (process.env.OPENROUTER_API_KEY) {
+        primaryModel = openrouter('nvidia/nemotron-3-super-120b-a12b:free');
+        primaryName = 'OpenRouter (nemotron-3-super)';
+        if (process.env.GEMINI_API_KEY) {
+            fallbackModel = googleProvider('gemini-2.5-flash');
+            fallbackName = 'Google Gemini Nativo';
+        }
+    } else if (process.env.GEMINI_API_KEY) {
+        primaryModel = googleProvider('gemini-2.5-flash');
+        primaryName = 'Google Gemini Nativo';
+    } else {
+        throw new Error('Nenhuma chave de API configurada (OpenRouter ou Gemini).');
     }
 
-    // Usamos o gemini-2.5-flash porque ele suporta até 1 Milhão de tokens, ideal para textos de editais gigantes
-    const model = googleProvider('gemini-2.5-flash');
+    const messages = [
+        {
+            role: 'user',
+            content: [
+                { type: 'text', text: options.prompt + '\n\n--- CONTEÚDO DO EDITAL ---\n\n' + options.parsedContent }
+            ]
+        }
+    ];
 
     try {
-        console.log(`[AI] Iniciando extração com Gemini 2.5 Flash usando o texto puro do Edital...`);
-
+        console.log(`[AI] Iniciando extração com o modelo principal (${primaryName})...`);
         const result = await Promise.race([
             generateObject({
-                model,
+                model: primaryModel,
                 schema: options.schema,
-                messages: [
-                    {
-                        role: 'user',
-                        content: [
-                            { type: 'text', text: options.prompt + '\n\n--- CONTEÚDO DO EDITAL ---\n\n' + options.parsedContent }
-                        ]
-                    }
-                ],
+                messages: messages as any,
                 temperature: 0.1
             }),
             new Promise<never>((_, reject) =>
-                setTimeout(() => reject(new Error(`Timeout de ${timeout / 1000}s atingido pela API do Gemini.`)), timeout)
+                setTimeout(() => reject(new Error(`Timeout de ${timeout / 1000}s atingido.`)), timeout)
             )
         ]);
-
         return result;
     } catch (err: any) {
-        console.error(`[AI] Falha crítica na leitura nativa com Gemini:`, err);
-        throw new Error(`Falha no Google Gemini: ${err.message}`);
+        console.warn(`[AI] Falha com ${primaryName}. Tentando fallback com ${fallbackName || 'Nenhum'}...`, err.message);
+        
+        if (fallbackModel) {
+            try {
+                const result = await Promise.race([
+                    generateObject({
+                        model: fallbackModel,
+                        schema: options.schema,
+                        messages: messages as any,
+                        temperature: 0.1
+                    }),
+                    new Promise<never>((_, reject) =>
+                        setTimeout(() => reject(new Error(`Timeout de ${timeout / 1000}s atingido no fallback.`)), timeout)
+                    )
+                ]);
+                return result;
+            } catch (fallbackErr: any) {
+                console.error(`[AI] Falha crítica também no fallback do OpenRouter:`, fallbackErr);
+                throw new Error(`Falha no OpenRouter (Fallback): ${fallbackErr.message}`);
+            }
+        } else {
+            console.error(`[AI] Falha crítica na leitura com Gemini (sem fallback configurado):`, err);
+            throw new Error(`Falha no Google Gemini: ${err.message}`);
+        }
     }
 }
 
