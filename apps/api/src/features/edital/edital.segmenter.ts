@@ -38,24 +38,33 @@ const isLikelyDisciplineName = (name: string): boolean => {
     return false;
 };
 
-/**
- * Tenta extrair tópicos do bloco de texto por regex (sem IA).
- * Retorna string[] se encontrar padrões claros de listas, ou null caso contrário.
- */
 export function tryParseTopics(rawText: string): string[] | null {
-    const trimmed = rawText.trim();
-    if (!trimmed) return null;
+    if (!rawText) return null;
+    
+    // Remover marcações de página do parser PDF para não quebrar heurísticas
+    const cleanText = rawText.replace(/--- PÁGINA \d+ ---/g, '').trim();
+    if (!cleanText) return null;
+
+    const validateParts = (parts: string[]): string[] | null => {
+        if (!parts || parts.length === 0) return null;
+        const totalLength = parts.reduce((acc, p) => acc + p.length, 0);
+        const avgLength = totalLength / parts.length;
+        if (avgLength > 180 || parts.some(p => p.length > 350)) {
+            return null; // Rejeita parágrafos corridos longos (como prosa administrativa do edital)
+        }
+        return parts;
+    };
 
     // Padrão A: Itens numerados em linha ou quebra de linha (ex: "1. Crase 2. Regência" ou "1. Crase\n2. Regência")
     const splitRegex = /(?:\s|^)(?:\d+|[IVXLC]+)[\.\-\)]\s+/g;
-    const parts = trimmed.split(splitRegex).map(p => p.trim()).filter(p => p.length > 2);
+    const parts = cleanText.split(splitRegex).map(p => p.trim()).filter(p => p.length > 2);
     
-    if (parts.length >= 3 && splitRegex.test(trimmed)) {
-        return parts.map(p => p.replace(/[;\.,\s]+$/, '').trim());
+    if (parts.length >= 3 && splitRegex.test(cleanText)) {
+        return validateParts(parts.map(p => p.replace(/[;\.,\s]+$/, '').trim()));
     }
 
     // Padrão B: Lista com marcadores (ex: "• Crase\n• Regência")
-    const lines = trimmed.split('\n').map(l => l.trim());
+    const lines = cleanText.split('\n').map(l => l.trim());
     const bulletParts: string[] = [];
     for (const line of lines) {
         const bulletMatch = line.match(/^[•\-\*\u2013\u2014]\s*(.+)$/);
@@ -64,19 +73,37 @@ export function tryParseTopics(rawText: string): string[] | null {
         }
     }
     if (bulletParts.length >= 3) {
-        return bulletParts.map(p => p.replace(/[;\.,\s]+$/, '').trim());
+        return validateParts(bulletParts.map(p => p.replace(/[;\.,\s]+$/, '').trim()));
     }
 
     // Padrão C: Separados por ponto-e-vírgula em bloco único (ex: "Crase; Regência nominal; Concordância verbal")
-    if (trimmed.includes(';') && (trimmed.match(/;/g) || []).length >= 3) {
-        const semiParts = trimmed.split(';').map(p => p.trim()).filter(p => p.length > 2);
+    if (cleanText.includes(';') && (cleanText.match(/;/g) || []).length >= 3) {
+        const semiParts = cleanText.split(';').map(p => p.trim()).filter(p => p.length > 2);
         if (semiParts.length >= 3) {
-            return semiParts.map(p => p.replace(/[\.\s]+$/, '').trim());
+            return validateParts(semiParts.map(p => p.replace(/[\.\s]+$/, '').trim()));
         }
+    }
+
+    // Padrão D: Separados por ponto final seguido de espaço e letra maiúscula (ex: "Ortografia. Crase. Regência.")
+    // Evita quebrar abreviações comuns de concursos (como C.F., art., lei nº, etc.)
+    const dotRegex = /\.\s+(?=[A-ZÂÊÎÔÛÁÉÍÓÚÃÕÇ])/g;
+    if (cleanText.includes('.') && (cleanText.match(/\.\s+[A-ZÂÊÎÔÛÁÉÍÓÚÃÕÇ]/g) || []).length >= 3) {
+        const dotParts = cleanText.split(dotRegex).map(p => p.trim()).filter(p => p.length > 3);
+        if (dotParts.length >= 3) {
+            return validateParts(dotParts.map(p => p.replace(/[;\.,\s]+$/, '').trim()));
+        }
+    }
+
+    // Padrão E: Letras seguidas de delimitador (ex: "a) Crase b) Regência" ou "a - Crase\nb - Regência")
+    const letterRegex = /(?:\s|^)[a-zA-Z][\.\-\)]\s+/g;
+    const letterParts = cleanText.split(letterRegex).map(p => p.trim()).filter(p => p.length > 2);
+    if (letterParts.length >= 3 && letterRegex.test(cleanText)) {
+        return validateParts(letterParts.map(p => p.replace(/[;\.,\s]+$/, '').trim()));
     }
 
     return null;
 }
+
 
 /**
  * Segmenta o conteúdo de texto do edital em blocos baseados em disciplinas.

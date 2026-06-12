@@ -101,7 +101,21 @@ aiRouter.delete('/sessions/:id', async (req: Request, res: Response) => {
 aiRouter.post('/chat', async (req: Request, res: Response) => {
   try {
     const userId = (req as AuthenticatedRequest).dbUser!.id
-    const { messages } = req.body
+    let { messages } = req.body
+
+    // Limpeza de segurança para histórico de conversas antigas corrompidas pelo frontend antigo:
+    // Remove qualquer injeção do conteúdo do edital do histórico de mensagens para não gastar tokens.
+    if (messages && Array.isArray(messages)) {
+      messages = messages.map((m: any) => {
+        if (m.content && typeof m.content === 'string' && m.content.includes('CONTEÚDO DO EDITAL DE REFERÊNCIA')) {
+          return {
+            ...m,
+            content: m.content.split('CONTEÚDO DO EDITAL DE REFERÊNCIA')[0].trim()
+          }
+        }
+        return m
+      })
+    }
 
     // Explicitly use sessionId from data to avoid conflict with AI SDK's auto-generated req.body.id
     let sessionId = req.body.data?.sessionId
@@ -132,6 +146,13 @@ aiRouter.post('/chat', async (req: Request, res: Response) => {
       // Se a sessão antiga tem um edital salvo, use ele
       if (session.editalId) {
         activeEditalId = session.editalId
+      } else if (payloadEditalId) {
+        // Se a sessão não tinha edital, mas o usuário anexou agora no meio do chat
+        activeEditalId = payloadEditalId
+        await prisma.aiSession.update({
+          where: { id: sessionId },
+          data: { editalId: payloadEditalId }
+        })
       }
     }
 
@@ -160,24 +181,22 @@ aiRouter.post('/chat', async (req: Request, res: Response) => {
 
     let model: any
     let fallbackModel: any
-    if (process.env.NVIDIA_API_KEY) {
-      model = nvidia('openai/gpt-oss-120b')
-      fallbackModel = nvidia('openai/gpt-oss-20b')
-    } else if (process.env.OPENROUTER_API_KEY) {
-      model = openrouter('nvidia/nemotron-3-ultra-550b-a55b:free')
-      fallbackModel = process.env.GEMINI_API_KEY 
-        ? google('gemini-2.5-flash') 
-        : (process.env.OPENAI_API_KEY 
-            ? openai('gpt-4o-mini') 
-            : openrouter('google/gemini-2.5-flash'))
-    } else if (process.env.GEMINI_API_KEY) {
+    
+    // Forçando Gemini 2.5 como principal conforme solicitado pelo usuário
+    if (process.env.GEMINI_API_KEY) {
       model = google('gemini-2.5-flash')
       fallbackModel = process.env.OPENAI_API_KEY ? openai('gpt-4o-mini') : openrouter('google/gemini-2.5-flash')
+    } else if (process.env.OPENROUTER_API_KEY) {
+      model = openrouter('google/gemini-2.5-flash')
+      fallbackModel = process.env.OPENAI_API_KEY ? openai('gpt-4o-mini') : openrouter('nvidia/nemotron-3-ultra-550b-a55b:free')
     } else if (process.env.OPENAI_API_KEY) {
       model = openai('gpt-4o-mini')
-      fallbackModel = google('gemini-2.5-flash')
+      fallbackModel = openai('gpt-4o')
+    } else if (process.env.NVIDIA_API_KEY) {
+      model = nvidia('openai/gpt-oss-120b')
+      fallbackModel = nvidia('openai/gpt-oss-20b')
     } else {
-      throw new Error('Nenhuma chave de API (NVIDIA_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY ou OPENAI_API_KEY) configurada.')
+      throw new Error('Nenhuma chave de API configurada.')
     }
 
     let finalSystemPrompt = systemInstruction;
@@ -220,6 +239,25 @@ aiRouter.post('/chat', async (req: Request, res: Response) => {
       if (edital && edital.parsedContent) {
         finalSystemPrompt += `\n\nCONTEXTO DO EDITAL:\nO usuário selecionou o edital "${edital.title}". Aqui está o conteúdo extraído:\n--------------------------------------------------\n${edital.parsedContent}\n--------------------------------------------------\nResponda às dúvidas do usuário com base nas informações deste edital. Se a informação não estiver no edital, avise o usuário.`;
       }
+    } else {
+      // Se não há edital selecionado, buscamos quais editais o usuário possui para o bot poder guiá-lo.
+      const userEditais = await prisma.edital.findMany({
+        where: { userId },
+        select: { id: true, title: true }
+      });
+
+      if (userEditais.length > 0) {
+        const editalNames = userEditais.map(e => `- ${e.title}`).join('\n');
+        finalSystemPrompt += `\n\nATENÇÃO - INFORMAÇÃO IMPORTANTE DE CONTEXTO:
+O usuário NÃO selecionou nenhum edital para esta conversa ainda. No entanto, ele possui os seguintes editais salvos no sistema:
+${editalNames}
+
+SE a pergunta do usuário for sobre o que estudar, bancas, disciplinas ou sobre algum concurso, VOCÊ DEVE agir da seguinte forma:
+1. Verifique se o contexto da pergunta se encaixa em algum dos editais acima.
+2. Pergunte ao usuário sobre qual edital ele está se referindo (liste as opções que ele tem).
+3. Instrua o usuário claramente: "Para eu conseguir ler o edital completo e te responder com precisão, por favor, clique no botão de clipe de papel (anexar) ao lado da caixa de texto e selecione o edital desejado."
+4. Não tente inventar o conteúdo do edital.`;
+      }
     }
 
     const streamOptions = {
@@ -246,73 +284,6 @@ aiRouter.post('/chat', async (req: Request, res: Response) => {
         })
       }
     };
-
-    if (process.env.NVIDIA_API_KEY) {
-      try {
-        console.log(`[AI] Tentando NVIDIA NIM Oficial (nvidia/nemotron-3-nano-omni-30b-a3b-reasoning) via OpenAI SDK...`);
-        const converted = await convertToModelMessages(messages);
-        
-        const completionStream = (await nvidiaClient.chat.completions.create({
-          model: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
-          messages: [
-            { role: 'system', content: finalSystemPrompt },
-            ...converted
-          ] as any,
-          temperature: 0.6,
-          top_p: 0.95,
-          max_tokens: 4096,
-          extra_body: {
-            chat_template_kwargs: { enable_thinking: true },
-            reasoning_budget: 16384
-          },
-          stream: true
-        } as any)) as any;
-
-        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-        res.setHeader('Transfer-Encoding', 'chunked');
-        res.setHeader('x-session-id', sessionId);
-
-        let fullText = '';
-        let fullReasoning = '';
-
-        for await (const chunk of completionStream) {
-          const delta = chunk.choices[0]?.delta;
-          if (delta) {
-            const reasoning = (delta as any).reasoning_content;
-            if (reasoning) {
-              fullReasoning += reasoning;
-              process.stdout.write(reasoning);
-            }
-            const content = delta.content;
-            if (content) {
-              fullText += content;
-              res.write(`0:${JSON.stringify(content)}\n`);
-            }
-          }
-        }
-
-        console.log("\n=== CONTENT ===");
-        console.log(fullText);
-
-        await prisma.aiMessage.create({
-          data: {
-            sessionId,
-            role: 'assistant',
-            content: fullText,
-            tokens: null
-          }
-        });
-        await prisma.aiSession.update({
-          where: { id: sessionId },
-          data: { updatedAt: new Date() }
-        });
-
-        res.end();
-        return;
-      } catch (err) {
-        console.warn("NVIDIA NIM streaming via OpenAI SDK failed, falling back to other models...", err);
-      }
-    }
 
     let result: any;
     try {

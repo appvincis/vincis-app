@@ -129,6 +129,8 @@ async function handleCreateDiscipline(payload: { name: string, description?: str
                 id: newDisc.id,
                 syllabusText: payload.syllabusText.trim()
             })
+            queryClient.invalidateQueries({ queryKey: ['disciplines'] })
+            queryClient.invalidateQueries({ queryKey: ['topics', newDisc.id] })
         } catch (err: any) {
             console.error('Erro ao gerar tópicos com IA na criação:', err)
             alert('Disciplina criada, mas houve um erro ao gerar os tópicos com IA.')
@@ -489,6 +491,7 @@ function handleDisciplineUpdate() {
         <CreateDisciplineForm
             :showCreateForm="showCreateForm"
             :isCreating="isCreatingDiscipline"
+            :isGenerating="generateTopics.isPending.value"
             :isPremium="plan.isPremium"
             @create-discipline="handleCreateDiscipline"
             @cancel-create="showCreateForm = false"

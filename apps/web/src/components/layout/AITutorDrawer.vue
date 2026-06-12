@@ -122,25 +122,9 @@ const handleSubmit = (event?: Event) => {
   
   const text = input.value
   input.value = ''
-  
-  const attachments = []
-  if (attachedEditalId.value) {
-    const edital = editais.value?.find((e: any) => e.id === attachedEditalId.value)
-    if (edital && edital.parsedContent) {
-      attachments.push({
-        url: 'db://edital',
-        contentType: 'text/plain',
-        content: `CONTEÚDO DO EDITAL DE REFERÊNCIA (${edital.title}):\n\n${edital.parsedContent}`
-      })
-    }
-  }
 
   // Support for attachments using Vercel AI SDK parts format
   const parts: any[] = [{ type: 'text', text }]
-  if (attachments.length > 0 && attachments[0]) {
-     // Currently we just send the text alongside if there's no native multipart format
-     parts[0].text += '\n\n' + attachments[0].content
-  }
 
   chat.sendMessage(
     { text: parts[0].text }
@@ -517,7 +501,7 @@ watch(() => props.isOpen, (newVal) => {
               <div class="flex items-center justify-between mt-1 pl-2 pr-1 relative">
                 <!-- Left Toolbar: Attach + Model Selector -->
                 <div class="flex items-center gap-2">
-                  <div class="relative" v-if="!sessionId">
+                  <div class="relative" v-if="!attachedEditalId">
                     <button @click="toggleAttachmentMenu" class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-muted hover:bg-surface-container hover:text-on-surface transition-colors cursor-pointer" title="Anexar edital" :class="{'bg-surface-container text-on-surface': showAttachmentMenu}">
                       <i class="pi pi-paperclip text-[15px]"></i>
                     </button>

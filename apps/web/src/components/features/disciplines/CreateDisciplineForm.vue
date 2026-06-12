@@ -6,6 +6,7 @@ import { PRESET_COLORS } from '../../../helpers/disciplineColors'
 const props = defineProps<{
     showCreateForm: boolean
     isCreating: boolean
+    isGenerating?: boolean
     isPremium?: boolean
 }>()
 
@@ -127,18 +128,20 @@ function handleCancel() {
                             </label>
                             <textarea v-model="syllabusText" placeholder="Cole aqui o conteúdo programático do edital desta disciplina para extrair os tópicos automaticamente..."
                                 rows="3"
-                                class="w-full px-4 py-3 rounded-xl border border-outline-variant/40 bg-surface-container-low text-on-surface text-sm font-sans placeholder:text-on-surface-muted/50 focus:outline-none focus:border-primary/50 transition-colors resize-none" />
+                                :disabled="!isPremium"
+                                class="w-full px-4 py-3 rounded-xl border border-outline-variant/40 bg-surface-container-low text-on-surface text-sm font-sans placeholder:text-on-surface-muted/50 focus:outline-none focus:border-primary/50 transition-colors resize-none disabled:opacity-50 disabled:cursor-not-allowed" />
                         </div>
 
                         <!-- Actions -->
                         <div class="flex gap-3 pt-1">
-                            <button @click="handleCancel"
-                                class="flex-1 py-3 rounded-xl border border-outline-variant/40 text-sm font-label font-bold text-on-surface-muted hover:bg-surface-container transition-colors cursor-pointer">
+                            <button @click="handleCancel" :disabled="isCreating || isGenerating"
+                                class="flex-1 py-3 rounded-xl border border-outline-variant/40 text-sm font-label font-bold text-on-surface-muted hover:bg-surface-container transition-colors cursor-pointer disabled:opacity-50">
                                 Cancelar
                             </button>
-                            <button @click="handleCreate" :disabled="isCreating || !newName.trim()"
-                                class="flex-1 py-3 rounded-xl bg-primary text-on-primary text-sm font-label font-bold hover:bg-primary-hover transition-colors cursor-pointer disabled:opacity-50">
-                                {{ isCreating ? 'Criando...' : 'Criar Disciplina' }}
+                            <button @click="handleCreate" :disabled="isCreating || isGenerating || !newName.trim()"
+                                class="flex-1 py-3 rounded-xl bg-primary text-on-primary text-sm font-label font-bold hover:bg-primary-hover transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2">
+                                <i v-if="isGenerating" class="pi pi-sparkles animate-pulse"></i>
+                                {{ isGenerating ? 'Extraindo IA...' : (isCreating ? 'Criando...' : 'Criar Disciplina') }}
                             </button>
                         </div>
                     </div>

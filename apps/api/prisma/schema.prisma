@@ -12,70 +12,70 @@ enum Plan {
 }
 
 model User {
-  id            Int            @id @default(autoincrement())
-  email         String         @unique
+  id            Int       @id @default(autoincrement())
+  email         String    @unique
   name          String?
   avatar        String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  supabaseId    String?        @unique
-  plan          Plan           @default(BASIC)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  supabaseId    String?   @unique
+  plan          Plan      @default(BASIC)
   planExpiresAt DateTime? // null = plano basico, não expira
-  
-  studyPlans    StudyPlan[]
-  errorLogs     ErrorLog[]
-  editais       Edital[]
-  aiSessions    AiSession[]
-  FocusSession  FocusSession[]
+
+  studyPlans   StudyPlan[]
+  errorLogs    ErrorLog[]
+  editais      Edital[]
+  aiSessions   AiSession[]
+  FocusSession FocusSession[]
 }
 
 model StudyPlan {
-  id          Int          @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
   name        String
   description String?
-  is_active   Boolean      @default(true)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  is_active   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   userId      Int
-  
-  disciplines Discipline[]
-  errorLogs   ErrorLog[]
+
+  disciplines  Discipline[]
+  errorLogs    ErrorLog[]
   FocusSession FocusSession[]
-  
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
 
 model Discipline {
-  id          Int       @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
   name        String
   description String?
   color       String
-  weight      Float     @default(1.0)
-  isActive    Boolean   @default(true)
+  weight      Float    @default(1.0)
+  isActive    Boolean  @default(true)
   studyPlanId Int
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
-  studyPlan   StudyPlan @relation(fields: [studyPlanId], references: [id], onDelete: Cascade)
-  topics      Topic[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  studyPlan    StudyPlan      @relation(fields: [studyPlanId], references: [id], onDelete: Cascade)
+  topics       Topic[]
   FocusSession FocusSession[]
 
   @@index([studyPlanId])
 }
 
 model Topic {
-  id           Int        @id @default(autoincrement())
+  id           Int      @id @default(autoincrement())
   name         String
   description  String?
-  isCompleted  Boolean    @default(false)
+  isCompleted  Boolean  @default(false)
   disciplineId Int
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  
-  discipline   Discipline @relation(fields: [disciplineId], references: [id], onDelete: Cascade)
-  errorLogs    ErrorLog[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  discipline Discipline @relation(fields: [disciplineId], references: [id], onDelete: Cascade)
+  errorLogs  ErrorLog[]
 
   @@index([disciplineId])
 }
@@ -110,62 +110,63 @@ model ErrorLog {
 }
 
 model Edital {
-  id          Int      @id @default(autoincrement())
-  title       String
-  description String?
-  fileUrl     String // Storage path, ex: `editais/${userId}/${filename}`
-  fileSize    Int // In bytes
+  id            Int     @id @default(autoincrement())
+  title         String
+  description   String?
+  fileUrl       String // Storage path, ex: `editais/${userId}/${filename}`
+  fileSize      Int // In bytes
   parsedContent String? // Conteúdo de texto extraído do PDF
-  pageRange   String? // Faixa de páginas do edital, ex: "25-35"
-  
+  parsedPages   Json?   // Mapa de páginas extraídas Record<number, string>
+  pageRange     String? // Faixa de páginas do edital, ex: "25-35"
+
   // Cache do trecho de conteúdo programático já localizado — evita relocalização a cada extração
   syllabusChunk      String? // Texto do CP extraído e salvo após primeira localização
   syllabusChunkCargo String? // Cargo para o qual syllabusChunk foi extraído (null = geral)
 
   // Segmentos pré-parseados por disciplina — permite extração paralela e sem IA quando possível
   // Formato: [{name: string, rawText: string, topics?: string[], order: number}]
-  syllabusSegments   Json?
+  syllabusSegments Json?
 
-  extractionStatus   String   @default("PENDING") // PENDING, PROCESSING, SUCCESS, FAILED
+  extractionStatus   String  @default("PENDING") // PENDING, PROCESSING, SUCCESS, FAILED
   extractionError    String?
   cargo              String?
-  disciplinesCreated Int      @default(0)
-  topicsCreated      Int      @default(0)
-  
-  userId      Int
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  aiSessions  AiSession[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  disciplinesCreated Int     @default(0)
+  topicsCreated      Int     @default(0)
+
+  userId     Int
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  aiSessions AiSession[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
 }
 
 model AiSession {
-  id        String      @id @default(uuid())
-  title     String      @default("Nova Conversa")
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  id        String   @id @default(uuid())
+  title     String   @default("Nova Conversa")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   userId    Int
-  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  editalId  Int?
-  edital    Edital?     @relation(fields: [editalId], references: [id], onDelete: SetNull)
-  
-  messages  AiMessage[]
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  editalId Int?
+  edital   Edital? @relation(fields: [editalId], references: [id], onDelete: SetNull)
+
+  messages AiMessage[]
 
   @@index([userId])
   @@index([editalId])
 }
 
 model AiMessage {
-  id        String    @id @default(uuid())
-  role      String    // "user" | "assistant"
+  id        String   @id @default(uuid())
+  role      String // "user" | "assistant"
   content   String
-  createdAt DateTime  @default(now())
+  createdAt DateTime @default(now())
   tokens    Int?
-  
+
   sessionId String
   session   AiSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 

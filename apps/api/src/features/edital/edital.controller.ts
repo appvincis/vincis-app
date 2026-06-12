@@ -13,38 +13,41 @@ import { segmentByDiscipline } from './edital.segmenter.js';
 import { generateObjectNvidia } from '../../lib/nvidia.js';
 
 const openrouter = createOpenAI({
-  baseURL: 'https://openrouter.ai/api/v1',
-  apiKey: process.env.OPENROUTER_API_KEY || ''
+    baseURL: 'https://openrouter.ai/api/v1',
+    apiKey: process.env.OPENROUTER_API_KEY || ''
 });
 
 const openai = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+    apiKey: process.env.OPENAI_API_KEY
 });
 
-const google = createGoogleGenerativeAI({
-  apiKey: process.env.GEMINI_API_KEY
+export const googleProvider = createGoogleGenerativeAI({
+    apiKey: process.env.GEMINI_API_KEY
 });
 
 const nvidia = createOpenAI({
-  baseURL: 'https://integrate.api.nvidia.com/v1',
-  apiKey: process.env.NVIDIA_API_KEY || ''
+    baseURL: 'https://integrate.api.nvidia.com/v1',
+    apiKey: process.env.NVIDIA_API_KEY || ''
 });
 
 const getAiModels = () => {
     const models = [];
-    // Prioridade 1: Modelo gratuito via OpenRouter (nvidia/nemotron-3-ultra-550b-a55b:free)
+    // Prioridade 1: API Oficial da NVIDIA via NIM
+    if (process.env.NVIDIA_API_KEY) {
+        models.push(nvidia.chat('google/diffusiongemma-26b-a4b-it'));
+    }
+    // Prioridade 2: Gemini nativo gratuito (Google AI Studio)
+    if (process.env.GEMINI_API_KEY) {
+        models.push(googleProvider.chat('gemini-1.5-flash-latest'));
+    }
+    // Prioridade 3: Modelo gratuito via OpenRouter (nvidia/nemotron-3-ultra-550b-a55b:free)
     if (process.env.OPENROUTER_API_KEY) {
         models.push(openrouter.chat('nvidia/nemotron-3-ultra-550b-a55b:free'));
     }
-    // Prioridade 3: OpenRouter com Gemini 2.5 Flash
     if (process.env.OPENROUTER_API_KEY) {
         models.push(openrouter.chat('google/gemini-2.5-flash'));
     }
-    // Prioridade 4: Gemini nativo
-    if (process.env.GEMINI_API_KEY) {
-        models.push(google('gemini-2.5-flash'));
-    }
-    // Prioridade 5: OpenAI nativo (só se a chave for real — começa com 'sk-')
+    // Prioridade 4: OpenAI nativo (só se a chave for real — começa com 'sk-')
     if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.startsWith('sk-')) {
         models.push(openai.chat('gpt-4o-mini'));
     }
@@ -53,71 +56,132 @@ const getAiModels = () => {
     }
     return models;
 };
-const MODEL_TIMEOUT_MS = 90000; // 90s por modelo antes de tentar o próximo
+export const TIMEOUT_SIMPLE_MS = 30000;   // 30s para tarefas simples (ex: extração de tópicos)
+export const TIMEOUT_COMPLEX_MS = 300000; // 5 minutos de timeout para o Llama ler o edital inteiros (ex: localização de páginas, filtragem)
 
-export async function generateObjectWithFallback(options: any) {
-    let lastError: any;
-    
-    // Tenta primeiro o cliente oficial da NVIDIA se a chave estiver configurada
-    if (process.env.NVIDIA_API_KEY) {
-        try {
-            console.log(`[AI] Tentando NVIDIA NIM Oficial (nvidia/nemotron-3-nano-omni-30b-a3b-reasoning) via OpenAI SDK...`);
-            const result = await Promise.race([
-                generateObjectNvidia(options),
-                new Promise<never>((_, reject) =>
-                    setTimeout(() => reject(new Error(`Timeout de ${MODEL_TIMEOUT_MS / 1000}s atingido para o modelo nvidia/nemotron-3-nano-omni-30b-a3b-reasoning`)), MODEL_TIMEOUT_MS)
-                )
-            ]);
-            return result;
-        } catch (err: any) {
-            console.warn(`generateObject via OpenAI SDK failed for NVIDIA, trying next fallback...`, err);
-            lastError = err;
-        }
+export async function generateObjectWithFallback(options: any & { timeoutMs?: number }) {
+    const timeout = options.timeoutMs ?? TIMEOUT_COMPLEX_MS;
+
+    // Desativando os fallbacks: usar estritamente o modelo configurado via OpenRouter
+    if (!process.env.OPENROUTER_API_KEY) {
+        throw new Error('OPENROUTER_API_KEY não configurada no ambiente. Não é possível rodar o modelo obrigatório.');
     }
 
-    const models = getAiModels();
-    for (const model of models) {
-        try {
-            console.log(`[AI] Tentando modelo de fallback (generateObject): ${model.modelId || 'unknown'}`);
-            const result = await Promise.race([
-                generateObject({
-                    ...options,
-                    model
-                }),
-                new Promise<never>((_, reject) =>
-                    setTimeout(() => reject(new Error(`Timeout de ${MODEL_TIMEOUT_MS / 1000}s atingido para o modelo ${model.modelId || 'unknown'}`)), MODEL_TIMEOUT_MS)
-                )
-            ]);
-            return result;
-        } catch (err: any) {
-            console.warn(`generateObject failed for ${model.modelId || 'model'}, trying next fallback...`, err);
-            lastError = err;
-        }
+    // openrouter/free roteia automaticamente para o melhor modelo gratuito disponível e que não esteja sobrecarregado
+    const model = openrouter.chat('openrouter/free');
+
+    try {
+        console.log(`[AI] Iniciando extração com OpenRouter Automático (openrouter/free)...`);
+        const result = await Promise.race([
+            generateObject({
+                ...options,
+                model
+            }),
+            new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error(`Timeout de ${timeout / 1000}s atingido pela API do OpenRouter.`)), timeout)
+            )
+        ]);
+        return result;
+    } catch (err: any) {
+        console.error(`[AI] Falha crítica na geração com OpenRouter Gemini:`, err);
+        throw new Error(`Falha na API de Inteligência Artificial: ${err.message}`);
     }
-    throw lastError || new Error("Todos os modelos falharam na geração de objeto.");
+}
+
+export async function generateFastObjectWithFallback(options: any & { timeoutMs?: number }) {
+    const timeout = options.timeoutMs ?? 30000; // Fast extraction should be quick (30s)
+
+    if (!process.env.OPENROUTER_API_KEY) {
+        throw new Error('OPENROUTER_API_KEY não configurada no ambiente. Não é possível rodar o modelo obrigatório.');
+    }
+
+    const model = openrouter.chat('openrouter/free');
+
+    try {
+        console.log(`[AI] Iniciando extração RÁPIDA com OpenRouter Automático...`);
+        const result = await Promise.race([
+            generateObject({
+                ...options,
+                model
+            }),
+            new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error(`Timeout Rápido de ${timeout / 1000}s atingido pela API do OpenRouter.`)), timeout)
+            )
+        ]);
+        return result;
+    } catch (err: any) {
+        console.error(`[AI] Falha crítica na geração rápida com OpenRouter:`, err);
+        throw new Error(`Falha na API de IA (Fast): ${err.message}`);
+    }
 }
 
 export async function streamObjectWithFallback(options: any) {
-    const models = getAiModels();
-    let lastError: any;
-    for (const model of models) {
-        try {
-            console.log(`[AI] Tentando modelo: ${model.modelId || 'unknown'}`);
-            // Race entre a chamada real e um timeout por modelo
-            const result = await Promise.race([
-                streamObject({ ...options, model }),
-                new Promise<never>((_, reject) =>
-                    setTimeout(() => reject(new Error(`Timeout de ${MODEL_TIMEOUT_MS / 1000}s atingido para o modelo ${model.modelId || 'unknown'}`)), MODEL_TIMEOUT_MS)
-                )
-            ]);
-            console.log(`[AI] Modelo ${model.modelId || 'unknown'} respondeu com sucesso.`);
-            return result;
-        } catch (err: any) {
-            console.warn(`[AI] streamObject falhou para ${model.modelId || 'model'}: ${err.message}. Tentando próximo fallback...`);
-            lastError = err;
-        }
+    const timeout = options.timeoutMs ?? TIMEOUT_COMPLEX_MS;
+
+    if (!process.env.OPENROUTER_API_KEY) {
+        throw new Error('OPENROUTER_API_KEY não configurada no ambiente. Não é possível rodar o modelo obrigatório.');
     }
-    throw lastError || new Error("Todos os modelos falharam no streaming de objeto.");
+
+    const model = openrouter.chat('openrouter/free');
+
+    try {
+        console.log(`[AI] Iniciando Streaming com OpenRouter Automático...`);
+        const result = await Promise.race([
+            streamObject({ ...options, model }),
+            new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error(`Timeout de ${timeout / 1000}s atingido pela API do OpenRouter no Streaming.`)), timeout)
+            )
+        ]);
+        return result;
+    } catch (err: any) {
+        console.error(`[AI] Falha crítica no streaming com OpenRouter:`, err);
+        throw new Error(`Falha na API de Inteligência Artificial (Streaming): ${err.message}`);
+    }
+}
+
+export async function extractNativePDFWithGemini(options: {
+    base64Pdf: string,
+    prompt: string,
+    schema: any,
+    timeoutMs?: number
+}) {
+    const timeout = options.timeoutMs ?? TIMEOUT_COMPLEX_MS;
+
+    if (!process.env.GEMINI_API_KEY) {
+        throw new Error('GEMINI_API_KEY não configurada no ambiente. Não é possível usar extração nativa de PDF.');
+    }
+
+    // Usamos o gemini-2.5-flash porque ele suporta até 1 Milhão de tokens, ideal para PDFs de editais
+    const model = googleProvider('gemini-2.5-flash');
+
+    try {
+        console.log(`[AI] Iniciando leitura nativa de PDF com Gemini 2.5 Flash (Visão Computacional)...`);
+
+        const result = await Promise.race([
+            generateObject({
+                model,
+                schema: options.schema,
+                messages: [
+                    {
+                        role: 'user',
+                        content: [
+                            { type: 'text', text: options.prompt },
+                            { type: 'file', data: options.base64Pdf, mediaType: 'application/pdf' }
+                        ]
+                    }
+                ],
+                temperature: 0.1, // Rigoroso para evitar alucinações em JSON
+            }),
+            new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error(`Timeout de ${timeout / 1000}s atingido pela API do Gemini.`)), timeout)
+            )
+        ]);
+
+        return result;
+    } catch (err: any) {
+        console.error(`[AI] Falha crítica na leitura nativa com Gemini:`, err);
+        throw new Error(`Falha no Google Gemini: ${err.message}`);
+    }
 }
 
 const normalizeText = (text: string): string => {
@@ -288,13 +352,31 @@ export const uploadEdital = async (req: AuthenticatedRequest, res: Response): Pr
 
         // Extrair texto do PDF com delimitadores de página
         let parsedContent = null;
-        let syllabusSegments = null;
+        let parsedPages: any = undefined;
+        let syllabusSegments: any = undefined;
         try {
             const parser = new PDFParse({ data: file.buffer });
+            const pageSeparator = '---_PAGE_SEPARATOR_---';
             const pdfData = await parser.getText({
-                pageJoiner: '--- PÁGINA page_number ---'
+                pageJoiner: pageSeparator
             });
             parsedContent = pdfData.text;
+
+            // Construir o mapa Record<number, string>
+            const pagesArray = parsedContent.split(pageSeparator);
+            const pagesRecord: Record<number, string> = {};
+            // Em geral, pdf-parse coloca um separador vazio no começo ou junta N páginas.
+            // pagesArray terá tamanho = N ou N+1 (se tiver um extra no começo/fim).
+            // Vamos filtrar ou tratar:
+            let pageNum = 1;
+            for (let i = 0; i < pagesArray.length; i++) {
+                const text = pagesArray[i].trim();
+                if (text) {
+                    pagesRecord[pageNum] = text;
+                    pageNum++;
+                }
+            }
+            parsedPages = pagesRecord;
 
             // Pré-segmentar no upload para otimizar o fluxo e caching
             try {
@@ -321,6 +403,7 @@ export const uploadEdital = async (req: AuthenticatedRequest, res: Response): Pr
                 fileUrl: filePath,
                 fileSize: file.size,
                 parsedContent,
+                parsedPages,
                 syllabusSegments,
                 userId
             }
@@ -458,9 +541,9 @@ export const getEditalCargos = async (req: AuthenticatedRequest, res: Response):
                 cargos: z.array(z.string().describe('Nome curto e oficial do cargo encontrado no edital (ex: Analista de TI, Técnico Administrativo, Soldado)'))
             }),
             prompt: `Analise o texto do edital abaixo e extraia todos os cargos/vagas disponíveis listados no concurso.\n` +
-                    `Retorne uma lista limpa apenas com os nomes oficiais dos cargos, sem salários, requisitos ou códigos.\n\n` +
-                    `--- CONTEÚDO DO EDITAL ---\n` +
-                    candidateText,
+                `Retorne uma lista limpa apenas com os nomes oficiais dos cargos, sem salários, requisitos ou códigos.\n\n` +
+                `--- CONTEÚDO DO EDITAL ---\n` +
+                candidateText,
             temperature: 0.1,
             maxTokens: 500,
         });
@@ -486,9 +569,9 @@ interface SyllabusPageRange {
 
 export async function locateSyllabusPages(parsedContent: string, cargo?: string): Promise<SyllabusPageRange> {
     try {
-        // Limitar a 80k chars — o sumário e índice ficam sempre no início do documento
-        const summaryText = parsedContent.substring(0, 80000);
-        
+        // Limitar a 40k chars — o sumário e índice ficam sempre no início do documento
+        const summaryText = parsedContent.substring(0, 40000);
+
         let cargoInstruction = '';
         if (cargo) {
             cargoInstruction = `e para a parte de Conhecimentos Específicos do cargo de "${cargo}".`;
@@ -520,6 +603,7 @@ export async function locateSyllabusPages(parsedContent: string, cargo?: string)
             prompt,
             temperature: 0.1,
             maxTokens: 300, // só precisa retornar números de página
+            timeoutMs: TIMEOUT_COMPLEX_MS
         });
 
         const obj = response.object as any;
@@ -575,6 +659,7 @@ export async function filterDisciplinesByCargoWithAi(
             prompt,
             temperature: 0.1,
             maxTokens: 800,
+            timeoutMs: TIMEOUT_COMPLEX_MS
         });
 
         const obj = response.object as unknown as { classifications: DisciplineClassification[] };
@@ -599,7 +684,7 @@ export const extractEdital = async (req: AuthenticatedRequest, res: Response): P
         if (req.dbUser?.plan !== 'PREMIUM') {
             return res.status(403).json({ error: 'Recurso exclusivo do plano Premium. Por favor, assine o plano Premium para realizar a extração automática de disciplinas.' });
         }
-        
+
         const parsedContent = edital.parsedContent;
         if (!parsedContent) {
             return res.status(400).json({ error: 'Este edital não possui conteúdo textual extraído para processamento.' });
@@ -633,16 +718,20 @@ export const extractEdital = async (req: AuthenticatedRequest, res: Response): P
 
         const targetCargo = cargo || null;
 
-        // Atualizar status para QUEUED, limpar erros e forçar limpeza do cache para que a IA remapeie tudo do zero
+        const shouldClearCache = edital.cargo !== targetCargo;
+
+        // Atualizar status para QUEUED, limpar erros e limpar o cache APENAS se o cargo for alterado
         await (prisma.edital.update as any)({
             where: { id: editalId },
             data: {
                 extractionStatus: 'QUEUED',
                 extractionError: 'Aguardando na fila de processamento...',
                 cargo: targetCargo,
-                syllabusChunk: null,
-                syllabusChunkCargo: null,
-                syllabusSegments: null
+                ...(shouldClearCache ? {
+                    syllabusChunk: null,
+                    syllabusChunkCargo: null,
+                    syllabusSegments: null
+                } : {})
             }
         });
 
