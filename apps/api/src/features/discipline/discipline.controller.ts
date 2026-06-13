@@ -7,24 +7,86 @@ import { z } from 'zod';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { prisma } from "../../lib/prisma.js";
+import { generateObjectNvidia } from "../../lib/nvidia.js";
+
+const openrouter = createOpenAI({
+    baseURL: 'https://openrouter.ai/api/v1',
+    apiKey: process.env.OPENROUTER_API_KEY || ''
+});
 
 const openai = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+    apiKey: process.env.OPENAI_API_KEY
 });
 
 const google = createGoogleGenerativeAI({
-  apiKey: process.env.GEMINI_API_KEY
+    apiKey: process.env.GEMINI_API_KEY
 });
 
-const getAiModel = () => {
+const nvidia = createOpenAI({
+    baseURL: 'https://integrate.api.nvidia.com/v1',
+    apiKey: process.env.NVIDIA_API_KEY || ''
+});
+
+const getAiModels = () => {
+    const models = [];
+    // Prioridade 1: Gemini nativo (Melhor e mais estável atualmente)
     if (process.env.GEMINI_API_KEY) {
-        return google('gemini-2.5-flash');
+        models.push(google('gemini-2.5-flash'));
     }
-    if (process.env.OPENAI_API_KEY) {
-        return openai('gpt-4o-mini');
+    // Prioridade 2: OpenRouter Automático (Fallback robusto)
+    if (process.env.OPENROUTER_API_KEY) {
+        models.push(openrouter.chat('openrouter/free'));
     }
-    throw new Error('Nenhuma chave de API (GEMINI_API_KEY ou OPENAI_API_KEY) configurada.');
+    // Prioridade 3: OpenAI nativo (só se a chave for real)
+    if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.startsWith('sk-')) {
+        models.push(openai.chat('gpt-4o-mini'));
+    }
+    if (models.length === 0) {
+        throw new Error('Nenhuma chave de API (NVIDIA_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY ou OPENAI_API_KEY) configurada.');
+    }
+    return models;
 };
+
+const MODEL_TIMEOUT_MS = 90000;
+
+async function generateObjectWithFallback(options: any) {
+    let lastError: any;
+
+    // Tenta primeiro o cliente oficial da NVIDIA se a chave estiver configurada
+    if (process.env.NVIDIA_API_KEY) {
+        try {
+            console.log(`[AI-Discipline] Tentando NVIDIA NIM Oficial (nvidia/nemotron-3-nano-omni-30b-a3b-reasoning) via OpenAI SDK...`);
+            const result = await Promise.race([
+                generateObjectNvidia(options),
+                new Promise<never>((_, reject) =>
+                    setTimeout(() => reject(new Error(`Timeout de ${MODEL_TIMEOUT_MS / 1000}s para o modelo nvidia/nemotron-3-nano-omni-30b-a3b-reasoning`)), MODEL_TIMEOUT_MS)
+                )
+            ]);
+            return result;
+        } catch (err: any) {
+            console.warn(`[AI-Discipline] generateObject via OpenAI SDK falhou: ${err.message}`);
+            lastError = err;
+        }
+    }
+
+    const models = getAiModels();
+    for (const model of models) {
+        try {
+            console.log(`[AI-Discipline] Tentando modelo: ${model.modelId || 'unknown'}`);
+            const result = await Promise.race([
+                generateObject({ ...options, model }),
+                new Promise<never>((_, reject) =>
+                    setTimeout(() => reject(new Error(`Timeout de ${MODEL_TIMEOUT_MS / 1000}s para o modelo ${model.modelId || 'unknown'}`)), MODEL_TIMEOUT_MS)
+                )
+            ]);
+            return result;
+        } catch (err: any) {
+            console.warn(`[AI-Discipline] generateObject falhou para ${model.modelId || 'model'}: ${err.message}`);
+            lastError = err;
+        }
+    }
+    throw lastError || new Error("Todos os modelos falharam na geração estruturada.");
+}
 
 const parseId = (raw: string | string[] | undefined) => Number(raw);
 
@@ -64,11 +126,11 @@ export async function getDisciplineById(req: Request, res: Response) {
 
         const studyPlanId = injectedReq.studyPlan!.id;
         const discipline = await disciplineService.getDisciplineById(id, studyPlanId);
-        
+
         if (!discipline) {
             return res.status(404).json({ message: "Disciplina não encontrada." });
         }
-        
+
         return res.status(200).json(discipline);
     } catch (err: any) {
         return res.status(500).json({ message: "Erro interno." });
@@ -85,7 +147,7 @@ export async function updateDiscipline(req: Request, res: Response) {
         const { name, color, weight, isActive } = req.body as UpdateDisciplineInput & { isActive?: boolean };
 
         const discipline = await disciplineService.updateDiscipline(id, studyPlanId, { name, color, weight, isActive });
-        
+
         return res.status(200).json({
             message: "Disciplina atualizada com sucesso.",
             discipline
@@ -107,7 +169,7 @@ export async function deleteDiscipline(req: Request, res: Response) {
         const studyPlanId = injectedReq.studyPlan!.id;
 
         await disciplineService.deleteDiscipline(id, studyPlanId);
-        
+
         return res.status(204).send();
     } catch (err: any) {
         if (err.message.includes("não encontrada")) {
@@ -141,25 +203,24 @@ export async function generateTopicsForDiscipline(req: Request, res: Response) {
             return res.status(404).json({ message: "Disciplina não encontrada." });
         }
 
-        const model = getAiModel();
-        const response = await generateObject({
-            model,
+        const response = await generateObjectWithFallback({
             schema: z.object({
                 topics: z.array(z.object({
-                    name: z.string().describe('Nome curto e objetivo do tópico, ex: Crase'),
-                    description: z.string().optional().describe('Descrição ou subtópicos')
+                    name: z.string().describe('Nome do tópico/conteúdo programático completo')
                 }))
             }),
             prompt: `Analise o texto fornecido e extraia uma lista de tópicos/conteúdos programáticos individuais.\n\n` +
-                    `REGRAS IMPORTANTES:\n` +
-                    `1. Quebre blocos longos de texto em tópicos curtos e objetivos.\n` +
-                    `2. Use o idioma português.\n\n` +
-                    `--- CONTEÚDO PROGRAMÁTICO ---\n` +
-                    syllabusText,
+                `REGRAS IMPORTANTES:\n` +
+                `1. PRESERVAR CONTEXTO: Extraia os tópicos mantendo itens do mesmo contexto agrupados. NÃO fragmente ou "pique" conceitos compostos de forma excessiva.\n` +
+                `2. FIDELIDADE ABSOLUTA: Você está PROIBIDO de inventar palavras ou presumir tópicos. Mantenha a nomenclatura e a fraseologia EXATAMENTE como foram enviadas no texto pelo usuário.\n` +
+                `3. Formate com clareza, corrija erros óbvios de digitação do PDF e mantenha a primeira letra maiúscula.\n\n` +
+                `--- CONTEÚDO PROGRAMÁTICO ---\n` +
+                syllabusText,
             temperature: 0.1,
+            maxTokens: 1000, // G2 fix: limita output para evitar respostas longas desnecessárias
         });
 
-        const extracted = response.object;
+        const extracted = response.object as { topics: { name: string; description?: string }[] };
         if (!extracted.topics || extracted.topics.length === 0) {
             return res.status(422).json({ message: "Nenhum tópico pôde ser extraído." });
         }
@@ -322,7 +383,7 @@ export async function bulkWeightUpdateDisciplines(req: Request, res: Response) {
                 throw new Error("Uma ou mais disciplinas não foram encontradas ou não pertencem ao plano ativo.");
             }
 
-        await tx.discipline.updateMany({
+            await tx.discipline.updateMany({
                 where: {
                     id: { in: validIds },
                     studyPlanId

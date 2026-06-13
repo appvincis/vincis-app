@@ -16,6 +16,7 @@ import {
     useGenerateTopicsForDisciplineMutation,
 } from '../hooks/useDisciplines'
 import { useStudyPlansQuery } from '../hooks/useStudyPlans'
+import { usePlan } from '../hooks/usePlan'
 
 import DisciplinesHeader from '../components/features/disciplines/DisciplinesHeader.vue'
 import CreateDisciplineForm from '../components/features/disciplines/CreateDisciplineForm.vue'
@@ -24,6 +25,7 @@ import DisciplineDetails from '../components/features/disciplines/DisciplineDeta
 
 const studyPlanStore = useStudyPlanStore()
 const queryClient = useQueryClient()
+const { plan } = usePlan()
 
 const { data: disciplinesData, isLoading, error: disciplinesError } = useDisciplinesQuery()
 const disciplines = computed(() => disciplinesData.value || [])
@@ -127,6 +129,8 @@ async function handleCreateDiscipline(payload: { name: string, description?: str
                 id: newDisc.id,
                 syllabusText: payload.syllabusText.trim()
             })
+            queryClient.invalidateQueries({ queryKey: ['disciplines'] })
+            queryClient.invalidateQueries({ queryKey: ['topics', newDisc.id] })
         } catch (err: any) {
             console.error('Erro ao gerar tópicos com IA na criação:', err)
             alert('Disciplina criada, mas houve um erro ao gerar os tópicos com IA.')
@@ -487,6 +491,8 @@ function handleDisciplineUpdate() {
         <CreateDisciplineForm
             :showCreateForm="showCreateForm"
             :isCreating="isCreatingDiscipline"
+            :isGenerating="generateTopics.isPending.value"
+            :isPremium="plan.isPremium"
             @create-discipline="handleCreateDiscipline"
             @cancel-create="showCreateForm = false"
         />

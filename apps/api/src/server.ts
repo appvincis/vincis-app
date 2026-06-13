@@ -1,4 +1,7 @@
 import 'dotenv/config'
+import dns from 'dns'
+dns.setDefaultResultOrder('ipv4first')
+
 import express, { Request, Response } from 'express'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
@@ -14,6 +17,8 @@ import { errorLogRouter } from './features/error-log/error-log.routes.js'
 import { editalRouter } from './features/edital/edital.routes.js'
 import { paymentRouter } from './features/payment/payment.routes.js'
 import { focusSessionRouter } from './features/focus-session/focus-session.routes.js'
+import { initQueue } from './lib/queue.service.js'
+import { registerExtractionWorker } from './features/edital/extraction.worker.js'
 
 const PORT = Number(process.env.PORT) || 4000
 const app = express()
@@ -47,7 +52,31 @@ app.use("/ai", aiRouter)
 
 // Verifica conexão com banco antes de escutar na porta
 prisma.$connect()
-    .then(() => {
+    .then(async () => {
+        // Limpar extrações travadas no status PROCESSING ao iniciar o servidor
+        try {
+            const result = await prisma.edital.updateMany({
+                where: { extractionStatus: 'PROCESSING' },
+                data: {
+                    extractionStatus: 'FAILED',
+                    extractionError: 'O servidor foi reiniciado ou a extração foi interrompida inesperadamente. Por favor, tente novamente.'
+                }
+            });
+            if (result.count > 0) {
+                console.log(`[Startup] ${result.count} extrações pendentes foram resetadas para FAILED.`);
+            }
+        } catch (dbErr) {
+            console.error('[Startup] Falha ao resetar extrações pendentes:', dbErr);
+        }
+
+        // Inicializar a fila e registrar o worker de extração
+        try {
+            await initQueue();
+            registerExtractionWorker();
+        } catch (queueErr) {
+            console.error('[Startup] Erro ao inicializar a fila do pg-boss:', queueErr);
+        }
+
         app.listen(PORT, () => {
             console.log(`Back end conectado com banco e escutando na porta ${PORT}`)
         })

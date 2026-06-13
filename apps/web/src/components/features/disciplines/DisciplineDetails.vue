@@ -1,12 +1,50 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { VButton, VSpinner } from '../../ui'
 import DisciplineSettings from './DisciplineSettings.vue'
 import DisciplineTopicManager from './DisciplineTopicManager.vue'
-import { useGenerateTopicsForDisciplineMutation } from '../../../hooks/useDisciplines'
+import { useGenerateTopicsForDisciplineMutation, useUpdateDisciplineMutation } from '../../../hooks/useDisciplines'
 import { useDisciplineFocusSessionsQuery } from '../../../hooks/useFocusSessions'
 import { usePlan } from '../../../hooks/usePlan'
 import { useRouter } from 'vue-router'
+
+const updateDisciplineMutation = useUpdateDisciplineMutation()
+const isEditingName = ref(false)
+const editNameValue = ref('')
+const nameInputRef = ref<HTMLInputElement | null>(null)
+
+function startEditName() {
+    if (!props.discipline) return
+    editNameValue.value = props.discipline.name
+    isEditingName.value = true
+    nextTick(() => {
+        nameInputRef.value?.focus()
+    })
+}
+
+function cancelEditName() {
+    isEditingName.value = false
+    editNameValue.value = ''
+}
+
+async function saveName() {
+    if (!props.discipline || !editNameValue.value.trim()) return
+    if (editNameValue.value.trim() === props.discipline.name) {
+        cancelEditName()
+        return
+    }
+    
+    try {
+        const updated = await updateDisciplineMutation.mutateAsync({
+            id: props.discipline.id,
+            name: editNameValue.value.trim()
+        })
+        emit('update:discipline', updated)
+        isEditingName.value = false
+    } catch (err) {
+        alert('Não foi possível atualizar o nome da disciplina.')
+    }
+}
 
 const { plan } = usePlan()
 const router = useRouter()
@@ -78,8 +116,33 @@ async function handleGenerateTopics() {
                 <div class="detail__header" :style="{ borderLeftColor: discipline?.color }">
                     <div class="flex items-center gap-3 flex-1 min-w-0">
                         <span class="detail__dot" :style="{ background: discipline?.color }" />
-                        <div class="min-w-0">
-                            <h2 class="detail__title">{{ discipline?.name }}</h2>
+                        <div class="min-w-0 flex-1">
+                            <div v-if="isEditingName" class="flex items-center gap-2">
+                                <input 
+                                    v-model="editNameValue" 
+                                    type="text" 
+                                    class="ds-inline-input"
+                                    @keyup.enter="saveName"
+                                    @keyup.esc="cancelEditName"
+                                    ref="nameInputRef"
+                                />
+                                <button class="p-1 text-success hover:bg-success/10 rounded cursor-pointer border-0 bg-transparent flex items-center justify-center" @click="saveName" title="Salvar">
+                                    <i class="pi pi-check text-[10px]"></i>
+                                </button>
+                                <button class="p-1 text-error hover:bg-error/10 rounded cursor-pointer border-0 bg-transparent flex items-center justify-center" @click="cancelEditName" title="Cancelar">
+                                    <i class="pi pi-times text-[10px]"></i>
+                                </button>
+                            </div>
+                            <div v-else class="flex items-center gap-2 group/title">
+                                <h2 class="detail__title" @dblclick="startEditName">{{ discipline?.name }}</h2>
+                                <button 
+                                    class="p-1 text-on-surface-muted hover:text-primary hover:bg-primary/5 rounded cursor-pointer opacity-0 group-hover/title:opacity-100 transition-opacity border-0 bg-transparent flex items-center justify-center" 
+                                    @click="startEditName" 
+                                    title="Editar Nome"
+                                >
+                                    <i class="pi pi-pencil text-[9px]"></i>
+                                </button>
+                            </div>
                             <p class="detail__subtitle">{{ topicsCount }} tópico{{ topicsCount !== 1 ? 's' : '' }}</p>
                         </div>
                     </div>
@@ -252,6 +315,25 @@ async function handleGenerateTopics() {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.ds-inline-input {
+    background: var(--surface-container-low);
+    border: 1px solid var(--outline-variant);
+    border-radius: 0.375rem;
+    padding: 0.15rem 0.4rem;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--on-surface);
+    outline: none;
+    width: 100%;
+    max-width: 220px;
+    box-sizing: border-box;
+}
+
+.ds-inline-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 15%, transparent);
 }
 
 .detail__subtitle {

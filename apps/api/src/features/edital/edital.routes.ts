@@ -6,7 +6,9 @@ import {
     getEditais,
     getEditalSignedUrl,
     deleteEdital,
-    extractEdital
+    extractEdital,
+    getEditalCargos,
+    cancelExtractEdital
 } from './edital.controller.js';
 
 export const editalRouter = Router();
@@ -33,4 +35,6 @@ editalRouter.post('/', upload.single('file'), uploadEdital);
 editalRouter.get('/', getEditais);
 editalRouter.get('/:id/url', getEditalSignedUrl);
 editalRouter.delete('/:id', deleteEdital);
+editalRouter.get('/:id/cargos', getEditalCargos);
 editalRouter.post('/:id/extract', extractEdital);
+editalRouter.post('/:id/cancel-extract', cancelExtractEdital);

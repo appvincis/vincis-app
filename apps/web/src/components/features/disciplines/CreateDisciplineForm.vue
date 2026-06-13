@@ -6,6 +6,8 @@ import { PRESET_COLORS } from '../../../helpers/disciplineColors'
 const props = defineProps<{
     showCreateForm: boolean
     isCreating: boolean
+    isGenerating?: boolean
+    isPremium?: boolean
 }>()
 
 const emit = defineEmits(['create-discipline', 'cancel-create'])
@@ -52,7 +54,7 @@ function handleCancel() {
 
                 <!-- Modal -->
                 <div
-                    class="relative bg-surface-container-lowest rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+                     class="relative bg-surface-container-lowest rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
                     <!-- Header -->
                     <div class="flex items-center justify-between px-6 pt-6 pb-4">
                         <h2 class="text-xl font-headline font-bold text-on-surface">Nova Disciplina</h2>
@@ -110,7 +112,15 @@ function handleCancel() {
                         </div>
 
                         <!-- Optional Syllabus for IA Extraction -->
-                        <div class="border-t border-outline-variant/20 pt-4">
+                        <div class="border-t border-outline-variant/20 pt-4 relative">
+                            <!-- Premium lock for AI Wand in Create Form -->
+                            <div v-if="!isPremium" class="absolute inset-0 bg-surface-container-lowest/70 backdrop-blur-[0.5px] z-10 flex items-center justify-center p-4">
+                                <p class="text-xs font-semibold text-on-surface-muted flex items-center gap-1.5 bg-surface-container-low px-3 py-1.5 rounded-full border border-outline-variant/30 select-none">
+                                    <i class="pi pi-lock text-primary"></i>
+                                    Varinha IA (Premium)
+                                </p>
+                            </div>
+
                             <label
                                 class="block text-[10px] font-label font-bold uppercase tracking-[0.15em] text-primary mb-2 flex items-center gap-1.5">
                                 <i class="pi pi-magic text-[10px]"></i>
@@ -118,18 +128,20 @@ function handleCancel() {
                             </label>
                             <textarea v-model="syllabusText" placeholder="Cole aqui o conteúdo programático do edital desta disciplina para extrair os tópicos automaticamente..."
                                 rows="3"
-                                class="w-full px-4 py-3 rounded-xl border border-outline-variant/40 bg-surface-container-low text-on-surface text-sm font-sans placeholder:text-on-surface-muted/50 focus:outline-none focus:border-primary/50 transition-colors resize-none" />
+                                :disabled="!isPremium"
+                                class="w-full px-4 py-3 rounded-xl border border-outline-variant/40 bg-surface-container-low text-on-surface text-sm font-sans placeholder:text-on-surface-muted/50 focus:outline-none focus:border-primary/50 transition-colors resize-none disabled:opacity-50 disabled:cursor-not-allowed" />
                         </div>
 
                         <!-- Actions -->
                         <div class="flex gap-3 pt-1">
-                            <button @click="handleCancel"
-                                class="flex-1 py-3 rounded-xl border border-outline-variant/40 text-sm font-label font-bold text-on-surface-muted hover:bg-surface-container transition-colors cursor-pointer">
+                            <button @click="handleCancel" :disabled="isCreating || isGenerating"
+                                class="flex-1 py-3 rounded-xl border border-outline-variant/40 text-sm font-label font-bold text-on-surface-muted hover:bg-surface-container transition-colors cursor-pointer disabled:opacity-50">
                                 Cancelar
                             </button>
-                            <button @click="handleCreate" :disabled="isCreating || !newName.trim()"
-                                class="flex-1 py-3 rounded-xl bg-primary text-on-primary text-sm font-label font-bold hover:bg-primary-hover transition-colors cursor-pointer disabled:opacity-50">
-                                {{ isCreating ? 'Criando...' : 'Criar Disciplina' }}
+                            <button @click="handleCreate" :disabled="isCreating || isGenerating || !newName.trim()"
+                                class="flex-1 py-3 rounded-xl bg-primary text-on-primary text-sm font-label font-bold hover:bg-primary-hover transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2">
+                                <i v-if="isGenerating" class="pi pi-sparkles animate-pulse"></i>
+                                {{ isGenerating ? 'Extraindo IA...' : (isCreating ? 'Criando...' : 'Criar Disciplina') }}
                             </button>
                         </div>
                     </div>
