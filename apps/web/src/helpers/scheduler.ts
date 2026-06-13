@@ -67,6 +67,7 @@ export function generateMonthlySchedule(
     viewDate: Date,
     settings: PlannerSettings,
     dailyMinutes?: number,
+    scheduleSeed: number = 0,
 ): Record<string, StudySession[]> {
     const { disciplines, studyDays, subjectsPerDay, revisionMode, revisionRhythm } = settings
     const totalMinutes = dailyMinutes ?? settings.hoursPerDay * 60
@@ -90,7 +91,7 @@ export function generateMonthlySchedule(
     }
 
     // ── 2. Deterministic shuffle ───────────────────────────────────────────────
-    const shuffled = seededShuffle(pool, year * 100 + month + 7)
+    const shuffled = seededShuffle(pool, year * 100 + month + 7 + scheduleSeed)
     let ptr = 0
 
     // ── 3. SRS review ledger ───────────────────────────────────────────────────
