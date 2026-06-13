@@ -1,17 +1,43 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { VCard } from '@/components/ui'
 import FocusHistory from './FocusHistory.vue'
 
-defineProps<{
+const props = defineProps<{
     disciplines: any[]
     selectedDisciplineId: number | null
     settings: any
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
     (e: 'update:selectedDisciplineId', val: number): void
     (e: 'start'): void
 }>()
+
+const presets = [
+    { min: 25, label: 'Pomodoro', icon: 'pi-clock' },
+    { min: 50, label: 'Bloco', icon: 'pi-bolt' },
+    { min: 90, label: 'Deep Work', icon: 'pi-sun' },
+]
+
+function applyPreset(min: number) {
+    props.settings.focusTime = min
+}
+
+const totalSessionMinutes = computed(() => {
+    const focus = props.settings.focusTime * props.settings.cycles
+    const shortBreaks = props.settings.breakTime * (props.settings.cycles - 1)
+    const longBreak = props.settings.longBreakTime
+    return focus + shortBreaks + longBreak
+})
+
+const totalSessionFormatted = computed(() => {
+    const total = totalSessionMinutes.value
+    const h = Math.floor(total / 60)
+    const m = total % 60
+    if (h === 0) return `${m}min`
+    return m > 0 ? `${h}h ${m}min` : `${h}h`
+})
 </script>
 
 <template>
@@ -73,10 +99,21 @@ defineEmits<{
                 
                 <!-- Ajustes de Tempo -->
                 <VCard class="p-6 backdrop-blur-xl bg-surface-container-lowest/90 border border-outline-variant/40 rounded-[1.5rem] shadow-lg shadow-black/5">
-                    <h3 class="text-sm font-sans font-bold uppercase tracking-widest text-on-surface-muted mb-6 flex items-center gap-2">
+                    <h3 class="text-sm font-sans font-bold uppercase tracking-widest text-on-surface-muted mb-4 flex items-center gap-2">
                         <i class="pi pi-sliders-h text-primary"></i>
                         Ajustes do Método
                     </h3>
+
+                    <!-- Timer Presets -->
+                    <div class="preset-row">
+                        <button v-for="preset in presets" :key="preset.min"
+                            @click="applyPreset(preset.min)"
+                            class="preset-chip"
+                            :class="{ 'preset-chip--active': settings.focusTime === preset.min }">
+                            <i class="pi" :class="preset.icon"></i>
+                            {{ preset.label }} ({{ preset.min }}min)
+                        </button>
+                    </div>
                     
                     <div class="space-y-4">
                         <div class="setting-row">
@@ -133,6 +170,12 @@ defineEmits<{
                                 </button>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Total estimado -->
+                    <div class="total-preview">
+                        <i class="pi pi-hourglass"></i>
+                        <span>Sessão total estimada: <strong>{{ totalSessionFormatted }}</strong></span>
                     </div>
                 </VCard>
 

@@ -11,6 +11,11 @@ export const createFocusSessionSchema = z.object({
   isCompleted: z.boolean().default(false),
   startedAt: z.string({ message: "A data de início é obrigatória." }),
   finishedAt: z.string().optional(),
+  // Campos de Relatório Pós-Sessão
+  modalities: z.array(z.string()).optional().default([]),
+  topicId: z.number().optional().nullable(),
+  questionsDone: z.number().optional().default(0),
+  questionsCorrect: z.number().optional().default(0),
 });
 
 export type CreateFocusSessionInput = z.infer<typeof createFocusSessionSchema>;

@@ -12,7 +12,7 @@ export interface Discipline {
     color: string
     weight: number
     isActive: boolean
-    topics?: { isCompleted: boolean }[]
+    topics?: Topic[]
 }
 
 export interface Topic {
