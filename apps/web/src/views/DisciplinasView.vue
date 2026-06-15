@@ -463,6 +463,7 @@ function handleDisciplineUpdate() {
             :error-msg="errorMsg" 
             v-model:viewMode="viewMode"
             v-model:displayFormat="displayFormat"
+            v-model:searchTerm="searchTerm"
             :has-other-plans="otherPlans.length > 0"
             :selected-count="selectedIds.size"
             @create-discipline="showCreateForm = !showCreateForm"
@@ -478,15 +479,6 @@ function handleDisciplineUpdate() {
             class="hidden" 
             @change="handleImportFile" 
         />
-
-        <!-- Search bar -->
-        <div v-if="studyPlanStore.hasActivePlan" class="mb-2 max-w-md animate-fade-in">
-            <VInput 
-                v-model="searchTerm" 
-                placeholder="Buscar disciplinas pelo nome..." 
-                icon="search" 
-            />
-        </div>
 
         <CreateDisciplineForm
             :showCreateForm="showCreateForm"
