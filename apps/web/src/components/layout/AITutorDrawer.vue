@@ -79,7 +79,7 @@ const isLoading = computed(() => chat.status === 'streaming' || chat.status === 
 
 const chat = new Chat({
   transport: new DefaultChatTransport({
-    api: 'http://localhost:4000/ai/chat',
+    api: import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/ai/chat` : 'http://localhost:4000/ai/chat',
     fetch: async (url, options) => {
       if (options && typeof options.body === 'string') {
         try {
