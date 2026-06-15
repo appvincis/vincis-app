@@ -69,9 +69,10 @@ export function generateMonthlySchedule(
     dailyMinutes?: number,
     scheduleSeed: number = 0,
 ): Record<string, StudySession[]> {
-    const { disciplines, studyDays, subjectsPerDay, revisionMode, revisionRhythm } = settings
+    const { disciplines: allDisciplines, studyDays, subjectsPerDay, revisionMode, revisionRhythm, selectedDisciplineIds } = settings
     const totalMinutes = dailyMinutes ?? settings.hoursPerDay * 60
 
+    const disciplines = allDisciplines.filter(d => (selectedDisciplineIds || []).includes(d.id))
     if (!disciplines.length || !studyDays.length) return {}
 
     const year = viewDate.getFullYear()

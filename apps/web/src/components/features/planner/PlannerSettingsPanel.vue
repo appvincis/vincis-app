@@ -22,6 +22,7 @@ export interface PlannerSettings {
     hoursPerDay: number
     subjectsPerDay: number
     disciplines: DisciplineConfig[]
+    selectedDisciplineIds: number[]
 }
 
 // ─── Props / Emits ────────────────────────────────────────────────────────────
@@ -57,6 +58,20 @@ function toggleRevisions() {
         local.value.revisionMode = 'auto'
     } else {
         local.value.revisionMode = 'off'
+    }
+}
+
+function toggleDisciplineSelection(id: number) {
+    if (!local.value.selectedDisciplineIds) {
+        local.value.selectedDisciplineIds = []
+    }
+    const idx = local.value.selectedDisciplineIds.indexOf(id)
+    if (idx >= 0) {
+        if (local.value.selectedDisciplineIds.length > 1) {
+            local.value.selectedDisciplineIds.splice(idx, 1)
+        }
+    } else {
+        local.value.selectedDisciplineIds.push(id)
     }
 }
 
@@ -299,9 +314,19 @@ function knowledgeColor(k: number): string {
                             <!-- Linha clicável -->
                             <button
                                 class="discipline-row"
-                                :class="{ expanded: expandedDiscipline === disc.id }"
+                                :class="{ 
+                                    expanded: expandedDiscipline === disc.id,
+                                    inactive: local.selectedDisciplineIds && !local.selectedDisciplineIds.includes(disc.id)
+                                }"
                                 @click="toggleDiscipline(disc.id)"
                             >
+                                <input
+                                    type="checkbox"
+                                    :checked="local.selectedDisciplineIds && local.selectedDisciplineIds.includes(disc.id)"
+                                    @click.stop="toggleDisciplineSelection(disc.id)"
+                                    class="discipline-checkbox"
+                                    title="Incluir no plano de estudos"
+                                />
                                 <span
                                     class="discipline-dot"
                                     :style="{ backgroundColor: disc.color }"
@@ -822,5 +847,20 @@ function knowledgeColor(k: number): string {
 }
 .switch-toggle.active .switch-handle {
     transform: translateX(1.15rem);
+}
+
+/* ── Discipline Checkbox ────────────────────────────────────────────────── */
+.discipline-checkbox {
+    width: 1.1rem;
+    height: 1.1rem;
+    accent-color: var(--primary);
+    cursor: pointer;
+    margin-right: 0.15rem;
+    flex-shrink: 0;
+}
+
+.discipline-row.inactive {
+    opacity: 0.55;
+    filter: grayscale(35%);
 }
 </style>

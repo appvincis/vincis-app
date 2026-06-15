@@ -4,6 +4,17 @@ import type { Ref } from 'vue'
 import html2pdf from 'html2pdf.js'
 import type { FocusSession } from './useFocusSessions'
 
+export interface PdfDisciplineStat {
+  name: string
+  hours: string
+  sessionsCount: number
+  questionsDone: number
+  questionsCorrect: number
+  accuracy: number
+  completedTopics: string[]
+  pendingTopics: string[]
+}
+
 export interface PdfReportData {
   totalStudyHours: string
   totalSessions: number
@@ -12,6 +23,7 @@ export interface PdfReportData {
   totalErrors: number
   lastDayStats: string
   topMistakes: [string, number][]
+  disciplinesList: PdfDisciplineStat[]
 }
 
 const PDF_OPTIONS: any = {
@@ -25,6 +37,7 @@ const PDF_OPTIONS: any = {
 export function useExportPdf(
   focusSessions: Ref<FocusSession[] | undefined>,
   errorLogs: Ref<any[] | undefined>,
+  disciplines: Ref<any[] | undefined>,
 ) {
   const isExporting = ref(false)
   const pdfData = ref<PdfReportData>({
@@ -35,11 +48,13 @@ export function useExportPdf(
     totalErrors: 0,
     lastDayStats: 'Nenhum estudo registrado.',
     topMistakes: [],
+    disciplinesList: [],
   })
 
   function buildPdfData() {
     const sessions = focusSessions.value || []
     const errors = errorLogs.value || []
+    const ds = disciplines.value || []
 
     const totalStudySeconds = sessions.reduce((acc, s) => acc + (s.duration ?? 0), 0)
     const totalSessions = sessions.length
@@ -52,6 +67,41 @@ export function useExportPdf(
       ? Math.round((completedSessions / totalSessions) * 100)
       : 0
     pdfData.value.totalErrors = errors.length
+
+    // Build disciplines list
+    const list: PdfDisciplineStat[] = []
+    ds.forEach((d: any) => {
+      const dSessions = sessions.filter(s => s.disciplineId === d.id)
+      const dStudySeconds = dSessions.reduce((acc, s) => acc + (s.focusTime || s.duration || 0), 0)
+      const dSessionsCount = dSessions.length
+      const dQuestionsDone = dSessions.reduce((acc, s) => acc + (s.questionsDone || 0), 0)
+      const dQuestionsCorrect = dSessions.reduce((acc, s) => acc + (s.questionsCorrect || 0), 0)
+      const dAccuracy = dQuestionsDone > 0 ? Math.round((dQuestionsCorrect / dQuestionsDone) * 100) : 0
+
+      const completed = (d.topics || []).filter((t: any) => {
+        const hasSession = sessions.some(s => s.topicId === t.id)
+        const hasError = errors.some(e => e.topicId === t.id)
+        return t.isCompleted || hasSession || hasError
+      }).map((t: any) => t.name)
+
+      const pending = (d.topics || []).filter((t: any) => {
+        const hasSession = sessions.some(s => s.topicId === t.id)
+        const hasError = errors.some(e => e.topicId === t.id)
+        return !t.isCompleted && !hasSession && !hasError
+      }).map((t: any) => t.name)
+
+      list.push({
+        name: d.name,
+        hours: (dStudySeconds / 3600).toFixed(1),
+        sessionsCount: dSessionsCount,
+        questionsDone: dQuestionsDone,
+        questionsCorrect: dQuestionsCorrect,
+        accuracy: dAccuracy,
+        completedTopics: completed,
+        pendingTopics: pending
+      })
+    })
+    pdfData.value.disciplinesList = list.sort((a, b) => parseFloat(b.hours) - parseFloat(a.hours))
 
     // Last day stats
     pdfData.value.lastDayStats = 'Nenhum estudo registrado.'

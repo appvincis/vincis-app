@@ -317,62 +317,207 @@ aiRouter.get('/diagnostic', async (req: Request, res: Response) => {
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
+    // Find the active study plan
+    const activePlan = await prisma.studyPlan.findFirst({
+      where: { userId, is_active: true }
+    })
+    const studyPlanId = activePlan?.id || (await prisma.studyPlan.findFirst({ where: { userId } }))?.id
+
+    // Fetch active disciplines in this study plan
+    const disciplines = studyPlanId
+      ? await prisma.discipline.findMany({
+          where: { studyPlanId, isActive: true },
+          include: { topics: true }
+        })
+      : []
+
     const focusSessions = await prisma.focusSession.findMany({
-      where: { userId, startedAt: { gte: thirtyDaysAgo } },
+      where: {
+        userId,
+        ...(studyPlanId ? { studyPlanId } : {}),
+        startedAt: { gte: thirtyDaysAgo }
+      },
       include: { Discipline: true }
     })
 
     const errorLogs = await prisma.errorLog.findMany({
-      where: { userId, createdAt: { gte: thirtyDaysAgo } },
-      include: { topic: { include: { discipline: true } } }
+      where: {
+        userId,
+        ...(studyPlanId ? { studyPlanId } : {}),
+        createdAt: { gte: thirtyDaysAgo }
+      },
+      include: {
+        topic: {
+          include: {
+            discipline: true
+          }
+        }
+      }
     })
 
-    if (focusSessions.length === 0 && errorLogs.length === 0) {
+    // Map stats by discipline
+    const activeDisciplineIds = new Set(disciplines.map((d) => d.id))
+    const extraDisciplineMap = new Map<number, { name: string; color?: string }>()
+
+    focusSessions.forEach((s) => {
+      if (s.disciplineId && !activeDisciplineIds.has(s.disciplineId)) {
+        extraDisciplineMap.set(s.disciplineId, {
+          name: s.Discipline?.name || 'Desconhecida',
+          color: s.Discipline?.color || undefined
+        })
+      }
+    })
+
+    errorLogs.forEach((err) => {
+      const discId = err.topic?.disciplineId
+      if (discId && !activeDisciplineIds.has(discId)) {
+        extraDisciplineMap.set(discId, {
+          name: err.topic?.discipline?.name || 'Desconhecida',
+          color: err.topic?.discipline?.color || undefined
+        })
+      }
+    })
+
+    const disciplineStatsList = disciplines.map((d) => {
+      const dSessions = focusSessions.filter((s) => s.disciplineId === d.id)
+      const dTimeSec = dSessions.reduce((sum, s) => sum + (s.focusTime || s.duration || 0), 0)
+      const dQuestionsDone = dSessions.reduce((sum, s) => sum + (s.questionsDone || 0), 0)
+      const dQuestionsCorrect = dSessions.reduce((sum, s) => sum + (s.questionsCorrect || 0), 0)
+
+      const dErrorLogs = errorLogs.filter((err) => err.topic?.disciplineId === d.id)
+
+      const topicErrors: Record<string, number> = {}
+      const diagCounts: Record<string, number> = {}
+      dErrorLogs.forEach((err) => {
+        const topicName = err.topic?.name || err.topicText || 'Geral'
+        topicErrors[topicName] = (topicErrors[topicName] || 0) + 1
+        const diag = err.diagnostico || 'Geral'
+        diagCounts[diag] = (diagCounts[diag] || 0) + 1
+      })
+
+      // Topics are considered studied if marked as completed OR if they have sessions/error logs
+      const studiedTopicsList = d.topics.filter((t) => {
+        const hasSession = focusSessions.some((s) => s.topicId === t.id)
+        const hasError = errorLogs.some((err) => err.topicId === t.id)
+        return t.isCompleted || hasSession || hasError
+      }).map((t) => t.name)
+
+      const notStudiedTopicsList = d.topics.filter((t) => {
+        const hasSession = focusSessions.some((s) => s.topicId === t.id)
+        const hasError = errorLogs.some((err) => err.topicId === t.id)
+        return !t.isCompleted && !hasSession && !hasError
+      }).map((t) => t.name)
+
+      return {
+        id: d.id,
+        name: d.name,
+        studyTimeMinutes: Math.round(dTimeSec / 60),
+        sessionsCount: dSessions.length,
+        questionsDone: dQuestionsDone,
+        questionsCorrect: dQuestionsCorrect,
+        accuracyPercent: dQuestionsDone > 0 ? Math.round((dQuestionsCorrect / dQuestionsDone) * 100) : 0,
+        errorsCount: dErrorLogs.length,
+        errorsByType: diagCounts,
+        problematicTopics: Object.entries(topicErrors)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([name, count]) => `${name} (${count} erros)`),
+        studiedTopicsCount: studiedTopicsList.length,
+        totalTopicsCount: d.topics.length,
+        studiedTopicsList: studiedTopicsList.slice(0, 5),
+        notStudiedTopicsCount: notStudiedTopicsList.length
+      }
+    })
+
+    extraDisciplineMap.forEach((info, id) => {
+      const dSessions = focusSessions.filter((s) => s.disciplineId === id)
+      const dTimeSec = dSessions.reduce((sum, s) => sum + (s.focusTime || s.duration || 0), 0)
+      const dQuestionsDone = dSessions.reduce((sum, s) => sum + (s.questionsDone || 0), 0)
+      const dQuestionsCorrect = dSessions.reduce((sum, s) => sum + (s.questionsCorrect || 0), 0)
+
+      const dErrorLogs = errorLogs.filter((err) => err.topic?.disciplineId === id)
+
+      const topicErrors: Record<string, number> = {}
+      const diagCounts: Record<string, number> = {}
+      dErrorLogs.forEach((err) => {
+        const topicName = err.topic?.name || err.topicText || 'Geral'
+        topicErrors[topicName] = (topicErrors[topicName] || 0) + 1
+        const diag = err.diagnostico || 'Geral'
+        diagCounts[diag] = (diagCounts[diag] || 0) + 1
+      })
+
+      disciplineStatsList.push({
+        id,
+        name: info.name,
+        studyTimeMinutes: Math.round(dTimeSec / 60),
+        sessionsCount: dSessions.length,
+        questionsDone: dQuestionsDone,
+        questionsCorrect: dQuestionsCorrect,
+        accuracyPercent: dQuestionsDone > 0 ? Math.round((dQuestionsCorrect / dQuestionsDone) * 100) : 0,
+        errorsCount: dErrorLogs.length,
+        errorsByType: diagCounts,
+        problematicTopics: Object.entries(topicErrors)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([name, count]) => `${name} (${count} erros)`),
+        studiedTopicsCount: 0,
+        totalTopicsCount: 0,
+        studiedTopicsList: [],
+        notStudiedTopicsCount: 0
+      })
+    })
+
+    if (disciplineStatsList.length === 0 && focusSessions.length === 0 && errorLogs.length === 0) {
       return res.json({
         isEmpty: true
       })
     }
 
-    // Summarize for the prompt
-    let totalStudyTime = 0
-    const disciplineTime: Record<string, number> = {}
+    const totalStudyTimeSec = focusSessions.reduce((sum, s) => sum + (s.focusTime || s.duration || 0), 0)
+    const totalQuestionsDone = focusSessions.reduce((sum, s) => sum + (s.questionsDone || 0), 0)
+    const totalQuestionsCorrect = focusSessions.reduce((sum, s) => sum + (s.questionsCorrect || 0), 0)
+    const globalAccuracyPercent = totalQuestionsDone > 0 ? Math.round((totalQuestionsCorrect / totalQuestionsDone) * 100) : 0
 
-    focusSessions.forEach((session: any) => {
-      totalStudyTime += session.duration || 0
-      const dName = session.Discipline?.name
-      if (dName) {
-        disciplineTime[dName] = (disciplineTime[dName] || 0) + (session.duration || 0)
-      }
-    })
-
-    const errorsCount: Record<string, number> = {}
-    const errorsType: Record<string, number> = {}
-
-    errorLogs.forEach((err: any) => {
-      const dName = err.topic?.discipline?.name
-      if (dName) {
-        errorsCount[dName] = (errorsCount[dName] || 0) + 1
-      }
+    const globalErrorsByType: Record<string, number> = {}
+    errorLogs.forEach((err) => {
       const diag = err.diagnostico || 'Geral'
-      errorsType[diag] = (errorsType[diag] || 0) + 1
+      globalErrorsByType[diag] = (globalErrorsByType[diag] || 0) + 1
     })
 
     const promptData = {
-      totalStudyTimeMinutes: Math.round(totalStudyTime / 60),
-      timeByDisciplineMinutes: Object.fromEntries(Object.entries(disciplineTime).map(([k, v]) => [k, Math.round(v / 60)])),
-      errorsByDiscipline: errorsCount,
-      errorsByType: errorsType,
-      sessionsCount: focusSessions.length,
-      errorsCount: errorLogs.length
+      totalStudyTimeMinutes: Math.round(totalStudyTimeSec / 60),
+      totalSessionsCount: focusSessions.length,
+      totalErrorsCount: errorLogs.length,
+      globalAccuracy: `${globalAccuracyPercent}% (Baseado em ${totalQuestionsDone} questões)`,
+      errorsByTypeGlobally: globalErrorsByType,
+      disciplines: disciplineStatsList.map((d) => ({
+        materia: d.name,
+        tempoEstudoMinutos: d.studyTimeMinutes,
+        sessoesRealizadas: d.sessionsCount,
+        questoesFeitas: d.questionsDone,
+        questoesCorretas: d.questionsCorrect,
+        acuracia: `${d.accuracyPercent}%`,
+        quantidadeErros: d.errorsCount,
+        errosPorTipo: d.errorsByType,
+        topicosComMaisErros: d.problematicTopics,
+        progressoTopicos: `${d.studiedTopicsCount}/${d.totalTopicsCount} estudados ou concluídos`,
+        topicosEstudadosOuConcluidosRecentes: d.studiedTopicsList
+      }))
     }
 
     const systemPrompt = `Você é um Mentor de Elite analisando o desempenho de um aluno nos últimos 30 dias.
 Analise os dados fornecidos e gere um diagnóstico útil e acionável.
+
+REGRAS CRÍTICAS CONTRA ALUCINAÇÕES (GARANTIA DE VERACIDADE):
+1. Use APENAS as disciplinas, tópicos, erros, acertos e tempos contidos nos dados estruturados do aluno. É terminantemente PROIBIDO inventar qualquer dado, matéria, tópico, erro ou estatística fictícia.
+2. Não tente inferir estudos fora do que está nos dados. Se o aluno não estudou nada de uma matéria, afirme isso explicitamente se necessário, mas não alucine dados de estudo.
+3. Se um campo de dados (como "topicosComMaisErros") estiver vazio ou contiver zero erros, cite que não houve falhas registradas nesse assunto.
+
 Regras:
-1. Identifique a disciplina de destaque (maior tempo ou constância).
-2. Estime a curva de retenção de forma otimista (ex: "85%", "Excelente", "Em crescimento").
-3. Identifique, EXCLUSIVAMENTE, o NOME DA DISCIPLINA (matéria) onde houve mais fadiga ou repetição de erros. Se não houver erros, escolha a matéria com MENOS tempo de estudo. Nunca responda "Desconhecida" ou "Nenhuma", escolha uma matéria existente nos dados.
-4. Escreva uma recomendação clara, prática e motivadora (1-2 frases). Na recomendação você pode citar os motivos dos erros, como "Falta de Atenção" ou "Lacuna Teórica", para direcionar o estudo.
+1. Identifique a disciplina de destaque (maior tempo de estudo, constância ou acurácia).
+2. Estime a curva de retenção de forma realista e otimista com base na acurácia e conclusão/estudo de tópicos (ex: "85%", "Excelente", "Em evolução", "Sólida").
+3. Identifique o NOME EXATO da disciplina onde houve maior fadiga, repetição de erros ou que necessita de atenção urgente (ex: por baixo tempo de estudo ou acurácia abaixo do esperado). Nunca responda "Desconhecida" ou "Nenhuma". Escolha uma matéria real contida nos dados.
+4. Escreva uma análise e recomendação extremamente detalhada, estruturada e completa. Não resuma. Apresente uma visão aprofundada do desempenho do aluno em cada disciplina estudada, listando explicitamente os tópicos estudados (independente de estarem concluídos ou não), a acurácia de questões, a quantidade de erros, pontos fortes e pontos fracos, seguidos de conselhos práticos e motivadores de estudo.
 
 Dados do aluno:
 ${JSON.stringify(promptData, null, 2)}`
@@ -383,7 +528,7 @@ ${JSON.stringify(promptData, null, 2)}`
         highlightDiscipline: z.string().describe('O NOME da disciplina onde o aluno foi melhor ou dedicou mais tempo.'),
         retentionRate: z.string().describe('Uma estimativa de retenção ou elogio (ex: "85%", "Excelente").'),
         fatigueDiscipline: z.string().describe('O NOME EXATO da disciplina (matéria) com mais erros ou fadiga. NUNCA retorne o diagnóstico do erro aqui.'),
-        recommendationText: z.string().describe('Uma frase de recomendação baseada nos erros e acertos.')
+        recommendationText: z.string().describe('Análise de desempenho completa e extremamente detalhada por disciplina estudada, listando tópicos vistos, acurácia, erros e orientações de estudo.')
       }),
       prompt: 'Gere o diagnóstico estruturado com base nestas estatísticas do aluno.'
     }
