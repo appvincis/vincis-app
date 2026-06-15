@@ -513,11 +513,21 @@ REGRAS CRÍTICAS CONTRA ALUCINAÇÕES (GARANTIA DE VERACIDADE):
 2. Não tente inferir estudos fora do que está nos dados. Se o aluno não estudou nada de uma matéria, afirme isso explicitamente se necessário, mas não alucine dados de estudo.
 3. Se um campo de dados (como "topicosComMaisErros") estiver vazio ou contiver zero erros, cite que não houve falhas registradas nesse assunto.
 
-Regras:
-1. Identifique a disciplina de destaque (maior tempo de estudo, constância ou acurácia).
-2. Estime a curva de retenção de forma realista e otimista com base na acurácia e conclusão/estudo de tópicos (ex: "85%", "Excelente", "Em evolução", "Sólida").
-3. Identifique o NOME EXATO da disciplina onde houve maior fadiga, repetição de erros ou que necessita de atenção urgente (ex: por baixo tempo de estudo ou acurácia abaixo do esperado). Nunca responda "Desconhecida" ou "Nenhuma". Escolha uma matéria real contida nos dados.
-4. Escreva uma análise e recomendação extremamente detalhada, estruturada e completa. Não resuma. Apresente uma visão aprofundada do desempenho do aluno em cada disciplina estudada, listando explicitamente os tópicos estudados (independente de estarem concluídos ou não), a acurácia de questões, a quantidade de erros, pontos fortes e pontos fracos, seguidos de conselhos práticos e motivadores de estudo.
+REGRAS DE OBRIGATORIEDADE DE COBERTURA:
+1. Você DEVE analisar e incluir no seu diagnóstico TODAS as disciplinas listadas no campo "disciplines" do JSON de dados do aluno. É proibido focar em apenas uma ou duas matérias e ignorar as outras do planner.
+2. Para cada uma das disciplinas listadas (sem exceção), escreva no campo "recommendationText" um parágrafo dedicado (2 a 3 frases) contendo:
+   - O tempo de estudo dedicado e as sessões feitas (ex: "Em X, você realizou Y sessões totalizando Z minutos de foco...").
+   - A acurácia obtida em questões e a quantidade de erros (ex: "Com acurácia de K% e W erros registrados...").
+   - Os tópicos que foram estudados ou revisados (mencionando-os pelo nome).
+   - Uma recomendação de ação prática e específica para a disciplina.
+3. Se uma disciplina estiver no plano do aluno mas tiver 0 minutos de estudo e 0 sessões, inclua-a no relatório, alertando que ela ainda não foi iniciada e incentivando o início dos estudos.
+4. Use quebras de linha claras (\n\n) para separar o parágrafo de cada disciplina.
+
+Regras de campos estruturados:
+1. highlightDiscipline: O nome das principais disciplinas de destaque nos estudos do aluno.
+2. retentionRate: Uma estimativa de retenção geral ou por disciplina.
+3. fatigueDiscipline: O nome das disciplinas que apresentam maior fadiga, quantidade de erros ou que precisam de atenção.
+4. recommendationText: O texto contendo a análise detalhada e individualizada de CADA disciplina presente no plano do aluno, conforme as regras de cobertura acima.
 
 Dados do aluno:
 ${JSON.stringify(promptData, null, 2)}`
@@ -525,10 +535,10 @@ ${JSON.stringify(promptData, null, 2)}`
     const objectOptions = {
       system: systemPrompt,
       schema: z.object({
-        highlightDiscipline: z.string().describe('O NOME da disciplina onde o aluno foi melhor ou dedicou mais tempo.'),
+        highlightDiscipline: z.string().describe('O NOME das disciplinas destaque (ex: Matemática e Português).'),
         retentionRate: z.string().describe('Uma estimativa de retenção ou elogio (ex: "85%", "Excelente").'),
-        fatigueDiscipline: z.string().describe('O NOME EXATO da disciplina (matéria) com mais erros ou fadiga. NUNCA retorne o diagnóstico do erro aqui.'),
-        recommendationText: z.string().describe('Análise de desempenho completa e extremamente detalhada por disciplina estudada, listando tópicos vistos, acurácia, erros e orientações de estudo.')
+        fatigueDiscipline: z.string().describe('O NOME das disciplinas com mais erros ou fadiga. NUNCA retorne o diagnóstico do erro aqui.'),
+        recommendationText: z.string().describe('Análise de desempenho completa e detalhada por disciplina estudada, contendo um parágrafo estruturado para cada matéria do plano.')
       }),
       prompt: 'Gere o diagnóstico estruturado com base nestas estatísticas do aluno.'
     }
