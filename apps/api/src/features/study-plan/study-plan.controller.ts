@@ -121,10 +121,11 @@ export async function selectStudyPlan(req: AuthenticatedRequest, res: Response) 
             return res.status(404).json({ message: "Plano de estudo não encontrado." })
         }
 
+        const isProduction = process.env.NODE_ENV === "production";
         res.cookie('study_plan_id', studyPlanId, {
             httpOnly: true,
-            sameSite: 'lax',
-            secure: process.env.NODE_ENV === "production",
+            sameSite: isProduction ? 'none' : 'lax',
+            secure: isProduction,
         })
 
         return res.status(200).json({
