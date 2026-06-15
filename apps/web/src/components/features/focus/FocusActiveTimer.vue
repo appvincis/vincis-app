@@ -20,7 +20,14 @@ defineEmits<{
     (e: 'stop'): void
     (e: 'pauseResume'): void
     (e: 'skip'): void
+    (e: 'updateTime', minutes: number): void
 }>()
+
+const presets = [
+    { min: 25, label: 'Pomodoro', icon: 'pi-clock' },
+    { min: 50, label: 'Bloco', icon: 'pi-bolt' },
+    { min: 90, label: 'Deep Work', icon: 'pi-sun' },
+]
 
 function formatDuration(seconds: number): string {
     const h = Math.floor(seconds / 3600)
@@ -32,11 +39,23 @@ function formatDuration(seconds: number): string {
 
 <template>
     <div class="flex flex-col items-center gap-10">
-        <!-- Discipline Badge -->
-        <div
-            class="flex items-center gap-3 px-5 py-2.5 rounded-full bg-surface-container-low border border-outline-variant/20">
-            <div class="w-3 h-3 rounded-full" :style="{ backgroundColor: selectedDiscipline?.color }"></div>
-            <span class="text-sm font-bold text-on-surface">{{ selectedDiscipline?.name }}</span>
+        <div class="flex items-center justify-between w-full px-4 mb-2">
+            <!-- Discipline Badge -->
+            <div
+                class="flex items-center gap-3 px-5 py-2.5 rounded-full bg-surface-container-low border border-outline-variant/20">
+                <div class="w-3 h-3 rounded-full" :style="{ backgroundColor: selectedDiscipline?.color }"></div>
+                <span class="text-sm font-bold text-on-surface">{{ selectedDiscipline?.name }}</span>
+            </div>
+
+            <!-- Presets Rápidos -->
+            <div v-if="currentPhase === 'focus'" class="flex gap-2">
+                <button v-for="preset in presets" :key="preset.min" @click="$emit('updateTime', preset.min)"
+                    class="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors border"
+                    :class="settings.focusTime === preset.min ? 'bg-primary text-white border-primary' : 'bg-surface-container-low text-on-surface-muted border-outline-variant hover:border-primary/50 hover:text-primary'"
+                    :title="`Alterar para ${preset.min} minutos`">
+                    {{ preset.min }}m
+                </button>
+            </div>
         </div>
 
         <!-- Phase Indicator -->

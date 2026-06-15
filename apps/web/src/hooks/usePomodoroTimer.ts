@@ -10,6 +10,7 @@ export interface PomodoroSettings {
 }
 
 const STORAGE_KEY = 'vincis-pomodoro-settings'
+const SESSION_STATE_KEY = 'vincis-pomodoro-session-state'
 
 const DEFAULT_SETTINGS: PomodoroSettings = {
     focusTime: 25,
@@ -42,13 +43,56 @@ export function usePomodoroTimer() {
     }, { deep: true })
 
     // ─── State ────────────────────────────────────────────────────────────────────
-    const isRunning = ref(false)
-    const isPaused = ref(false)
-    const currentPhase = ref<PomodoroPhase>('focus')
-    const currentCycle = ref(1)
-    const timeRemaining = ref(settings.value.focusTime * 60) // em segundos
-    const sessionStartedAt = ref<Date | null>(null)
-    const totalElapsed = ref(0) // tempo total decorrido em segundos
+    function loadSessionState() {
+        try {
+            const stored = sessionStorage.getItem(SESSION_STATE_KEY)
+            if (stored) {
+                const parsed = JSON.parse(stored)
+                return {
+                    isRunning: parsed.isRunning || false,
+                    isPaused: parsed.isPaused || false,
+                    currentPhase: parsed.currentPhase || 'focus',
+                    currentCycle: parsed.currentCycle || 1,
+                    timeRemaining: parsed.timeRemaining,
+                    sessionStartedAt: parsed.sessionStartedAt ? new Date(parsed.sessionStartedAt) : null,
+                    totalElapsed: parsed.totalElapsed || 0,
+                    lastTickAt: parsed.lastTickAt ? new Date(parsed.lastTickAt) : null
+                }
+            }
+        } catch { /* ignore */ }
+        return null
+    }
+
+    const savedState = loadSessionState()
+    
+    const isRunning = ref(savedState?.isRunning || false)
+    const isPaused = ref(savedState?.isPaused || false)
+    const currentPhase = ref<PomodoroPhase>(savedState?.currentPhase || 'focus')
+    const currentCycle = ref(savedState?.currentCycle || 1)
+    const timeRemaining = ref(savedState?.timeRemaining ?? (settings.value.focusTime * 60)) // em segundos
+    const sessionStartedAt = ref<Date | null>(savedState?.sessionStartedAt || null)
+    const totalElapsed = ref(savedState?.totalElapsed || 0) // tempo total decorrido em segundos
+
+    function saveSessionState() {
+        if (!isRunning.value && !isPaused.value) {
+            sessionStorage.removeItem(SESSION_STATE_KEY)
+            return
+        }
+        sessionStorage.setItem(SESSION_STATE_KEY, JSON.stringify({
+            isRunning: isRunning.value,
+            isPaused: isPaused.value,
+            currentPhase: currentPhase.value,
+            currentCycle: currentCycle.value,
+            timeRemaining: timeRemaining.value,
+            sessionStartedAt: sessionStartedAt.value,
+            totalElapsed: totalElapsed.value,
+            lastTickAt: new Date()
+        }))
+    }
+
+    watch([isRunning, isPaused, currentPhase, currentCycle, timeRemaining, totalElapsed], () => {
+        saveSessionState()
+    })
 
     let intervalId: ReturnType<typeof setInterval> | null = null
 
@@ -167,6 +211,29 @@ export function usePomodoroTimer() {
         totalElapsed.value++
     }
 
+    // Retoma o intervalo se recarregou a página com timer rodando
+    if (isRunning.value && !isPaused.value && !intervalId) {
+        if (savedState?.lastTickAt) {
+            const now = new Date()
+            const diffSeconds = Math.floor((now.getTime() - savedState.lastTickAt.getTime()) / 1000)
+            if (diffSeconds > 0) {
+                timeRemaining.value = Math.max(0, timeRemaining.value - diffSeconds)
+                totalElapsed.value += diffSeconds
+                if (timeRemaining.value <= 0) {
+                    transitionToNextPhase()
+                }
+            }
+        }
+        intervalId = setInterval(tick, 1000)
+    }
+
+    function setFocusTime(minutes: number) {
+        settings.value.focusTime = minutes
+        if (!isRunning.value && currentPhase.value === 'focus') {
+            timeRemaining.value = minutes * 60
+        }
+    }
+
     function startTimer() {
         if (intervalId) return
         stopTimer() // reset
@@ -258,5 +325,6 @@ export function usePomodoroTimer() {
         skipPhase,
         stopTimer,
         resetTimer,
+        setFocusTime,
     }
 }

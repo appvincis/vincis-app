@@ -43,6 +43,8 @@ const {
   dayOfWeekChart,
   maxDayHours,
   donutSegments,
+  topDiagnostic,
+  topErrorDiscipline,
 } = usePerformanceStats(sessionsData, errorsData, disciplinesData)
 </script>
 
@@ -304,6 +306,21 @@ const {
 
       </div>
 
+      <!-- ─── Insight do Diagnóstico ─────────────────────────────────────── -->
+      <div v-if="topErrorDiscipline && topDiagnostic" class="insight-card">
+        <div class="insight-icon">
+          <i class="pi pi-compass text-xl"></i>
+        </div>
+        <div>
+          <h3 class="insight-title">Ponto de Atenção</h3>
+          <p class="insight-text">
+            Seu maior volume de erros ocorre em <strong>{{ topErrorDiscipline }}</strong> 
+            com predominância no diagnóstico de <strong>{{ topDiagnostic }}</strong>. 
+            É recomendado focar nesta área antes de prosseguir com conteúdos novos.
+          </p>
+        </div>
+      </div>
+
       <!-- ─── Estado vazio global ─────────────────────────────────────────── -->
       <div
         v-if="!isLoading && !totalSessions && !totalErrors && !totalDoneTasks"
@@ -421,4 +438,44 @@ const {
 /* ─── Errors by discipline ───────────────────────────────────────────────────── */
 .ebd-bar-track { height: 7px; border-radius: 999px; background: color-mix(in srgb, #ef4444 12%, var(--color-surface-container-high)); overflow: hidden; }
 .ebd-bar-resolved { height: 100%; border-radius: 999px; transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+/* ─── Insight Card ───────────────────────────────────────────────────────────── */
+.insight-card {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  background: color-mix(in srgb, var(--color-error) 2%, var(--color-surface-container-lowest));
+  border: 1px dashed color-mix(in srgb, var(--color-error) 30%, transparent);
+  border-radius: 1.25rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 1.25rem;
+}
+.insight-icon {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-error) 10%, transparent);
+  color: var(--color-error);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.insight-title {
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-on-surface);
+  margin-bottom: 0.35rem;
+}
+.insight-text {
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--color-on-surface-muted);
+}
+.insight-text strong {
+  color: var(--color-on-surface);
+  font-weight: 800;
+}
 </style>

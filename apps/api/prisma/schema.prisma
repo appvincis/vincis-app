@@ -74,8 +74,9 @@ model Topic {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  discipline Discipline @relation(fields: [disciplineId], references: [id], onDelete: Cascade)
-  errorLogs  ErrorLog[]
+  discipline    Discipline     @relation(fields: [disciplineId], references: [id], onDelete: Cascade)
+  errorLogs     ErrorLog[]
+  focusSessions FocusSession[]
 
   @@index([disciplineId])
 }
@@ -184,16 +185,26 @@ model FocusSession {
   isCompleted     Boolean    @default(false)
   startedAt       DateTime
   finishedAt      DateTime?
+
+  // Campos de Relatório Pós-Sessão
+  modalities       String[]  @default([])
+  topicId          Int?
+  questionsDone    Int       @default(0)
+  questionsCorrect Int       @default(0)
+
   disciplineId    Int
   studyPlanId     Int
   userId          Int
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
+
   Discipline      Discipline @relation(fields: [disciplineId], references: [id], onDelete: Cascade)
+  Topic           Topic?     @relation(fields: [topicId], references: [id], onDelete: SetNull)
   StudyPlan       StudyPlan  @relation(fields: [studyPlanId], references: [id], onDelete: Cascade)
   User            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([studyPlanId])
   @@index([disciplineId])
+  @@index([topicId])
 }

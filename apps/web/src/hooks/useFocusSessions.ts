@@ -17,11 +17,20 @@ export interface FocusSession {
     startedAt: string
     finishedAt?: string
     disciplineId: number
+    // Campos de Relatório Pós-Sessão
+    modalities?: string[]
+    topicId?: number | null
+    questionsDone?: number
+    questionsCorrect?: number
     discipline?: {
         id: number
         name: string
         color: string
     }
+    topic?: {
+        id: number
+        name: string
+    } | null
 }
 
 export interface CreateFocusSessionPayload {
@@ -35,6 +44,11 @@ export interface CreateFocusSessionPayload {
     isCompleted: boolean
     startedAt: string
     finishedAt?: string
+    // Campos de Relatório Pós-Sessão
+    modalities?: string[]
+    topicId?: number | null
+    questionsDone?: number
+    questionsCorrect?: number
 }
 
 export const useFocusSessionsQuery = () => {

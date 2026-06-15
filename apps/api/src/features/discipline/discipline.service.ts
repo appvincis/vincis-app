@@ -17,9 +17,7 @@ export const disciplineService = {
         return prisma.discipline.findMany({
             where: { studyPlanId },
             include: {
-                topics: {
-                    select: { isCompleted: true }
-                }
+                topics: true
             }
         });
     },

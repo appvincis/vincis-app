@@ -202,6 +202,15 @@ export function usePerformanceStats(
     })
   })
 
+  // ─── Insights ─────────────────────────────────────────────────────────────
+  const topDiagnostic = computed(() => {
+    return diagStats.value.length > 0 ? diagStats.value[0]?.label : null
+  })
+
+  const topErrorDiscipline = computed(() => {
+    return errorsByDiscipline.value.length > 0 ? errorsByDiscipline.value[0]?.name : null
+  })
+
   return {
     selectedPeriod,
     sessions,
@@ -227,5 +236,8 @@ export function usePerformanceStats(
     dayOfWeekChart,
     maxDayHours,
     donutSegments,
+    // Insights
+    topDiagnostic,
+    topErrorDiscipline,
   }
 }

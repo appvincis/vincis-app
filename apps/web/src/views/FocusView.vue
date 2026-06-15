@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { VModal, VSpinner } from '../components/ui'
 import { useStudyPlanStore } from '../stores/study-plan'
-import { useDisciplinesQuery } from '../hooks/useDisciplines'
+import { useDisciplinesQuery, useUpdateTopicMutation, type Topic } from '../hooks/useDisciplines'
 import { useCreateFocusSessionMutation } from '../hooks/useFocusSessions'
 import { usePomodoroTimer } from '../hooks/usePomodoroTimer'
 import { useToast } from 'primevue/usetoast'
@@ -12,6 +12,7 @@ import FocusHeader from '../components/features/focus/FocusHeader.vue'
 import FocusEmptyState from '../components/features/focus/FocusEmptyState.vue'
 import FocusConfig from '../components/features/focus/FocusConfig.vue'
 import FocusActiveTimer from '../components/features/focus/FocusActiveTimer.vue'
+import FocusReportModal from '../components/features/focus/FocusReportModal.vue'
 
 const studyPlanStore = useStudyPlanStore()
 const toast = useToast()
@@ -20,6 +21,7 @@ const toast = useToast()
 const { data: disciplinesData, isLoading: isLoadingDisciplines } = useDisciplinesQuery()
 const disciplines = computed(() => disciplinesData.value || [])
 const { mutateAsync: saveFocusSession } = useCreateFocusSessionMutation()
+const { mutateAsync: updateTopic } = useUpdateTopicMutation()
 
 // ─── Timer ────────────────────────────────────────────────────────────────────
 const {
@@ -47,6 +49,8 @@ const {
 const selectedDisciplineId = ref<number | null>(null)
 const showLeaveDialog = ref(false)
 const pendingNavigation = ref<any>(null)
+const showReportModal = ref(false)
+const pendingSessionCompleted = ref(false)
 
 const selectedDiscipline = computed(() =>
     disciplines.value.find((d: any) => d.id === selectedDisciplineId.value)
@@ -62,14 +66,9 @@ const strokeDashoffset = computed(() => {
 // ─── Session Complete Watcher ─────────────────────────────────────────────────
 watch(isSessionComplete, async (completed) => {
     if (completed && sessionStartedAt.value) {
-        await saveSession(true)
-        resetTimer()
-        toast.add({
-            severity: 'success',
-            summary: 'Sessão Completa! 🎉',
-            detail: 'Parabéns! Todos os ciclos foram concluídos.',
-            life: 5000,
-        })
+        pendingSessionCompleted.value = true
+        pauseTimer() // Pausa para preencher relatório
+        showReportModal.value = true
     }
 })
 
@@ -88,26 +87,26 @@ function handlePauseResume() {
 }
 
 async function handleStop() {
-    if (sessionStartedAt.value) {
-        await saveSession(false)
+    if (sessionStartedAt.value && totalElapsed.value > 60) {
+        pendingSessionCompleted.value = false
+        pauseTimer() // Pausa para preencher relatório
+        showReportModal.value = true
+    } else {
+        // Se tem menos de 1 minuto, apenas reseta sem relatório
+        resetTimer()
+        toast.add({
+            severity: 'info',
+            summary: 'Sessão Encerrada',
+            detail: 'A sessão não foi salva por ser muito curta.',
+            life: 3000,
+        })
     }
-    resetTimer()
-    toast.add({
-        severity: 'info',
-        summary: 'Sessão Encerrada',
-        detail: 'A sessão foi encerrada e salva.',
-        life: 3000,
-    })
 }
 
-async function saveSession(completed: boolean) {
+async function handleReportSubmit(reportData: any) {
     if (!selectedDisciplineId.value || !sessionStartedAt.value) return
 
-    // Evita poluir o banco com sessões acidentais (menos de 60 segundos de foco real)
-    if (totalElapsed.value < 60 && !completed) {
-        return
-    }
-
+    const completed = pendingSessionCompleted.value
     const cyclesCompleted = completed
         ? settings.value.cycles
         : Math.max(0, currentCycle.value - 1)
@@ -124,9 +123,36 @@ async function saveSession(completed: boolean) {
             isCompleted: completed,
             startedAt: sessionStartedAt.value.toISOString(),
             finishedAt: new Date().toISOString(),
+            modalities: reportData.modalities,
+            topicId: reportData.topicId,
+            questionsDone: reportData.questionsDone,
+            questionsCorrect: reportData.questionsCorrect
+        })
+
+        if (reportData.topicId && reportData.isTopicFinished) {
+            await updateTopic({
+                id: reportData.topicId,
+                isCompleted: true
+            })
+        }
+        
+        showReportModal.value = false
+        resetTimer()
+
+        toast.add({
+            severity: 'success',
+            summary: completed ? 'Sessão Completa! 🎉' : 'Sessão Salva',
+            detail: completed ? 'Parabéns! Todos os ciclos foram concluídos.' : 'Progresso salvo com sucesso.',
+            life: 3000,
         })
     } catch (err) {
         console.error('Erro ao salvar sessão de foco:', err)
+        toast.add({
+            severity: 'error',
+            summary: 'Erro',
+            detail: 'Ocorreu um erro ao salvar sua sessão.',
+            life: 3000,
+        })
     }
 }
 
@@ -141,9 +167,9 @@ onBeforeRouteLeave((to, from, next) => {
 })
 
 async function confirmLeave() {
-    if (sessionStartedAt.value) {
-        await saveSession(false)
-    }
+    // Ao sair abruptamente da rota, apenas limpamos o timer.
+    // Isso porque exigir relatório na mudança de rota bloqueia muito a navegação.
+    // Uma melhoria futura poderia salvar a sessão parcialmente sem relatório.
     stopTimer()
     showLeaveDialog.value = false
     if (pendingNavigation.value) {
@@ -182,9 +208,19 @@ function cancelLeave() {
                     :phaseLabel="phaseLabel" :formattedTime="formattedTime" :currentCycle="currentCycle"
                     :settings="settings" :currentPhase="currentPhase" :isPaused="isPaused" :totalElapsed="totalElapsed"
                     :strokeDashoffset="strokeDashoffset" :radius="RADIUS" :circumference="CIRCUMFERENCE"
-                    @stop="handleStop" @pauseResume="handlePauseResume" @skip="skipPhase" />
+                    @stop="handleStop" @pauseResume="handlePauseResume" @skip="skipPhase" @updateTime="settings.focusTime = $event" />
             </transition>
         </div>
+
+        <!-- ═══════════ REPORT MODAL ═══════════ -->
+        <FocusReportModal 
+            v-model:visible="showReportModal" 
+            :disciplineName="selectedDiscipline?.name || ''"
+            :disciplineId="selectedDisciplineId"
+            :topics="(selectedDiscipline?.topics || []) as unknown as Topic[]"
+            :elapsedMinutes="Math.ceil(totalElapsed / 60)"
+            @submit="handleReportSubmit"
+        />
 
         <!-- ═══════════ LEAVE CONFIRMATION DIALOG ═══════════ -->
         <VModal :visible="showLeaveDialog" @update:visible="cancelLeave" header="Sessão em andamento">

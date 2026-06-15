@@ -29,6 +29,8 @@ interface PersistedSettings {
     priorities: Record<number, 1 | 2 | 3 | 4>
     /** Seed used to force a schedule regeneration */
     scheduleSeed: number
+    /** Selected discipline IDs to be included in the planner */
+    selectedDisciplineIds: number[]
 }
 
 const DEFAULT_PERSISTED: PersistedSettings = {
@@ -40,6 +42,7 @@ const DEFAULT_PERSISTED: PersistedSettings = {
     knowledgeLevels: {},
     priorities: {},
     scheduleSeed: 0,
+    selectedDisciplineIds: [],
 }
 
 function loadPersisted(): PersistedSettings {
@@ -68,19 +71,28 @@ const disciplineConfigs = computed((): DisciplineConfig[] => {
         color: d.color,
         priority: persisted.value.priorities?.[d.id] ?? (Math.min(4, Math.max(1, d.weight)) as 1 | 2 | 3 | 4),
         knowledgeLevel: persisted.value.knowledgeLevels?.[d.id] ?? 2,
+        topics: d.topics,
     }))
 })
 
 // ─── Full settings object (reactive, merged) ──────────────────────────────────
 
-const settings = computed((): PlannerSettings => ({
-    revisionMode: persisted.value.revisionMode,
-    revisionRhythm: persisted.value.revisionRhythm,
-    studyDays: persisted.value.studyDays,
-    hoursPerDay: persisted.value.hoursPerDay,
-    subjectsPerDay: persisted.value.subjectsPerDay,
-    disciplines: disciplineConfigs.value,
-}))
+const settings = computed((): PlannerSettings => {
+    const activeIds = disciplineConfigs.value.map(d => d.id)
+    const selectedIds = persisted.value.selectedDisciplineIds?.length > 0
+        ? persisted.value.selectedDisciplineIds.filter(id => activeIds.includes(id))
+        : activeIds
+
+    return {
+        revisionMode: persisted.value.revisionMode,
+        revisionRhythm: persisted.value.revisionRhythm,
+        studyDays: persisted.value.studyDays,
+        hoursPerDay: persisted.value.hoursPerDay,
+        subjectsPerDay: persisted.value.subjectsPerDay,
+        disciplines: disciplineConfigs.value,
+        selectedDisciplineIds: selectedIds,
+    }
+})
 
 // ─── Calendar view state ──────────────────────────────────────────────────────
 
@@ -114,6 +126,7 @@ function onSettingsUpdate(newSettings: PlannerSettings) {
         knowledgeLevels,
         priorities,
         scheduleSeed: persisted.value.scheduleSeed || 0,
+        selectedDisciplineIds: newSettings.selectedDisciplineIds,
     }
     savePersisted(persisted.value)
 }

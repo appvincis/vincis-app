@@ -13,6 +13,11 @@ export const focusSessionService = {
             isCompleted: boolean;
             startedAt: string;
             finishedAt?: string;
+            // Campos de Relatório Pós-Sessão
+            modalities?: string[];
+            topicId?: number | null;
+            questionsDone?: number;
+            questionsCorrect?: number;
         },
         studyPlanId: number,
         userId: number
@@ -28,6 +33,10 @@ export const focusSessionService = {
                 isCompleted: data.isCompleted,
                 startedAt: new Date(data.startedAt),
                 finishedAt: data.finishedAt ? new Date(data.finishedAt) : null,
+                modalities: data.modalities || [],
+                topicId: data.topicId || null,
+                questionsDone: data.questionsDone || 0,
+                questionsCorrect: data.questionsCorrect || 0,
                 disciplineId: data.disciplineId,
                 studyPlanId,
                 userId,
@@ -37,11 +46,15 @@ export const focusSessionService = {
                 Discipline: {
                     select: { id: true, name: true, color: true },
                 },
+                Topic: {
+                    select: { id: true, name: true },
+                },
             },
         });
         return {
             ...session,
             discipline: session.Discipline,
+            topic: session.Topic,
         };
     },
 
@@ -52,12 +65,16 @@ export const focusSessionService = {
                 Discipline: {
                     select: { id: true, name: true, color: true },
                 },
+                Topic: {
+                    select: { id: true, name: true },
+                },
             },
             orderBy: { createdAt: "desc" },
         });
         return sessions.map((session) => ({
             ...session,
             discipline: session.Discipline,
+            topic: session.Topic,
         }));
     },
 
@@ -68,12 +85,16 @@ export const focusSessionService = {
                 Discipline: {
                     select: { id: true, name: true, color: true },
                 },
+                Topic: {
+                    select: { id: true, name: true },
+                },
             },
             orderBy: { createdAt: "desc" },
         });
         return sessions.map((session) => ({
             ...session,
             discipline: session.Discipline,
+            topic: session.Topic,
         }));
     },
 };

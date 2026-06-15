@@ -69,9 +69,10 @@ export function generateMonthlySchedule(
     dailyMinutes?: number,
     scheduleSeed: number = 0,
 ): Record<string, StudySession[]> {
-    const { disciplines, studyDays, subjectsPerDay, revisionMode, revisionRhythm } = settings
+    const { disciplines: allDisciplines, studyDays, subjectsPerDay, revisionMode, revisionRhythm, selectedDisciplineIds } = settings
     const totalMinutes = dailyMinutes ?? settings.hoursPerDay * 60
 
+    const disciplines = allDisciplines.filter(d => (selectedDisciplineIds || []).includes(d.id))
     if (!disciplines.length || !studyDays.length) return {}
 
     const year = viewDate.getFullYear()
@@ -94,7 +95,13 @@ export function generateMonthlySchedule(
     const shuffled = seededShuffle(pool, year * 100 + month + 7 + scheduleSeed)
     let ptr = 0
 
-    // ── 3. SRS review ledger ───────────────────────────────────────────────────
+    // ── 3. Topic cursors & SRS review ledger ───────────────────────────────────
+    const topicCursors: Record<number, number> = {}
+    for (const d of disciplines) {
+        const firstPendingIndex = (d.topics || []).findIndex(t => !t.isCompleted)
+        topicCursors[d.id] = firstPendingIndex === -1 ? 0 : firstPendingIndex
+    }
+
     // pendingReviews: dateKey → Set of discipline IDs to review that day
     const pendingReviews = new Map<string, Set<number>>()
     const intervals = srsIntervals(revisionRhythm)
@@ -139,12 +146,42 @@ export function generateMonthlySchedule(
             }
         }
 
-        result[key] = todayDiscs.map(d => ({
-            id: nextId++,
-            disciplineName: d.name,
-            color: d.color,
-            durationMin: perTheory,
-        }))
+        result[key] = todayDiscs.map(d => {
+            let sessionTopicId: number | undefined = undefined
+            let sessionTopicName: string | undefined = undefined
+
+            if (d.topics && d.topics.length > 0) {
+                const idx = topicCursors[d.id] ?? 0
+                let foundTopic = null
+                let nextIdx = idx
+                while (nextIdx < d.topics.length) {
+                    const t = d.topics[nextIdx]
+                    if (t && !t.isCompleted) {
+                        foundTopic = t
+                        topicCursors[d.id] = nextIdx + 1 // Advance cursor in simulation
+                        break
+                    }
+                    nextIdx++
+                }
+
+                if (foundTopic) {
+                    sessionTopicId = foundTopic.id
+                    sessionTopicName = foundTopic.name
+                } else {
+                    sessionTopicName = "Revisão Geral (Todos os tópicos concluídos)"
+                }
+            }
+
+            return {
+                id: nextId++,
+                disciplineName: d.name,
+                color: d.color,
+                durationMin: perTheory,
+                topicId: sessionTopicId,
+                topicName: sessionTopicName,
+                isReview: false
+            }
+        })
     }
 
     // ── 5. Inject SRS reviews ──────────────────────────────────────────────────
@@ -179,11 +216,19 @@ export function generateMonthlySchedule(
 
             if (!result[key]) result[key] = []
             for (const d of limitedReviews) {
+                const completedTopics = (d.topics || []).filter(t => t.isCompleted)
+                const reviewTopicName = completedTopics.length > 0
+                    ? `Revisão: ${completedTopics.map(t => t.name).join(', ')}`
+                    : 'Revisão Geral / Resolução de Questões'
+
                 result[key].push({
                     id: nextId++,
                     disciplineName: `↻ ${d.name}`,
                     color: d.color,
                     durationMin: perReview,
+                    topicId: undefined,
+                    topicName: reviewTopicName,
+                    isReview: true
                 })
             }
         }

@@ -34,7 +34,7 @@ const isLoading = computed(() => isLoadingUser.value || isLoadingPlans.value || 
 // ─── Composables ──────────────────────────────────────────────────────────────
 const { diagnosticData, isGeneratingDiagnostic, handleGenerateDiagnostic } = useDiagnostic(isPremiumUser)
 const { successRate, mediumFocusPoints, weeklyGoalHours, totalWeekStudyHours, weeklyProgressPercent, recentSessions } = useDashboardStats(focusSessions)
-const { isExporting, pdfData, handleExportSummary } = useExportPdf(focusSessions, errorsData)
+const { isExporting, pdfData, handleExportSummary } = useExportPdf(focusSessions, errorsData, disciplines)
 
 // ─── Study Plan Selection ─────────────────────────────────────────────────────
 const selectStudyPlanMutation = useSelectStudyPlanMutation()
