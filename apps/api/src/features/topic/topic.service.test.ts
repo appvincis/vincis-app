@@ -22,7 +22,7 @@ describe('Topic Service', () => {
 
         // Simula que a disciplina pertence ao plano
         prismaMock.discipline.findFirst.mockResolvedValue({
-            id: 20, name: 'Português', description: null, color: '#f00', weight: 1, isActive: true, studyPlanId: 1, createdAt: new Date(), updatedAt: new Date()
+            id: 20, name: 'Português', description: null, color: '#f00', weight: 1, priority: 3, knowledgeLevel: 1, isActive: true, studyPlanId: 1, createdAt: new Date(), updatedAt: new Date()
         })
 
         const mockResponse = {

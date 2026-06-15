@@ -24,7 +24,13 @@ const PORT = Number(process.env.PORT) || 4000
 const app = express()
 
 app.use(cors({
-    origin: ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5174', 'http://127.0.0.1:5174'], // Endereços padrão do Vite
+    origin: [
+      'http://localhost:5173', 
+      'http://127.0.0.1:5173', 
+      'http://localhost:5174', 
+      'http://127.0.0.1:5174',
+      process.env.FRONTEND_URL || '' // Permite a URL de produção do Cloudflare
+    ].filter(Boolean),
     credentials: true, // Necessário para enviar/receber cookies
     exposedHeaders: ['x-session-id'] // Necessário para o frontend ler o ID da nova sessão criada pela IA
 }))

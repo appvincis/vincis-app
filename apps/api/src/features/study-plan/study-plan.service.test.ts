@@ -29,6 +29,10 @@ describe('Study Plan Service - Fluxos Críticos', () => {
             id: 10,
             ...mockInput,
             userId: mockUserId,
+            dailyMinutes: 0,
+            availableDays: [],
+            targetDate: null,
+            srsMode: false,
             createdAt: new Date(),
             updatedAt: new Date()
         }
@@ -50,8 +54,8 @@ describe('Study Plan Service - Fluxos Críticos', () => {
     it('CT-05: Deve listar os planos de estudos de um estudante específico', async () => {
         const mockUserId = 1
         const mockList = [
-            { id: 10, name: 'Plano A', description: null, is_active: true, userId: mockUserId, createdAt: new Date(), updatedAt: new Date() },
-            { id: 11, name: 'Plano B', description: null, is_active: false, userId: mockUserId, createdAt: new Date(), updatedAt: new Date() }
+            { id: 10, name: 'Plano A', description: null, is_active: true, userId: mockUserId, dailyMinutes: 0, availableDays: [], targetDate: null, srsMode: false, createdAt: new Date(), updatedAt: new Date() },
+            { id: 11, name: 'Plano B', description: null, is_active: false, userId: mockUserId, dailyMinutes: 0, availableDays: [], targetDate: null, srsMode: false, createdAt: new Date(), updatedAt: new Date() }
         ]
 
         prismaMock.studyPlan.findMany.mockResolvedValue(mockList)

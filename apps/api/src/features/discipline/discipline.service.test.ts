@@ -25,6 +25,8 @@ describe('Discipline Service', () => {
             ...mockData,
             isActive: true,
             studyPlanId: mockStudyPlanId,
+            priority: 3,
+            knowledgeLevel: 1,
             createdAt: new Date(),
             updatedAt: new Date()
         }
