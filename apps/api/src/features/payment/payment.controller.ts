@@ -40,8 +40,8 @@ export const generatePremiumPix = async (req: AuthenticatedRequest, res: Respons
                     taxId: '11144477735', // CPF válido generic para testes devMode
                     cellphone: '11999999999'
                 },
-                returnUrl: 'http://localhost:5173/private/plans',
-                completionUrl: 'http://localhost:5173/private/plans',
+                returnUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/private/plans`,
+                completionUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/private/plans`,
                 metadata: { userId }
             })
         });
