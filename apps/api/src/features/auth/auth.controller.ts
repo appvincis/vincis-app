@@ -171,7 +171,7 @@ export async function googleLogin(req: Request, res: Response) {
         const { data, error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: `${process.env.CLIENT_URL || 'http://localhost:5173'}/auth/callback`,
+                redirectTo: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/auth/callback`,
                 queryParams: {
                     access_type: 'offline',
                     prompt: 'consent'
