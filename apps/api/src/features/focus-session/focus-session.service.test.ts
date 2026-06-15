@@ -50,10 +50,16 @@ describe('Focus Session Service - Fluxos Críticos', () => {
             userId: mockUserId,
             createdAt: new Date(),
             updatedAt: new Date(),
+            topicId: null,
+            modalities: [],
+            questionsDone: 0,
+            questionsCorrect: 0,
+            selfRating: null,
+            notes: null,
             Discipline: mockDiscipline
         }
 
-        prismaMock.focusSession.create.mockResolvedValue(mockResponse)
+        prismaMock.focusSession.create.mockResolvedValue(mockResponse as any)
 
         const result = await focusSessionService.createSession(mockData, mockStudyPlanId, mockUserId)
 
@@ -84,11 +90,17 @@ describe('Focus Session Service - Fluxos Críticos', () => {
                 userId: 2,
                 createdAt: new Date(),
                 updatedAt: new Date(),
+                topicId: null,
+                modalities: [],
+                questionsDone: 0,
+                questionsCorrect: 0,
+                selfRating: null,
+                notes: null,
                 Discipline: mockDiscipline
             }
         ]
 
-        prismaMock.focusSession.findMany.mockResolvedValue(mockList)
+        prismaMock.focusSession.findMany.mockResolvedValue(mockList as any)
 
         const result = await focusSessionService.getSessions(mockStudyPlanId)
 
@@ -97,6 +109,9 @@ describe('Focus Session Service - Fluxos Críticos', () => {
             include: {
                 Discipline: {
                     select: { id: true, name: true, color: true }
+                },
+                Topic: {
+                    select: { id: true, name: true }
                 }
             },
             orderBy: { createdAt: "desc" }

@@ -8,7 +8,8 @@ import {
     deleteEdital,
     extractEdital,
     getEditalCargos,
-    cancelExtractEdital
+    cancelExtractEdital,
+    confirmEdital
 } from './edital.controller.js';
 
 export const editalRouter = Router();
@@ -38,3 +39,4 @@ editalRouter.delete('/:id', deleteEdital);
 editalRouter.get('/:id/cargos', getEditalCargos);
 editalRouter.post('/:id/extract', extractEdital);
 editalRouter.post('/:id/cancel-extract', cancelExtractEdital);
+editalRouter.post('/:id/confirm', confirmEdital);

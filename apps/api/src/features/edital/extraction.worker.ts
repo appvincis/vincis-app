@@ -143,62 +143,23 @@ CRITÉRIOS OBRIGATÓRIOS:
             await prisma.edital.update({
                 where: { id: editalId },
                 data: {
-                    extractionError: 'Salvando disciplinas no banco...'
+                    extractionError: 'Salvando rascunho de extração...'
                 }
             });
 
-            const presetColors = [
-                '#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f97316',
-                '#eab308', '#22c55e', '#14b8a6', '#3b82f6', '#735c00'
-            ];
-
-            let disciplinesCreatedCount = 0;
-            let topicsCreatedCount = 0;
-
-            await prisma.$transaction(async (tx) => {
-                // 1ª query: cria todas as disciplinas de uma vez e retorna os IDs
-                const createdDisciplines = await (tx.discipline as any).createManyAndReturn({
-                    data: extracted.disciplines.map((disc: any, i: number) => ({
-                        name: disc.name,
-                        color: presetColors[i % presetColors.length],
-                        weight: 1.0,
-                        studyPlanId
-                    }))
-                });
-                disciplinesCreatedCount = createdDisciplines.length;
-
-                // 2ª query: monta todos os tópicos em memória e insere em um único createMany
-                const allTopicsData: any[] = [];
-                for (let i = 0; i < extracted.disciplines.length; i++) {
-                    const discData = extracted.disciplines[i];
-                    const discipline = createdDisciplines[i];
-                    if (!discipline || !discData.topics || discData.topics.length === 0) continue;
-
-                    for (const t of discData.topics) {
-                        allTopicsData.push({
-                            name: String(t),
-                            description: null,
-                            disciplineId: discipline.id,
-                            isCompleted: false
-                        });
-                    }
-                }
-
-                if (allTopicsData.length > 0) {
-                    await tx.topic.createMany({ data: allTopicsData });
-                    topicsCreatedCount = allTopicsData.length;
-                }
-            });
+            const disciplinesCreatedCount = extracted.disciplines.length;
+            const topicsCreatedCount = extracted.disciplines.reduce((acc, d) => acc + (d.topics?.length || 0), 0);
 
             await prisma.edital.update({
                 where: { id: editalId },
                 data: {
-                    extractionStatus: 'SUCCESS',
+                    extractionStatus: 'READY_FOR_REVIEW',
                     extractionError: null,
                     disciplinesCreated: disciplinesCreatedCount,
                     topicsCreated: topicsCreatedCount,
-                    // Não salvamos mais syllabusSegments porque a extração é em lote
-                    syllabusSegments: null as any
+                    syllabusSegments: extracted.disciplines as any,
+                    studyPlanId: studyPlanId,
+                    cargo: cargo || null
                 }
             });
 

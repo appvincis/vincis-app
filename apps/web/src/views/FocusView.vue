@@ -167,9 +167,30 @@ onBeforeRouteLeave((to, from, next) => {
 })
 
 async function confirmLeave() {
-    // Ao sair abruptamente da rota, apenas limpamos o timer.
-    // Isso porque exigir relatório na mudança de rota bloqueia muito a navegação.
-    // Uma melhoria futura poderia salvar a sessão parcialmente sem relatório.
+    // Ao sair abruptamente da rota, salvamos a sessão parcialmente se tiver mais que 60 segundos
+    if (selectedDisciplineId.value && sessionStartedAt.value && totalElapsed.value > 60) {
+        const cyclesCompleted = Math.max(0, currentCycle.value - 1)
+        try {
+            await saveFocusSession({
+                disciplineId: selectedDisciplineId.value,
+                duration: totalElapsed.value,
+                focusTime: settings.value.focusTime * 60,
+                breakTime: settings.value.breakTime * 60,
+                longBreakTime: settings.value.longBreakTime * 60,
+                cyclesTarget: settings.value.cycles,
+                cyclesCompleted,
+                isCompleted: false, // Sessão interrompida
+                startedAt: sessionStartedAt.value.toISOString(),
+                finishedAt: new Date().toISOString(),
+                modalities: [],
+                topicId: null,
+                questionsDone: 0,
+                questionsCorrect: 0
+            })
+        } catch (err) {
+            console.error('Erro ao salvar sessão parcial de foco:', err)
+        }
+    }
     stopTimer()
     showLeaveDialog.value = false
     if (pendingNavigation.value) {

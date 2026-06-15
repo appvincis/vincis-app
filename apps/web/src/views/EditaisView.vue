@@ -8,6 +8,7 @@ import {
     useEditalSignedUrlMutation,
     useExtractEditalMutation,
     useCancelExtractEditalMutation,
+    useConfirmEditalMutation,
     type Edital
 } from '../hooks/useEditais'
 import { usePlan } from '../hooks/usePlan'
@@ -22,6 +23,7 @@ const deleteEdital = useDeleteEditalMutation()
 const getSignedUrl = useEditalSignedUrlMutation()
 const extractEdital = useExtractEditalMutation()
 const cancelExtract = useCancelExtractEditalMutation()
+const confirmEdital = useConfirmEditalMutation()
 
 import { api } from '../lib/axios'
 
@@ -478,6 +480,26 @@ const handleDelete = async (id: number) => {
     }
 }
 
+// ─── Revisão e Confirmação ───────────────────────────────────────────────────
+const showReviewModal = ref(false)
+const reviewEdital = ref<Edital | null>(null)
+
+const openReviewModal = (edital: Edital) => {
+    reviewEdital.value = edital
+    showReviewModal.value = true
+}
+
+const confirmImport = async () => {
+    if (!reviewEdital.value) return
+    try {
+        await confirmEdital.mutateAsync(reviewEdital.value.id)
+        showReviewModal.value = false
+        reviewEdital.value = null
+    } catch (err: any) {
+        alert(err.response?.data?.error || err.message || 'Erro ao confirmar importação.')
+    }
+}
+
 // ─── Formatadores ─────────────────────────────────────────────────────────────
 const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 B'
@@ -561,6 +583,9 @@ const formatDate = (dateString: string) => {
                 <span v-if="edital.extractionStatus === 'SUCCESS'" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-success/10 text-success border border-success/20">
                     <i class="pi pi-check text-[8px]"></i> Grade Extraída ({{ edital.disciplinesCreated }} disc. / {{ edital.topicsCreated }} tóp.)
                 </span>
+                <span v-else-if="edital.extractionStatus === 'READY_FOR_REVIEW'" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-cyan-500/10 text-cyan-500 border border-cyan-500/20">
+                    <i class="pi pi-eye text-[8px]"></i> Aguardando Revisão ({{ edital.disciplinesCreated }} disc. / {{ edital.topicsCreated }} tóp.)
+                </span>
                 <span v-else-if="edital.extractionStatus === 'QUEUED'" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-warning/10 text-warning border border-warning/20">
                     <i class="pi pi-hourglass text-[8px] animate-pulse"></i> Fila de Espera
                 </span>
@@ -630,6 +655,21 @@ const formatDate = (dateString: string) => {
                         @click="goToDisciplines">
                         Ver Disciplinas
                         <i class="pi pi-arrow-right ml-2 text-xs"></i>
+                    </VButton>
+
+                    <button class="w-10 flex-shrink-0 rounded-xl flex items-center justify-center transition-colors text-on-surface-muted border border-outline-variant/30 bg-surface-container-low hover:bg-surface-container-high"
+                        :disabled="isJobRunning(edital.id)"
+                        @click="handleExtract(edital.id)"
+                        title="Reextrair Disciplinas">
+                        <i v-if="isJobRunning(edital.id)" class="pi pi-spin pi-spinner"></i>
+                        <i v-else class="pi pi-refresh"></i>
+                    </button>
+                </div>
+                <div v-else-if="edital.extractionStatus === 'READY_FOR_REVIEW'" class="flex gap-2 w-full">
+                    <VButton variant="primary" class="flex-1"
+                        @click="openReviewModal(edital)">
+                        Revisar e Confirmar
+                        <i class="pi pi-check-circle ml-2 text-xs"></i>
                     </VButton>
 
                     <button class="w-10 flex-shrink-0 rounded-xl flex items-center justify-center transition-colors text-on-surface-muted border border-outline-variant/30 bg-surface-container-low hover:bg-surface-container-high"
@@ -868,6 +908,41 @@ const formatDate = (dateString: string) => {
                         Iniciar Extração
                     </VButton>
                 </template>
+            </div>
+        </template>
+    </VModal>
+
+    <!-- Modal de Revisão da Extração -->
+    <VModal v-model:visible="showReviewModal" header="Revisar Matérias Extraídas" :style="{ width: '600px', maxWidth: '90%' }" id="modal-review-extract" @close="showReviewModal = false">
+        <div class="modal-body text-left space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+            <p class="text-sm text-on-surface-muted leading-relaxed">
+                A Inteligência Artificial identificou as seguintes disciplinas e tópicos no edital <strong>{{ reviewEdital?.title }}</strong>. Revise a estrutura antes de carregá-la no seu plano de estudos ativo.
+            </p>
+
+            <div v-if="reviewEdital?.syllabusSegments && reviewEdital.syllabusSegments.length > 0" class="space-y-4">
+                <div v-for="(disc, idx) in reviewEdital.syllabusSegments" :key="idx" class="p-4 rounded-2xl bg-surface-container-low border border-outline-variant/20 space-y-2">
+                    <h4 class="font-bold text-sm text-primary flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full" :style="{ backgroundColor: ['#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#3b82f6', '#735c00'][idx % 10] }"></span>
+                        {{ disc.name }}
+                    </h4>
+                    <ul class="list-disc pl-5 space-y-1 text-xs text-on-surface-variant font-sans">
+                        <li v-for="(topic, tIdx) in disc.topics" :key="tIdx">{{ topic }}</li>
+                    </ul>
+                </div>
+            </div>
+            <div v-else class="text-center py-6 text-xs text-on-surface-muted">
+                Nenhum rascunho de matérias encontrado para este edital.
+            </div>
+        </div>
+        <template #footer>
+            <div class="modal-footer">
+                <VButton variant="ghost" @click="showReviewModal = false" :disabled="confirmEdital.isPending.value">
+                    Cancelar
+                </VButton>
+                <VButton @click="confirmImport" :disabled="confirmEdital.isPending.value || !reviewEdital?.syllabusSegments || reviewEdital.syllabusSegments.length === 0">
+                    <i v-if="confirmEdital.isPending.value" class="pi pi-spin pi-spinner mr-2 text-xs"></i>
+                    Confirmar e Importar
+                </VButton>
             </div>
         </template>
     </VModal>
