@@ -74,8 +74,8 @@ export const handleWebhook = async (req: Request, res: Response): Promise<any> =
         console.log(`[Webhook Recebido] Evento: ${event}`);
 
         // 'billing.paid' ou 'PIX.PAID' ou similar dependendo da versão da AbacatePay
-        if (event === 'billing.paid' || data?.billing?.status === 'PAID') {
-            const userId = data?.billing?.metadata?.userId;
+        if (event === 'billing.paid' || data?.billing?.status === 'PAID' || data?.status === 'PAID') {
+            const userId = data?.metadata?.userId || data?.billing?.metadata?.userId;
 
             if (userId) {
                 await prisma.user.update({
