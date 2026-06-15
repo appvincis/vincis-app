@@ -264,7 +264,7 @@ SE a pergunta do usuário for sobre o que estudar, bancas, disciplinas ou sobre 
       system: finalSystemPrompt,
       messages: await convertToModelMessages(messages),
       temperature: 0.5,
-      maxOutputTokens: 500,
+      maxOutputTokens: 1000,
       async onFinish({ text, usage }: any) {
         // Save the assistant's response when the stream finishes
         const tokens = usage?.totalTokens || null;

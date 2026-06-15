@@ -25,6 +25,10 @@ interface PersistedSettings {
     subjectsPerDay: number
     /** knowledgeLevel overrides keyed by discipline id */
     knowledgeLevels: Record<number, 1 | 2 | 3 | 4>
+    /** priority overrides keyed by discipline id */
+    priorities: Record<number, 1 | 2 | 3 | 4>
+    /** Seed used to force a schedule regeneration */
+    scheduleSeed: number
 }
 
 const DEFAULT_PERSISTED: PersistedSettings = {
@@ -34,6 +38,8 @@ const DEFAULT_PERSISTED: PersistedSettings = {
     hoursPerDay: 4,
     subjectsPerDay: 3,
     knowledgeLevels: {},
+    priorities: {},
+    scheduleSeed: 0,
 }
 
 function loadPersisted(): PersistedSettings {
@@ -60,8 +66,8 @@ const disciplineConfigs = computed((): DisciplineConfig[] => {
         id: d.id,
         name: d.name,
         color: d.color,
-        priority: (Math.min(4, Math.max(1, d.weight)) as 1 | 2 | 3 | 4),
-        knowledgeLevel: persisted.value.knowledgeLevels[d.id] ?? 2,
+        priority: persisted.value.priorities?.[d.id] ?? (Math.min(4, Math.max(1, d.weight)) as 1 | 2 | 3 | 4),
+        knowledgeLevel: persisted.value.knowledgeLevels?.[d.id] ?? 2,
     }))
 })
 
@@ -83,7 +89,7 @@ const viewDate = ref(new Date())
 // ─── Computed schedule ────────────────────────────────────────────────────────
 
 const computedSchedule = computed(() =>
-    generateMonthlySchedule(viewDate.value, settings.value)
+    generateMonthlySchedule(viewDate.value, settings.value, undefined, persisted.value.scheduleSeed || 0)
 )
 
 // ─── Settings panel handlers ──────────────────────────────────────────────────
@@ -91,10 +97,12 @@ const computedSchedule = computed(() =>
 const settingsOpen = ref(false)
 
 function onSettingsUpdate(newSettings: PlannerSettings) {
-    // Extract per-discipline knowledgeLevel overrides before saving
+    // Extract per-discipline overrides before saving
     const knowledgeLevels: Record<number, 1 | 2 | 3 | 4> = {}
+    const priorities: Record<number, 1 | 2 | 3 | 4> = {}
     for (const disc of newSettings.disciplines) {
         knowledgeLevels[disc.id] = disc.knowledgeLevel
+        priorities[disc.id] = disc.priority
     }
 
     persisted.value = {
@@ -104,12 +112,16 @@ function onSettingsUpdate(newSettings: PlannerSettings) {
         hoursPerDay: newSettings.hoursPerDay,
         subjectsPerDay: newSettings.subjectsPerDay,
         knowledgeLevels,
+        priorities,
+        scheduleSeed: persisted.value.scheduleSeed || 0,
     }
     savePersisted(persisted.value)
 }
 
 function onGenerate() {
-    // Schedule is already reactive — no action needed.
+    // Force a complete new generation by changing the seed
+    persisted.value.scheduleSeed = (persisted.value.scheduleSeed || 0) + 1
+    savePersisted(persisted.value)
 }
 </script>
 
