@@ -20,6 +20,21 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = []
 }
 
+api.interceptors.request.use((config) => {
+  try {
+    const studyPlanData = localStorage.getItem('study-plan')
+    if (studyPlanData) {
+      const parsed = JSON.parse(studyPlanData)
+      if (parsed.activePlanId) {
+        config.headers['x-study-plan-id'] = parsed.activePlanId.toString()
+      }
+    }
+  } catch (e) {
+    console.error('Failed to parse study-plan from localStorage', e)
+  }
+  return config
+})
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
