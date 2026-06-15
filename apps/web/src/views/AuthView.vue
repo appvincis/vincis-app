@@ -454,7 +454,7 @@ if (!isLoginMode.value && password.value !== confirmPassword.value) {
   flex: 1 !important;
   display: flex !important;
   flex-direction: column !important;
-  justify-content: flex-start !important;
+  justify-content: center !important;
   align-items: center !important;
   background-color: var(--background) !important;
   position: relative !important;
