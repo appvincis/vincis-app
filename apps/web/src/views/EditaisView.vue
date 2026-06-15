@@ -33,6 +33,15 @@ const cargosError = ref('')
 const modalStep = ref(1)
 const cargoOption = ref<'all' | 'filter'>('all')
 
+const isExtractButtonDisabled = computed(() => {
+    if (cargoOption.value === 'filter') {
+        if (loadingCargos.value) return true
+        if (selectedCargo.value === 'custom' && !customCargo.value.trim()) return true
+        if (cargos.value.length === 0 && !customCargo.value.trim()) return true
+    }
+    return false
+})
+
 const fetchCargos = async (id: number, currentCargo?: string | null) => {
     loadingCargos.value = true
     cargosError.value = ''
@@ -600,7 +609,7 @@ const formatDate = (dateString: string) => {
 
             <div class="flex flex-col gap-2 w-full mt-2">
                 <div class="flex gap-2 w-full">
-                    <VButton class="flex-1 text-on-surface border border-outline-variant/30 bg-surface-container-low hover:bg-surface-container-high py-2"
+                    <VButton variant="outline" class="flex-1"
                         :disabled="viewingId === edital.id || isJobRunning(edital.id)"
                         @click="handleView(edital.id)">
                         <i v-if="viewingId === edital.id" class="pi pi-spin pi-spinner mr-2 text-xs"></i>
@@ -617,29 +626,31 @@ const formatDate = (dateString: string) => {
                 </div>
                 
                 <div v-if="edital.extractionStatus === 'SUCCESS'" class="flex gap-2 w-full">
-                    <VButton class="flex-1 text-white bg-success hover:bg-success-dark py-2 flex items-center justify-center"
+                    <VButton variant="primary" class="flex-1"
                         @click="goToDisciplines">
-                        <i class="pi pi-arrow-right mr-2 text-xs"></i>
                         Ver Disciplinas
+                        <i class="pi pi-arrow-right ml-2 text-xs"></i>
                     </VButton>
-                    <VButton class="flex-1 text-on-surface border border-outline-variant/30 bg-surface-container-low hover:bg-surface-container-high py-2 flex items-center justify-center"
+
+                    <button class="w-10 flex-shrink-0 rounded-xl flex items-center justify-center transition-colors text-on-surface-muted border border-outline-variant/30 bg-surface-container-low hover:bg-surface-container-high"
                         :disabled="isJobRunning(edital.id)"
-                        @click="handleExtract(edital.id)">
-                        <i v-if="isJobRunning(edital.id)" class="pi pi-spin pi-spinner mr-1 text-xs"></i>
-                        <i v-else class="pi pi-refresh mr-1 text-xs"></i>
-                        Reextrair
-                    </VButton>
+                        @click="handleExtract(edital.id)"
+                        title="Reextrair Disciplinas">
+                        <i v-if="isJobRunning(edital.id)" class="pi pi-spin pi-spinner"></i>
+                        <i v-else class="pi pi-refresh"></i>
+                    </button>
                 </div>
                 <div v-else class="w-full">
                     <VButton v-if="isJobRunning(edital.id)" 
-                        class="w-full text-error border border-error/30 bg-error/5 hover:bg-error/10 py-2 flex items-center justify-center font-bold text-xs"
+                        variant="ghost"
+                        class="w-full text-error bg-error/5 hover:bg-error/10 font-bold"
                         :disabled="cancelExtract.isPending.value"
                         @click="handleCancelExtract(edital.id)">
                         <i v-if="cancelExtract.isPending.value" class="pi pi-spin pi-spinner mr-2 text-xs"></i>
                         <i v-else class="pi pi-times-circle mr-2 text-xs"></i>
                         Cancelar Extração
                     </VButton>
-                    <VButton v-else class="w-full text-white bg-primary hover:bg-primary-dark py-2 flex items-center justify-center"
+                    <VButton v-else variant="primary" class="w-full"
                         @click="handleExtract(edital.id)">
                         <i v-if="!plan.isPremium" class="pi pi-lock mr-2 text-xs"></i>
                         <i v-else class="pi pi-bolt mr-2 text-xs"></i>
@@ -853,7 +864,7 @@ const formatDate = (dateString: string) => {
                     <VButton variant="ghost" @click="modalStep = 1">
                         Voltar
                     </VButton>
-                    <VButton @click="startExtractionProcess" class="bg-primary text-white hover:bg-primary-dark" :disabled="loadingCargos">
+                    <VButton @click="startExtractionProcess" class="bg-primary text-white hover:bg-primary-dark" :disabled="isExtractButtonDisabled">
                         Iniciar Extração
                     </VButton>
                 </template>
