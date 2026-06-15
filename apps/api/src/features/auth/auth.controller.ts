@@ -3,11 +3,11 @@ import { supabase } from '../../lib/supabase.js'
 import { SignupInput, LoginInput } from './auth.schema.js'
 import { userService } from '../user/user.service.js'
 
-// Opções base dos cookies — reutilizadas no login e no logout para garantir consistência
+const isProduction = process.env.NODE_ENV === 'production';
 const baseCookieOptions = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax' as const,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' as const : 'lax' as const,
     path: '/',
 }
 
