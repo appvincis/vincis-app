@@ -839,3 +839,101 @@ export const cancelExtractEdital = async (req: AuthenticatedRequest, res: Respon
         return res.status(500).json({ error: error.message || 'Erro interno ao cancelar extração.' });
     }
 };
+
+export const confirmEdital = async (req: AuthenticatedRequest, res: Response): Promise<any> => {
+    try {
+        const userId = req.dbUser?.id;
+        const editalId = parseInt(req.params.id as string);
+
+        if (!userId) return res.status(401).json({ error: 'Não autorizado' });
+        if (isNaN(editalId)) return res.status(400).json({ error: 'ID inválido' });
+
+        const edital = await prisma.edital.findFirst({ where: { id: editalId, userId } });
+        if (!edital) return res.status(404).json({ error: 'Edital não encontrado' });
+
+        if (edital.extractionStatus !== 'READY_FOR_REVIEW') {
+            return res.status(400).json({ error: 'Este edital não está pronto para revisão ou já foi confirmado/falhou.' });
+        }
+
+        // Resolvendo o plano de estudos que será associado
+        let studyPlanId = edital.studyPlanId;
+        if (!studyPlanId) {
+            const activePlan = await prisma.studyPlan.findFirst({ where: { userId, is_active: true } });
+            studyPlanId = activePlan ? activePlan.id : null;
+        }
+
+        if (!studyPlanId) {
+            return res.status(400).json({ error: 'Nenhum plano de estudos ativo encontrado para associar as disciplinas.' });
+        }
+
+        // A árvore de disciplinas extraídas está salva em `syllabusSegments`
+        const disciplines = edital.syllabusSegments as any;
+        if (!disciplines || !Array.isArray(disciplines)) {
+            return res.status(400).json({ error: 'Não há matérias salvas para importação neste edital.' });
+        }
+
+        const presetColors = [
+            '#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f97316',
+            '#eab308', '#22c55e', '#14b8a6', '#3b82f6', '#735c00'
+        ];
+
+        let disciplinesCreatedCount = 0;
+        let topicsCreatedCount = 0;
+
+        await prisma.$transaction(async (tx) => {
+            // 1ª query: cria todas as disciplinas de uma vez e retorna os IDs
+            const createdDisciplines = await (tx.discipline as any).createManyAndReturn({
+                data: disciplines.map((disc: any, i: number) => ({
+                    name: disc.name,
+                    color: presetColors[i % presetColors.length],
+                    weight: 1.0,
+                    studyPlanId: studyPlanId!
+                }))
+            });
+            disciplinesCreatedCount = createdDisciplines.length;
+
+            // 2ª query: monta todos os tópicos em memória e insere em um único createMany
+            const allTopicsData: any[] = [];
+            for (let i = 0; i < disciplines.length; i++) {
+                const discData = disciplines[i];
+                const discipline = createdDisciplines[i];
+                if (!discipline || !discData.topics || discData.topics.length === 0) continue;
+
+                for (const t of discData.topics) {
+                    allTopicsData.push({
+                        name: String(t),
+                        description: null,
+                        disciplineId: discipline.id,
+                        isCompleted: false
+                    });
+                }
+            }
+
+            if (allTopicsData.length > 0) {
+                await tx.topic.createMany({ data: allTopicsData });
+                topicsCreatedCount = allTopicsData.length;
+            }
+        });
+
+        // Atualiza o edital para SUCCESS
+        await prisma.edital.update({
+            where: { id: editalId },
+            data: {
+                extractionStatus: 'SUCCESS',
+                disciplinesCreated: disciplinesCreatedCount,
+                topicsCreated: topicsCreatedCount,
+                syllabusSegments: disciplines as any // Mantemos para visualizações de preview futuras se necessário
+            }
+        });
+
+        return res.json({
+            message: 'Matérias e tópicos carregados com sucesso no plano ativo!',
+            disciplinesCreated: disciplinesCreatedCount,
+            topicsCreated: topicsCreatedCount
+        });
+
+    } catch (error: any) {
+        console.error('Erro ao confirmar importação de edital:', error);
+        return res.status(500).json({ error: error.message || 'Erro interno ao confirmar importação do edital.' });
+    }
+};

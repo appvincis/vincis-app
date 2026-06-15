@@ -91,3 +91,17 @@ export const useCancelExtractEditalMutation = () => {
         }
     });
 };
+
+export const useConfirmEditalMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async (id: number) => {
+            const { data } = await api.post<{ message: string; disciplinesCreated: number; topicsCreated: number }>(`/editais/${id}/confirm`);
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['disciplines'] });
+            queryClient.invalidateQueries({ queryKey: ['editais'] });
+        }
+    });
+};

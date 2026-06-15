@@ -38,9 +38,15 @@ model StudyPlan {
   updatedAt   DateTime @updatedAt
   userId      Int
 
+  dailyMinutes  Int        @default(0)
+  availableDays Int[]      @default([])
+  targetDate    DateTime?
+  srsMode       Boolean    @default(false)
+
   disciplines  Discipline[]
   errorLogs    ErrorLog[]
   FocusSession FocusSession[]
+  editais      Edital[]
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -53,6 +59,8 @@ model Discipline {
   description String?
   color       String
   weight      Float    @default(1.0)
+  priority    Int      @default(3)
+  knowledgeLevel Int   @default(1)
   isActive    Boolean  @default(true)
   studyPlanId Int
   createdAt   DateTime @default(now())
@@ -128,20 +136,24 @@ model Edital {
   // Formato: [{name: string, rawText: string, topics?: string[], order: number}]
   syllabusSegments Json?
 
-  extractionStatus   String  @default("PENDING") // PENDING, PROCESSING, SUCCESS, FAILED
+  extractionStatus   String  @default("PENDING") // PENDING, PROCESSING, READY_FOR_REVIEW, SUCCESS, FAILED
   extractionError    String?
   cargo              String?
   disciplinesCreated Int     @default(0)
   topicsCreated      Int     @default(0)
 
-  userId     Int
-  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  aiSessions AiSession[]
+  userId      Int
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  aiSessions  AiSession[]
+
+  studyPlanId Int?
+  studyPlan   StudyPlan?  @relation(fields: [studyPlanId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+  @@index([studyPlanId])
 }
 
 model AiSession {
@@ -191,6 +203,8 @@ model FocusSession {
   topicId          Int?
   questionsDone    Int       @default(0)
   questionsCorrect Int       @default(0)
+  selfRating       Int?
+  notes            String?
 
   disciplineId    Int
   studyPlanId     Int
