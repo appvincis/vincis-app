@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import type { Topic } from '../../../hooks/useDisciplines'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -11,10 +12,11 @@ export interface DisciplineConfig {
     priority: 1 | 2 | 3 | 4
     /** 1 = iniciante, 2 = básico, 3 = intermediário, 4 = avançado */
     knowledgeLevel: 1 | 2 | 3 | 4
+    topics?: Topic[]
 }
 
 export interface PlannerSettings {
-    revisionMode: 'auto' | 'manual'
+    revisionMode: 'off' | 'auto' | 'manual'
     revisionRhythm: 'intense' | 'normal' | 'soft'
     studyDays: number[]          // 0=Dom … 6=Sáb
     hoursPerDay: number
@@ -48,6 +50,14 @@ function save()  {
     emit('update:settings', JSON.parse(JSON.stringify(local.value)))
     emit('generate')
     close()
+}
+
+function toggleRevisions() {
+    if (local.value.revisionMode === 'off') {
+        local.value.revisionMode = 'auto'
+    } else {
+        local.value.revisionMode = 'off'
+    }
 }
 
 // ─── Dias da semana ───────────────────────────────────────────────────────────
@@ -140,49 +150,69 @@ function knowledgeColor(k: number): string {
                         Revisões
                     </h3>
 
-                    <!-- Modo auto / manual -->
-                    <div class="toggle-group">
-                        <button
-                            class="mode-pill"
-                            :class="{ active: local.revisionMode === 'auto' }"
-                            @click="local.revisionMode = 'auto'"
+                    <!-- Habilitar/Desabilitar Revisor -->
+                    <div class="flex items-center justify-between mb-4">
+                        <label class="field-label flex items-center gap-2 m-0 select-none cursor-pointer" @click="toggleRevisions">
+                            <span>Habilitar revisões</span>
+                        </label>
+                        <div
+                            class="switch-toggle"
+                            :class="{ active: local.revisionMode !== 'off' }"
+                            @click="toggleRevisions"
+                            role="checkbox"
+                            :aria-checked="local.revisionMode !== 'off'"
                         >
-                            <i class="pi pi-sparkles" />
-                            Automáticas
-                        </button>
-                        <button
-                            class="mode-pill"
-                            :class="{ active: local.revisionMode === 'manual' }"
-                            @click="local.revisionMode = 'manual'"
-                        >
-                            <i class="pi pi-sliders-v" />
-                            Manuais
-                        </button>
+                            <div class="switch-handle" />
+                        </div>
                     </div>
 
-                    <p class="section-hint">
-                        <template v-if="local.revisionMode === 'auto'">
-                            O app calcula automaticamente o melhor espaçamento de revisões com base no seu desempenho.
-                        </template>
-                        <template v-else>
-                            Escolha o ritmo de espaçamento entre cada revisão:
-                        </template>
-                    </p>
-
-                    <!-- Ritmo (só quando manual) -->
                     <Transition name="fade-down">
-                        <div v-if="local.revisionMode === 'manual'" class="rhythm-cards">
-                            <button
-                                v-for="r in RHYTHMS"
-                                :key="r.value"
-                                class="rhythm-card"
-                                :class="{ active: local.revisionRhythm === r.value }"
-                                @click="local.revisionRhythm = r.value"
-                            >
-                                <i :class="['pi', r.icon, 'rhythm-icon']" />
-                                <span class="rhythm-label">{{ r.label }}</span>
-                                <span class="rhythm-desc">{{ r.desc }}</span>
-                            </button>
+                        <div v-if="local.revisionMode !== 'off'" class="flex flex-col gap-3">
+                            <!-- Modo auto / manual -->
+                            <div class="toggle-group">
+                                <button
+                                    class="mode-pill"
+                                    :class="{ active: local.revisionMode === 'auto' }"
+                                    @click="local.revisionMode = 'auto'"
+                                >
+                                    <i class="pi pi-sparkles" />
+                                    Automáticas
+                                </button>
+                                <button
+                                    class="mode-pill"
+                                    :class="{ active: local.revisionMode === 'manual' }"
+                                    @click="local.revisionMode = 'manual'"
+                                >
+                                    <i class="pi pi-sliders-v" />
+                                    Manuais
+                                </button>
+                            </div>
+
+                            <p class="section-hint">
+                                <template v-if="local.revisionMode === 'auto'">
+                                    O app calcula automaticamente o melhor espaçamento de revisões com base no seu desempenho.
+                                </template>
+                                <template v-else>
+                                    Escolha o ritmo de espaçamento entre cada revisão:
+                                </template>
+                            </p>
+
+                            <!-- Ritmo (só quando manual) -->
+                            <Transition name="fade-down">
+                                <div v-if="local.revisionMode === 'manual'" class="rhythm-cards">
+                                    <button
+                                        v-for="r in RHYTHMS"
+                                        :key="r.value"
+                                        class="rhythm-card"
+                                        :class="{ active: local.revisionRhythm === r.value }"
+                                        @click="local.revisionRhythm = r.value"
+                                    >
+                                        <i :class="['pi', r.icon, 'rhythm-icon']" />
+                                        <span class="rhythm-label">{{ r.label }}</span>
+                                        <span class="rhythm-desc">{{ r.desc }}</span>
+                                    </button>
+                                </div>
+                            </Transition>
                         </div>
                     </Transition>
                 </section>
@@ -766,4 +796,31 @@ function knowledgeColor(k: number): string {
 }
 .btn-primary:hover { background: var(--primary-hover, #554300); }
 .btn-primary:active { transform: scale(0.98); }
+
+/* ── Switch Toggle ────────────────────────────────────────────────────────── */
+.switch-toggle {
+    width: 2.5rem;
+    height: 1.35rem;
+    background: var(--outline-variant);
+    border-radius: 99px;
+    padding: 2px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+}
+.switch-toggle.active {
+    background: var(--primary);
+}
+.switch-handle {
+    width: 1.1rem;
+    height: 1.1rem;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+.switch-toggle.active .switch-handle {
+    transform: translateX(1.15rem);
+}
 </style>

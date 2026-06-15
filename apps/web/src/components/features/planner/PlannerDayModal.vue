@@ -92,6 +92,10 @@ function formatDuration(minutes: number): string {
                   <span class="font-sans text-[0.9rem] font-bold text-on-surface truncate">
                     {{ cleanName(session) }}
                   </span>
+                  <!-- Topic Name -->
+                  <span v-if="session.topicName" class="text-xs text-on-surface-variant font-medium leading-relaxed">
+                    {{ session.topicName }}
+                  </span>
                   <!-- Badges -->
                   <span
                     v-if="isReview(session)"

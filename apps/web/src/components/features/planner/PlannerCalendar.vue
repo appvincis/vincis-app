@@ -9,6 +9,9 @@ export interface StudySession {
   disciplineName: string
   color: string       // hex or CSS color
   durationMin: number
+  topicId?: number
+  topicName?: string
+  isReview?: boolean
 }
 
 export interface DayData {
@@ -205,7 +208,7 @@ function formatDuration(minutes: number): string {
                      font-sans text-[0.68rem] font-semibold whitespace-nowrap overflow-hidden
                      flex-shrink-0 cursor-pointer transition-[filter] hover:brightness-95"
               :style="sessionStyle(session.color)"
-              :title="`${session.disciplineName} — ${formatDuration(session.durationMin)}`"
+              :title="`${session.disciplineName}${session.topicName ? ` — ${session.topicName}` : ''} — ${formatDuration(session.durationMin)}`"
             >
               <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" :style="{ backgroundColor: session.color }" />
               <span class="flex-1 overflow-hidden text-ellipsis">{{ session.disciplineName }}</span>

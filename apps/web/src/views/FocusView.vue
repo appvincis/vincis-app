@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { VModal, VSpinner } from '../components/ui'
 import { useStudyPlanStore } from '../stores/study-plan'
-import { useDisciplinesQuery, type Topic } from '../hooks/useDisciplines'
+import { useDisciplinesQuery, useUpdateTopicMutation, type Topic } from '../hooks/useDisciplines'
 import { useCreateFocusSessionMutation } from '../hooks/useFocusSessions'
 import { usePomodoroTimer } from '../hooks/usePomodoroTimer'
 import { useToast } from 'primevue/usetoast'
@@ -21,6 +21,7 @@ const toast = useToast()
 const { data: disciplinesData, isLoading: isLoadingDisciplines } = useDisciplinesQuery()
 const disciplines = computed(() => disciplinesData.value || [])
 const { mutateAsync: saveFocusSession } = useCreateFocusSessionMutation()
+const { mutateAsync: updateTopic } = useUpdateTopicMutation()
 
 // ─── Timer ────────────────────────────────────────────────────────────────────
 const {
@@ -127,6 +128,13 @@ async function handleReportSubmit(reportData: any) {
             questionsDone: reportData.questionsDone,
             questionsCorrect: reportData.questionsCorrect
         })
+
+        if (reportData.topicId && reportData.isTopicFinished) {
+            await updateTopic({
+                id: reportData.topicId,
+                isCompleted: true
+            })
+        }
         
         showReportModal.value = false
         resetTimer()

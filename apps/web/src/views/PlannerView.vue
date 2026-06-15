@@ -68,6 +68,7 @@ const disciplineConfigs = computed((): DisciplineConfig[] => {
         color: d.color,
         priority: persisted.value.priorities?.[d.id] ?? (Math.min(4, Math.max(1, d.weight)) as 1 | 2 | 3 | 4),
         knowledgeLevel: persisted.value.knowledgeLevels?.[d.id] ?? 2,
+        topics: d.topics,
     }))
 })
 

@@ -109,6 +109,7 @@ export const useUpdateTopicMutation = () => {
         },
         onSuccess: (updatedTopic) => {
             queryClient.invalidateQueries({ queryKey: ['topics', updatedTopic.disciplineId] })
+            queryClient.invalidateQueries({ queryKey: ['disciplines'] })
         }
     })
 }
