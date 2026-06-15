@@ -10,10 +10,7 @@ const currentSection = ref(0)
 
 // Referências das seções
 const sections = ref<HTMLElement[]>([])
-const isScrolling = ref(false)
-let lastWheelTime = 0
-const SCROLL_COOLDOWN = 800 // milliseconds
-let pendingScroll = false
+let observer: IntersectionObserver | null = null
 
 onMounted(() => {
   setTimeout(() => { visible.value = true }, 50)
@@ -21,122 +18,52 @@ onMounted(() => {
   // Coleta todas as seções principais
   sections.value = Array.from(document.querySelectorAll('.slide-section'))
   
-  // Adiciona listener de wheel
-  window.addEventListener('wheel', handleWheel, { passive: false })
-  window.addEventListener('keydown', handleKeydown)
+  // Configura o Intersection Observer para identificar qual seção está ativa
+  observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const index = sections.value.indexOf(entry.target as HTMLElement)
+        if (index !== -1) {
+          currentSection.value = index
+          const sectionId = entry.target.id
+          if (sectionId) {
+            history.replaceState(null, '', `#${sectionId}`)
+          }
+        }
+      }
+    })
+  }, {
+    rootMargin: '-20% 0px -20% 0px', // Aciona quando a seção ocupa a parte central da viewport
+    threshold: 0.2
+  })
+
+  sections.value.forEach(section => {
+    observer?.observe(section)
+  })
 })
 
 onUnmounted(() => {
-  window.removeEventListener('wheel', handleWheel)
-  window.removeEventListener('keydown', handleKeydown)
+  if (observer) {
+    observer.disconnect()
+  }
 })
 
-const handleWheel = (e: WheelEvent) => {
-  // Previne durante scroll ou pendência
-  if (isScrolling.value || pendingScroll) {
-    e.preventDefault()
-    return
-  }
-  
-  const now = Date.now()
-  if (now - lastWheelTime < SCROLL_COOLDOWN) {
-    e.preventDefault()
-    return
-  }
-  
-  // Detecta direção do scroll com threshold mínimo
-  const delta = Math.abs(e.deltaY) > 10 ? e.deltaY : 0
-  
-  if (delta === 0) return
-  
-  let shouldNavigate = false
-  
-  if (delta > 0 && currentSection.value < sections.value.length - 1) {
-    // Scroll para baixo
-    goToNextSection()
-    shouldNavigate = true
-  } else if (delta < 0 && currentSection.value > 0) {
-    // Scroll para cima
-    goToPreviousSection()
-    shouldNavigate = true
-  }
-  
-  if (shouldNavigate) {
-    e.preventDefault()
-    lastWheelTime = now
-  }
-}
-
-const goToNextSection = () => {
-  if (currentSection.value < sections.value.length - 1 && !isScrolling.value && !pendingScroll) {
-    const nextIndex = currentSection.value + 1
-    scrollToSection(nextIndex, 'next')
-  }
-}
-
-const goToPreviousSection = () => {
-  if (currentSection.value > 0 && !isScrolling.value && !pendingScroll) {
-    const prevIndex = currentSection.value - 1
-    scrollToSection(prevIndex, 'prev')
-  }
-}
-
-const scrollToSection = (index: number, direction?: string) => {
-  if (isScrolling.value || pendingScroll) return
-  
-  pendingScroll = true
-  isScrolling.value = true
-  
+const scrollToSection = (index: number) => {
   const targetSection = sections.value[index]
   if (targetSection) {
-    // Força o scroll para a posição exata
     targetSection.scrollIntoView({
       behavior: 'smooth',
       block: 'start'
     })
-    
-    // Atualiza o índice atual após um pequeno delay
-    setTimeout(() => {
-      currentSection.value = index
-    }, 100)
   }
-  
-  // Atualiza a URL
-  const sectionId = sections.value[index]?.id
-  if (sectionId) {
-    history.pushState(null, '', `#${sectionId}`)
-  }
-  
-  // Libera após a animação completar
-  setTimeout(() => {
-    isScrolling.value = false
-    setTimeout(() => {
-      pendingScroll = false
-    }, 100)
-  }, SCROLL_COOLDOWN)
 }
 
 // Navegação por clique nos links do menu
 const navigateToSection = (sectionId: string) => {
-  if (isScrolling.value || pendingScroll) return
-  
   const sectionIndex = sections.value.findIndex(s => s.id === sectionId)
   if (sectionIndex !== -1) {
     scrollToSection(sectionIndex)
     isMenuOpen.value = false
-  }
-}
-
-// Navegação por teclado
-const handleKeydown = (e: KeyboardEvent) => {
-  if (isScrolling.value || pendingScroll) return
-  
-  if (e.key === 'ArrowDown') {
-    e.preventDefault()
-    goToNextSection()
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault()
-    goToPreviousSection()
   }
 }
 
@@ -444,60 +371,59 @@ const navigateToAuth = () => {
         </div>
       </section>
 
-      <!-- Seção de Filosofia / Citação -->
-     <!-- Seção de Filosofia / Citação com imagem de fundo -->
-<section class="slide-section py-20 md:py-40 bg-[#fdf9f6] relative flex justify-center text-center items-center min-h-screen overflow-hidden">
-  <!-- Imagem de fundo -->
-  <div class="absolute inset-0 z-0">
-    <img 
-      src="../assets/senhora-com-arminho.jpg" 
-      alt="Background" 
-      class="w-full h-full object-cover opacity-65"
-    />
-  </div>
-  
-  <!-- Overlay escuro/claro para melhor contraste (opcional) -->
-  <div class="absolute inset-0 z-0 bg-[#fdf9f6]/50"></div>
-  
-  <div class="container mx-auto px-8 max-w-4xl flex flex-col items-center relative z-10">
-    <i class="pi pi-comment text-[#735c00]/15 mb-10 text-6xl md:text-7xl"></i>
-    <blockquote class="font-['Newsreader',serif] italic text-4xl md:text-6xl leading-tight text-[#1c1b1a] mb-16">
-      "O conhecimento é o único tesouro que se multiplica quando compartilhado."
-    </blockquote>
-    <div class="flex items-center justify-center gap-6 w-full">
-      <div class="h-px w-12 bg-[#1c1b1a]/20"></div>
-      <cite class="text-xs uppercase tracking-[0.5em] font-black text-[#735c00] not-italic">
-        Leonardo da Vinci
-      </cite>
-      <div class="h-px w-12 bg-[#1c1b1a]/20"></div>
-    </div>
-  </div>
-</section>
+      <!-- Seção de Filosofia / Citação com imagem de fundo -->
+      <section class="slide-section py-20 md:py-40 bg-[#fdf9f6] relative flex justify-center text-center items-center min-h-screen overflow-hidden">
+        <!-- Imagem de fundo -->
+        <div class="absolute inset-0 z-0">
+          <img 
+            src="../assets/senhora-com-arminho.jpg" 
+            alt="Background" 
+            class="w-full h-full object-cover opacity-65"
+          />
+        </div>
+        
+        <!-- Overlay escuro/claro para melhor contraste -->
+        <div class="absolute inset-0 z-0 bg-[#fdf9f6]/50"></div>
+        
+        <div class="container mx-auto px-8 max-w-4xl flex flex-col items-center relative z-10">
+          <i class="pi pi-comment text-[#735c00]/15 mb-10 text-6xl md:text-7xl"></i>
+          <blockquote class="font-['Newsreader',serif] italic text-4xl md:text-6xl leading-tight text-[#1c1b1a] mb-16">
+            "O conhecimento é o único tesouro que se multiplica quando compartilhado."
+          </blockquote>
+          <div class="flex items-center justify-center gap-6 w-full">
+            <div class="h-px w-12 bg-[#1c1b1a]/20"></div>
+            <cite class="text-xs uppercase tracking-[0.5em] font-black text-[#735c00] not-italic">
+              Leonardo da Vinci
+            </cite>
+            <div class="h-px w-12 bg-[#1c1b1a]/20"></div>
+          </div>
+        </div>
+      </section>
 
       <!-- Chamada para Ação (CTA) Final -->
-<section class="slide-section py-20 md:py-40 bg-[#fdf9f6] relative border-t border-[#1c1b1a]/5 flex items-center justify-center min-h-screen overflow-hidden">
-  <!-- Imagem de fundo -->
-  <div class="absolute inset-0 z-0">
-    <img 
-      src="../assets/renascenca.png" 
-      alt="Background" 
-      class="w-full h-full object-cover opacity-50"
-    />
-  </div>
-  
-  <div class="container mx-auto px-8 text-center relative z-10">
-    <h2 class="font-['Newsreader',serif] text-6xl md:text-8xl font-bold mb-16 tracking-tight text-[#000000]">
-      Pronto para sua <br>
-      <span class="italic text-[#000000] font-normal">renascença?</span>
-    </h2>
-    <button 
-      @click="navigateToAuth"
-      class="bg-[#1c1b1a] text-[#fdf9f6] px-16 py-8 rounded-full font-black text-sm uppercase tracking-[0.4em] hover:bg-[#735c00] hover:text-white transition-all active:scale-95 shadow-2xl"
-    >
-      Iniciar Agora — É Grátis
-    </button>
-  </div>
-</section>
+      <section class="slide-section py-20 md:py-40 bg-[#fdf9f6] relative border-t border-[#1c1b1a]/5 flex items-center justify-center min-h-screen overflow-hidden">
+        <!-- Imagem de fundo -->
+        <div class="absolute inset-0 z-0">
+          <img 
+            src="../assets/renascenca.png" 
+            alt="Background" 
+            class="w-full h-full object-cover opacity-50"
+          />
+        </div>
+        
+        <div class="container mx-auto px-8 text-center relative z-10">
+          <h2 class="font-['Newsreader',serif] text-6xl md:text-8xl font-bold mb-16 tracking-tight text-[#000000]">
+            Pronto para sua <br>
+            <span class="italic text-[#000000] font-normal">renascença?</span>
+          </h2>
+          <button 
+            @click="navigateToAuth"
+            class="bg-[#1c1b1a] text-[#fdf9f6] px-16 py-8 rounded-full font-black text-sm uppercase tracking-[0.4em] hover:bg-[#735c00] hover:text-white transition-all active:scale-95 shadow-2xl"
+          >
+            Iniciar Agora — É Grátis
+          </button>
+        </div>
+      </section>
     </div>
 
     <!-- Rodapé (Footer) -->
@@ -562,18 +488,6 @@ const navigateToAuth = () => {
 </template>
 
 <style>
-/* Estilos globais */
-.slide-section {
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
-}
-
-/* Remove scroll do body e usa nossa navegação controlada */
-body {
-  overflow: hidden;
-  height: 100vh;
-}
-
 /* Personaliza a barra de rolagem (opcional) */
 ::-webkit-scrollbar {
   width: 6px;
