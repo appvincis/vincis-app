@@ -39,13 +39,14 @@ const getAiModels = () => {
     // Prioridade 2: Gemini nativo gratuito (Google AI Studio)
     if (process.env.GEMINI_API_KEY) {
         models.push(googleProvider.chat('gemini-1.5-flash-latest'));
+        models.push(googleProvider.chat('gemini-2.5-flash'));
     }
     // Prioridade 3: Modelo gratuito via OpenRouter (nvidia/nemotron-3-ultra-550b-a55b:free)
     if (process.env.OPENROUTER_API_KEY) {
         models.push(openrouter.chat('nvidia/nemotron-3-ultra-550b-a55b:free'));
     }
     if (process.env.OPENROUTER_API_KEY) {
-        models.push(openrouter.chat('google/gemini-2.0-flash-lite-preview-02-05:free'));
+        models.push(openrouter.chat('google/gemini-2.5-flash'));
     }
     // Prioridade 4: OpenAI nativo (só se a chave for real — começa com 'sk-')
     if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.startsWith('sk-')) {
@@ -66,10 +67,10 @@ export async function generateObjectWithFallback(options: any & { timeoutMs?: nu
     let modelName = '';
 
     if (process.env.GEMINI_API_KEY) {
-        model = googleProvider('gemini-1.5-flash-latest');
+        model = googleProvider('gemini-2.5-flash');
         modelName = 'Google Gemini Nativo';
     } else if (process.env.OPENROUTER_API_KEY) {
-        model = openrouter.chat('openrouter/free');
+        model = openrouter.chat('google/gemini-2.5-flash');
         modelName = 'OpenRouter (Gemini)';
     } else {
         throw new Error('Nenhuma chave de API configurada (OpenRouter ou Gemini).');
@@ -79,7 +80,7 @@ export async function generateObjectWithFallback(options: any & { timeoutMs?: nu
     let fallbackName = '';
 
     if (process.env.GEMINI_API_KEY && process.env.OPENROUTER_API_KEY) {
-        fallbackModel = openrouter.chat('openrouter/free');
+        fallbackModel = openrouter.chat('google/gemini-2.5-flash');
         fallbackName = 'OpenRouter (Gemini)';
     }
 
@@ -126,10 +127,10 @@ export async function generateFastObjectWithFallback(options: any & { timeoutMs?
     let modelName = '';
 
     if (process.env.GEMINI_API_KEY) {
-        model = googleProvider('gemini-1.5-flash');
+        model = googleProvider('gemini-2.5-flash');
         modelName = 'Google Gemini Nativo';
     } else if (process.env.OPENROUTER_API_KEY) {
-        model = openrouter.chat('google/gemini-2.0-flash-lite-preview-02-05:free');
+        model = openrouter.chat('google/gemini-2.5-flash');
         modelName = 'OpenRouter (Gemini)';
     } else {
         throw new Error('Nenhuma chave de API configurada (OpenRouter ou Gemini).');
@@ -217,14 +218,14 @@ export async function extractNativePDFWithGemini(options: {
     let fallbackName = '';
 
     if (process.env.GEMINI_API_KEY) {
-        primaryModel = googleProvider('gemini-1.5-flash-latest');
+        primaryModel = googleProvider('gemini-2.5-flash');
         primaryName = 'Google Gemini Nativo';
         if (process.env.OPENROUTER_API_KEY) {
-            fallbackModel = openrouter('openrouter/free');
+            fallbackModel = openrouter('google/gemini-2.5-flash');
             fallbackName = 'OpenRouter (Gemini)';
         }
     } else if (process.env.OPENROUTER_API_KEY) {
-        primaryModel = openrouter('openrouter/free');
+        primaryModel = openrouter('google/gemini-2.5-flash');
         primaryName = 'OpenRouter (Gemini)';
     } else {
         throw new Error('Nenhuma chave de API configurada (OpenRouter ou Gemini).');
