@@ -62,28 +62,33 @@ export const TIMEOUT_COMPLEX_MS = 300000; // 5 minutos de timeout para o Llama l
 export async function generateObjectWithFallback(options: any & { timeoutMs?: number }) {
     const timeout = options.timeoutMs ?? TIMEOUT_COMPLEX_MS;
 
-    // Desativando os fallbacks: usar estritamente o modelo configurado via OpenRouter
-    if (!process.env.OPENROUTER_API_KEY) {
-        throw new Error('OPENROUTER_API_KEY não configurada no ambiente. Não é possível rodar o modelo obrigatório.');
+    let model: any;
+    let modelName = '';
+
+    if (process.env.GEMINI_API_KEY) {
+        model = googleProvider('gemini-2.5-flash');
+        modelName = 'Google Gemini Nativo';
+    } else if (process.env.OPENROUTER_API_KEY) {
+        model = openrouter.chat('google/gemini-2.5-flash');
+        modelName = 'OpenRouter (Gemini)';
+    } else {
+        throw new Error('Nenhuma chave de API configurada (OpenRouter ou Gemini).');
     }
 
-    // Usando o modelo solicitado pelo usuário
-    const model = openrouter.chat('nvidia/nemotron-3-super-120b-a12b:free');
-
     try {
-        console.log(`[AI] Iniciando extração com OpenRouter (nvidia/nemotron-3-super-120b-a12b:free)...`);
+        console.log(`[AI] Iniciando extração com ${modelName}...`);
         const result = await Promise.race([
             generateObject({
                 ...options,
                 model
             }),
             new Promise<never>((_, reject) =>
-                setTimeout(() => reject(new Error(`Timeout de ${timeout / 1000}s atingido pela API do OpenRouter.`)), timeout)
+                setTimeout(() => reject(new Error(`Timeout de ${timeout / 1000}s atingido pela API do ${modelName}.`)), timeout)
             )
         ]);
         return result;
     } catch (err: any) {
-        console.error(`[AI] Falha crítica na geração com OpenRouter Gemini:`, err);
+        console.error(`[AI] Falha crítica na geração com ${modelName}:`, err);
         throw new Error(`Falha na API de Inteligência Artificial: ${err.message}`);
     }
 }
@@ -91,27 +96,33 @@ export async function generateObjectWithFallback(options: any & { timeoutMs?: nu
 export async function generateFastObjectWithFallback(options: any & { timeoutMs?: number }) {
     const timeout = options.timeoutMs ?? 30000; // Fast extraction should be quick (30s)
 
-    if (!process.env.OPENROUTER_API_KEY) {
-        throw new Error('OPENROUTER_API_KEY não configurada no ambiente. Não é possível rodar o modelo obrigatório.');
+    let model: any;
+    let modelName = '';
+
+    if (process.env.GEMINI_API_KEY) {
+        model = googleProvider('gemini-2.5-flash');
+        modelName = 'Google Gemini Nativo';
+    } else if (process.env.OPENROUTER_API_KEY) {
+        model = openrouter.chat('google/gemini-2.5-flash');
+        modelName = 'OpenRouter (Gemini)';
+    } else {
+        throw new Error('Nenhuma chave de API configurada (OpenRouter ou Gemini).');
     }
 
-    const model = openrouter.chat('nvidia/nemotron-3-super-120b-a12b:free');
-
     try {
-        console.log(`[AI] Iniciando extração rápida com OpenRouter (nvidia/nemotron-3-super-120b-a12b:free)...`);
-        console.log(`[AI] Iniciando extração RÁPIDA com OpenRouter Automático...`);
+        console.log(`[AI] Iniciando extração RÁPIDA com ${modelName}...`);
         const result = await Promise.race([
             generateObject({
                 ...options,
                 model
             }),
             new Promise<never>((_, reject) =>
-                setTimeout(() => reject(new Error(`Timeout Rápido de ${timeout / 1000}s atingido pela API do OpenRouter.`)), timeout)
+                setTimeout(() => reject(new Error(`Timeout Rápido de ${timeout / 1000}s atingido pela API do ${modelName}.`)), timeout)
             )
         ]);
         return result;
     } catch (err: any) {
-        console.error(`[AI] Falha crítica na geração rápida com OpenRouter:`, err);
+        console.error(`[AI] Falha crítica na geração rápida com ${modelName}:`, err);
         throw new Error(`Falha na API de IA (Fast): ${err.message}`);
     }
 }
@@ -153,16 +164,16 @@ export async function extractNativePDFWithGemini(options: {
     let primaryName = '';
     let fallbackName = '';
 
-    if (process.env.OPENROUTER_API_KEY) {
-        primaryModel = openrouter('nvidia/nemotron-3-super-120b-a12b:free');
-        primaryName = 'OpenRouter (nemotron-3-super)';
-        if (process.env.GEMINI_API_KEY) {
-            fallbackModel = googleProvider('gemini-2.5-flash');
-            fallbackName = 'Google Gemini Nativo';
-        }
-    } else if (process.env.GEMINI_API_KEY) {
+    if (process.env.GEMINI_API_KEY) {
         primaryModel = googleProvider('gemini-2.5-flash');
         primaryName = 'Google Gemini Nativo';
+        if (process.env.OPENROUTER_API_KEY) {
+            fallbackModel = openrouter('google/gemini-2.5-flash');
+            fallbackName = 'OpenRouter (Gemini)';
+        }
+    } else if (process.env.OPENROUTER_API_KEY) {
+        primaryModel = openrouter('google/gemini-2.5-flash');
+        primaryName = 'OpenRouter (Gemini)';
     } else {
         throw new Error('Nenhuma chave de API configurada (OpenRouter ou Gemini).');
     }
@@ -570,6 +581,7 @@ export const getEditalCargos = async (req: AuthenticatedRequest, res: Response):
 
         // G1 fix: cargos estão sempre nas primeiras páginas — 30k chars (~8 páginas) é suficiente
         const candidateText = parsedContent.substring(0, 30000);
+        console.time(`[Perf] getEditalCargos - IA (Edital #${editalId})`);
         const response = await generateObjectWithFallback({
             schema: z.object({
                 cargos: z.array(z.string().describe('Nome curto e oficial do cargo encontrado no edital (ex: Analista de TI, Técnico Administrativo, Soldado)'))
@@ -581,6 +593,7 @@ export const getEditalCargos = async (req: AuthenticatedRequest, res: Response):
             temperature: 0.1,
             maxTokens: 500,
         });
+        console.timeEnd(`[Perf] getEditalCargos - IA (Edital #${editalId})`);
 
         const cargos = (response.object as { cargos: string[] }).cargos || [];
         return res.json({ cargos });

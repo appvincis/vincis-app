@@ -2,7 +2,10 @@ import { boss } from '../../lib/queue.service.js';
 import { prisma } from '../../lib/prisma.js';
 import { supabaseAdmin } from '../../lib/supabase.js';
 import {
-    extractNativePDFWithGemini
+    extractNativePDFWithGemini,
+    smartExtractSyllabusChunk,
+    locateSyllabusPages,
+    extractPages
 } from './edital.controller.js';
 import { z } from 'zod';
 import { validateExtractedTopics } from './extraction.validator.js';
@@ -21,9 +24,12 @@ export function registerExtractionWorker() {
     // Isso evita esgotar limites de cota de IA (Gemini/OpenRouter) e CPU do servidor
     boss.work('edital-extraction', { teamSize: 2 } as any, async ([job]: any) => {
         const { editalId, userId, studyPlanId, cargo } = job.data as ExtractionJobPayload;
+        const perfPrefix = `[Worker-Perf] Edital #${editalId}`;
+        console.time(`${perfPrefix} - Total`);
         console.log(`[Worker] Iniciando processamento do Edital #${editalId} para o usuário #${userId}`);
 
         try {
+            console.time(`${perfPrefix} - DB Fetch & Status Update`);
             const edital = await prisma.edital.findFirst({ where: { id: editalId, userId } });
             if (!edital || !edital.parsedContent) {
                 throw new Error('Edital ou conteúdo textual não encontrado no banco.');
@@ -77,14 +83,53 @@ CRITÉRIOS OBRIGATÓRIOS:
             let extractedDisciplines: { nome: string; topicos: string[] }[] = [];
 
             try {
+                console.timeEnd(`${perfPrefix} - DB Fetch & Status Update`);
+                
+                // Pré-filtro inteligente: Usar a IA para ler o sumário e achar as páginas exatas
+                console.time(`${perfPrefix} - Locating Syllabus Pages`);
+                const pages = await locateSyllabusPages(parsedContent, cargoKey || undefined);
+                
+                let minStartPage = 99999;
+                let maxEndPage = -1;
+                
+                if (pages.geral && pages.geral.startPage !== null && pages.geral.endPage !== null) {
+                    minStartPage = Math.min(minStartPage, pages.geral.startPage);
+                    maxEndPage = Math.max(maxEndPage, pages.geral.endPage);
+                }
+                
+                if (pages.especifico && pages.especifico.startPage !== null && pages.especifico.endPage !== null) {
+                    minStartPage = Math.min(minStartPage, pages.especifico.startPage);
+                    maxEndPage = Math.max(maxEndPage, pages.especifico.endPage);
+                }
+                
+                let finalContent = parsedContent;
+                if (minStartPage !== 99999 && maxEndPage !== -1) {
+                    // Margem de segurança de 1 página antes e depois para evitar cortes bruscos
+                    const safeStart = Math.max(1, minStartPage - 1);
+                    const safeEnd = maxEndPage + 1;
+                    
+                    const extracted = extractPages(parsedContent, safeStart, safeEnd);
+                    if (extracted && extracted.length > 500) {
+                        finalContent = extracted;
+                        console.log(`[Worker] Pre-filtro de páginas aplicado: páginas ${safeStart} a ${safeEnd} (Tamanho: ${extracted.length} chars)`);
+                    } else {
+                        console.log(`[Worker] Pre-filtro extraiu pouco texto (${extracted?.length || 0} chars), fazendo fallback para o edital inteiro.`);
+                    }
+                } else {
+                    console.log(`[Worker] Pre-filtro não encontrou mapeamento de páginas no sumário, fazendo fallback para o edital inteiro.`);
+                }
+                console.timeEnd(`${perfPrefix} - Locating Syllabus Pages`);
+
+                console.time(`${perfPrefix} - AI API Call (Gemini)`);
                 const response = await extractNativePDFWithGemini({
-                    parsedContent,
+                    parsedContent: finalContent,
                     prompt,
                     schema: extractionSchema,
                     timeoutMs: 300000 // 5 Minutos de limite
                 }) as any;
 
                 extractedDisciplines = response.object?.disciplines || [];
+                console.timeEnd(`${perfPrefix} - AI API Call (Gemini)`);
             } catch (err: any) {
                 console.error('[Worker] Erro no Gemini Native PDF:', err.message);
                 throw new Error(`Falha na extração nativa de PDF: ${err.message}`);
@@ -113,6 +158,7 @@ CRITÉRIOS OBRIGATÓRIOS:
             };
 
             // Passar pelo validador fuzzy para remover lixo alucinado
+            console.time(`${perfPrefix} - Validation`);
             const validatedDisciplines: { name: string; topics: string[] }[] = [];
             for (const disc of extractedDisciplines as any[]) {
                 if (!disc.topicos) continue;
@@ -139,6 +185,9 @@ CRITÉRIOS OBRIGATÓRIOS:
             const extracted = {
                 disciplines: disciplinesToSave
             };
+            console.timeEnd(`${perfPrefix} - Validation`);
+
+            console.time(`${perfPrefix} - DB Save`);
 
             await prisma.edital.update({
                 where: { id: editalId },
@@ -164,7 +213,10 @@ CRITÉRIOS OBRIGATÓRIOS:
             });
 
             console.log(`[Worker] Edital #${editalId} processado com sucesso.`);
+            console.timeEnd(`${perfPrefix} - DB Save`);
+            console.timeEnd(`${perfPrefix} - Total`);
         } catch (bgError: any) {
+            console.timeEnd(`${perfPrefix} - Total`);
             console.error('[Worker] Erro no processamento de extração:', bgError);
             await prisma.edital.update({
                 where: { id: editalId },
