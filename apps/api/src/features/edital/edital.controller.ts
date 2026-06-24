@@ -66,13 +66,21 @@ export async function generateObjectWithFallback(options: any & { timeoutMs?: nu
     let modelName = '';
 
     if (process.env.GEMINI_API_KEY) {
-        model = googleProvider('gemini-2.5-flash');
+        model = googleProvider('gemini-1.5-flash');
         modelName = 'Google Gemini Nativo';
     } else if (process.env.OPENROUTER_API_KEY) {
         model = openrouter.chat('google/gemini-2.0-flash-lite-preview-02-05:free');
         modelName = 'OpenRouter (Gemini)';
     } else {
         throw new Error('Nenhuma chave de API configurada (OpenRouter ou Gemini).');
+    }
+
+    let fallbackModel: any;
+    let fallbackName = '';
+
+    if (process.env.GEMINI_API_KEY && process.env.OPENROUTER_API_KEY) {
+        fallbackModel = openrouter.chat('google/gemini-2.0-flash-lite-preview-02-05:free');
+        fallbackName = 'OpenRouter (Gemini)';
     }
 
     try {
@@ -88,7 +96,25 @@ export async function generateObjectWithFallback(options: any & { timeoutMs?: nu
         ]);
         return result;
     } catch (err: any) {
-        console.error(`[AI] Falha crítica na geração com ${modelName}:`, err);
+        console.warn(`[AI] Falha com ${modelName}:`, err.message);
+        if (fallbackModel) {
+            console.log(`[AI] Tentando fallback com ${fallbackName}...`);
+            try {
+                const result = await Promise.race([
+                    generateObject({
+                        ...options,
+                        model: fallbackModel
+                    }),
+                    new Promise<never>((_, reject) =>
+                        setTimeout(() => reject(new Error(`Timeout de ${timeout / 1000}s atingido no fallback.`)), timeout)
+                    )
+                ]);
+                return result;
+            } catch (fallbackErr: any) {
+                console.error(`[AI] Falha crítica também no fallback:`, fallbackErr);
+                throw new Error(`Falha no Fallback da IA: ${fallbackErr.message}`);
+            }
+        }
         throw new Error(`Falha na API de Inteligência Artificial: ${err.message}`);
     }
 }
@@ -100,13 +126,21 @@ export async function generateFastObjectWithFallback(options: any & { timeoutMs?
     let modelName = '';
 
     if (process.env.GEMINI_API_KEY) {
-        model = googleProvider('gemini-2.5-flash');
+        model = googleProvider('gemini-1.5-flash');
         modelName = 'Google Gemini Nativo';
     } else if (process.env.OPENROUTER_API_KEY) {
         model = openrouter.chat('google/gemini-2.0-flash-lite-preview-02-05:free');
         modelName = 'OpenRouter (Gemini)';
     } else {
         throw new Error('Nenhuma chave de API configurada (OpenRouter ou Gemini).');
+    }
+
+    let fallbackModel: any;
+    let fallbackName = '';
+
+    if (process.env.GEMINI_API_KEY && process.env.OPENROUTER_API_KEY) {
+        fallbackModel = openrouter.chat('google/gemini-2.0-flash-lite-preview-02-05:free');
+        fallbackName = 'OpenRouter (Gemini)';
     }
 
     try {
@@ -122,7 +156,25 @@ export async function generateFastObjectWithFallback(options: any & { timeoutMs?
         ]);
         return result;
     } catch (err: any) {
-        console.error(`[AI] Falha crítica na geração rápida com ${modelName}:`, err);
+        console.warn(`[AI] Falha na geração rápida com ${modelName}:`, err.message);
+        if (fallbackModel) {
+            console.log(`[AI] Tentando fallback RÁPIDO com ${fallbackName}...`);
+            try {
+                const result = await Promise.race([
+                    generateObject({
+                        ...options,
+                        model: fallbackModel
+                    }),
+                    new Promise<never>((_, reject) =>
+                        setTimeout(() => reject(new Error(`Timeout Rápido de ${timeout / 1000}s atingido no fallback.`)), timeout)
+                    )
+                ]);
+                return result;
+            } catch (fallbackErr: any) {
+                console.error(`[AI] Falha crítica também no fallback rápido:`, fallbackErr);
+                throw new Error(`Falha na IA (Fast Fallback): ${fallbackErr.message}`);
+            }
+        }
         throw new Error(`Falha na API de IA (Fast): ${err.message}`);
     }
 }
@@ -165,7 +217,7 @@ export async function extractNativePDFWithGemini(options: {
     let fallbackName = '';
 
     if (process.env.GEMINI_API_KEY) {
-        primaryModel = googleProvider('gemini-2.5-flash');
+        primaryModel = googleProvider('gemini-1.5-flash');
         primaryName = 'Google Gemini Nativo';
         if (process.env.OPENROUTER_API_KEY) {
             fallbackModel = openrouter('google/gemini-2.0-flash-lite-preview-02-05:free');
