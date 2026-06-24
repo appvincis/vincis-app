@@ -129,20 +129,30 @@ CRITÉRIOS OBRIGATÓRIOS:
                     console.log(`[Worker] Map-Reduce iniciado. Fatiado em ${segments.length} matérias. Executando chamadas paralelas...`);
                     console.time(`${perfPrefix} - AI Parallel Execution`);
                     
-                    const promises = segments.map(async (seg) => {
+                    // Agrupamento (Batching) para evitar estourar o limite de 15 RPM (Requests Per Minute) do Free Tier do Gemini
+                    const CHUNK_SIZE = 3;
+                    const batchedSegments = [];
+                    for (let i = 0; i < segments.length; i += CHUNK_SIZE) {
+                        batchedSegments.push(segments.slice(i, i + CHUNK_SIZE));
+                    }
+                    
+                    const promises = batchedSegments.map(async (batch) => {
                         try {
-                            const segPrompt = basePrompt + `\n\nATENÇÃO: Extraia apenas tópicos referentes a matéria: "${seg.name}".`;
+                            const batchNames = batch.map(s => s.name).join(', ');
+                            const batchText = batch.map(s => `=== DISCIPLINA: ${s.name} ===\n${s.rawText}`).join('\n\n');
+                            
+                            const segPrompt = basePrompt + `\n\nATENÇÃO: Extraia APENAS os tópicos referentes às seguintes matérias: ${batchNames}.`;
                             const response = await extractNativePDFWithGemini({
-                                parsedContent: seg.rawText,
+                                parsedContent: batchText,
                                 prompt: segPrompt,
                                 schema: extractionSchema,
-                                timeoutMs: 60000 // Timeout menor, pois é só 1 matéria
+                                timeoutMs: 90000 // Timeout ajustado para 3 matérias
                             }) as any;
                             
                             const discs = response.object?.disciplines || [];
                             return discs;
                         } catch (err: any) {
-                            console.warn(`[Worker] Falha ao processar matéria fatiada "${seg.name}":`, err.message);
+                            console.warn(`[Worker] Falha ao processar lote fatiado (${batch.map(s => s.name).join(', ')}):`, err.message);
                             return [];
                         }
                     });
