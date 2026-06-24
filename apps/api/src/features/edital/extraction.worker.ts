@@ -7,6 +7,7 @@ import {
     locateSyllabusPages,
     extractPages
 } from './edital.controller.js';
+import { segmentByDiscipline } from './edital.segmenter.js';
 import { z } from 'zod';
 import { validateExtractedTopics } from './extraction.validator.js';
 
@@ -60,9 +61,8 @@ export function registerExtractionWorker() {
                 data: { extractionError: 'Lendo Edital com Inteligência Artificial (Gemini)...' }
             });
 
-            // 2. Extração em Tiro Único com o texto
-            const prompt = `Você é um Extrator de Editais Profissional. O texto abaixo é o conteúdo completo de um Edital de Concurso.
-Seu objetivo é ler o edital inteiro e extrair rigorosamente TODOS OS TÓPICOS do CONTEÚDO PROGRAMÁTICO (Matérias que caem na prova).
+            const basePrompt = `Você é um Extrator de Editais Profissional. O texto abaixo é o conteúdo de um Edital de Concurso.
+Seu objetivo é extrair rigorosamente TODOS OS TÓPICOS do CONTEÚDO PROGRAMÁTICO (Matérias que caem na prova).
 
 CRITÉRIOS OBRIGATÓRIOS:
 1. FOCO NO CARGO: ${cargo || 'Extraia tudo o que for geral se o cargo não for especificado.'}
@@ -120,16 +120,50 @@ CRITÉRIOS OBRIGATÓRIOS:
                 }
                 console.timeEnd(`${perfPrefix} - Locating Syllabus Pages`);
 
-                console.time(`${perfPrefix} - AI API Call (Gemini)`);
-                const response = await extractNativePDFWithGemini({
-                    parsedContent: finalContent,
-                    prompt,
-                    schema: extractionSchema,
-                    timeoutMs: 300000 // 5 Minutos de limite
-                }) as any;
+                // Map-Reduce Paralelo
+                console.time(`${perfPrefix} - Local Segmentation`);
+                const segments = segmentByDiscipline(finalContent, cargoKey);
+                console.timeEnd(`${perfPrefix} - Local Segmentation`);
 
-                extractedDisciplines = response.object?.disciplines || [];
-                console.timeEnd(`${perfPrefix} - AI API Call (Gemini)`);
+                if (segments && segments.length > 0) {
+                    console.log(`[Worker] Map-Reduce iniciado. Fatiado em ${segments.length} matérias. Executando chamadas paralelas...`);
+                    console.time(`${perfPrefix} - AI Parallel Execution`);
+                    
+                    const promises = segments.map(async (seg) => {
+                        try {
+                            const segPrompt = basePrompt + `\n\nATENÇÃO: Extraia apenas tópicos referentes a matéria: "${seg.name}".`;
+                            const response = await extractNativePDFWithGemini({
+                                parsedContent: seg.rawText,
+                                prompt: segPrompt,
+                                schema: extractionSchema,
+                                timeoutMs: 60000 // Timeout menor, pois é só 1 matéria
+                            }) as any;
+                            
+                            const discs = response.object?.disciplines || [];
+                            return discs;
+                        } catch (err: any) {
+                            console.warn(`[Worker] Falha ao processar matéria fatiada "${seg.name}":`, err.message);
+                            return [];
+                        }
+                    });
+
+                    const results = await Promise.all(promises);
+                    extractedDisciplines = results.flat();
+                    
+                    console.timeEnd(`${perfPrefix} - AI Parallel Execution`);
+                } else {
+                    console.log(`[Worker] Segmentação local falhou. Fazendo Fallback para chamada Sequencial da IA (Pode demorar minutos).`);
+                    console.time(`${perfPrefix} - AI Sequential Execution`);
+                    const response = await extractNativePDFWithGemini({
+                        parsedContent: finalContent,
+                        prompt: basePrompt,
+                        schema: extractionSchema,
+                        timeoutMs: 300000 // 5 Minutos de limite
+                    }) as any;
+
+                    extractedDisciplines = response.object?.disciplines || [];
+                    console.timeEnd(`${perfPrefix} - AI Sequential Execution`);
+                }
             } catch (err: any) {
                 console.error('[Worker] Erro no Gemini Native PDF:', err.message);
                 throw new Error(`Falha na extração nativa de PDF: ${err.message}`);
