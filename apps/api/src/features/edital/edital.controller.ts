@@ -45,7 +45,7 @@ const getAiModels = () => {
         models.push(openrouter.chat('nvidia/nemotron-3-ultra-550b-a55b:free'));
     }
     if (process.env.OPENROUTER_API_KEY) {
-        models.push(openrouter.chat('google/gemini-2.5-flash'));
+        models.push(openrouter.chat('google/gemini-2.5-flash:free'));
     }
     // Prioridade 4: OpenAI nativo (só se a chave for real — começa com 'sk-')
     if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.startsWith('sk-')) {
@@ -69,7 +69,7 @@ export async function generateObjectWithFallback(options: any & { timeoutMs?: nu
         model = googleProvider('gemini-2.5-flash');
         modelName = 'Google Gemini Nativo';
     } else if (process.env.OPENROUTER_API_KEY) {
-        model = openrouter.chat('google/gemini-2.5-flash');
+        model = openrouter.chat('google/gemini-2.5-flash:free');
         modelName = 'OpenRouter (Gemini)';
     } else {
         throw new Error('Nenhuma chave de API configurada (OpenRouter ou Gemini).');
@@ -103,7 +103,7 @@ export async function generateFastObjectWithFallback(options: any & { timeoutMs?
         model = googleProvider('gemini-2.5-flash');
         modelName = 'Google Gemini Nativo';
     } else if (process.env.OPENROUTER_API_KEY) {
-        model = openrouter.chat('google/gemini-2.5-flash');
+        model = openrouter.chat('google/gemini-2.5-flash:free');
         modelName = 'OpenRouter (Gemini)';
     } else {
         throw new Error('Nenhuma chave de API configurada (OpenRouter ou Gemini).');
@@ -168,11 +168,11 @@ export async function extractNativePDFWithGemini(options: {
         primaryModel = googleProvider('gemini-2.5-flash');
         primaryName = 'Google Gemini Nativo';
         if (process.env.OPENROUTER_API_KEY) {
-            fallbackModel = openrouter('google/gemini-2.5-flash');
+            fallbackModel = openrouter('google/gemini-2.5-flash:free');
             fallbackName = 'OpenRouter (Gemini)';
         }
     } else if (process.env.OPENROUTER_API_KEY) {
-        primaryModel = openrouter('google/gemini-2.5-flash');
+        primaryModel = openrouter('google/gemini-2.5-flash:free');
         primaryName = 'OpenRouter (Gemini)';
     } else {
         throw new Error('Nenhuma chave de API configurada (OpenRouter ou Gemini).');
